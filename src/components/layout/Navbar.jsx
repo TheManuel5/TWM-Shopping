@@ -1,6 +1,7 @@
 import {
   FavoriteBorderOutlined,
   Menu as MenuIcon,
+  SearchOutlined,
   ShoppingBagOutlined,
   ShoppingCartOutlined,
 } from '@mui/icons-material'
@@ -8,15 +9,26 @@ import {
   AppBar,
   Badge,
   Box,
+  Button,
   IconButton,
   InputAdornment,
-  TextField,
+  InputBase,
+  Paper,
   Toolbar,
   Typography,
 } from '@mui/material'
+import { useState } from 'react'
+import CategoryMenu from './CategoryMenu'
 import UserMenu from './UserMenu'
 
 export default function Navbar({ onMenuClick }) {
+  const [searchTerm, setSearchTerm] = useState('')
+
+  const handleSearch = (event) => {
+    event.preventDefault()
+    console.log('Búsqueda:', searchTerm.trim())
+  }
+
   return (
     <AppBar
       position="fixed"
@@ -28,18 +40,24 @@ export default function Navbar({ onMenuClick }) {
         borderColor: 'primary.main',
       }}
     >
-      <Toolbar sx={{ gap: { xs: 1, md: 2 }, minHeight: { xs: 64, md: 72 } }}>
-        <IconButton
-          color="inherit"
-          edge="start"
-          onClick={onMenuClick}
-          aria-label="abrir navegación"
-          sx={{ mr: 1, display: { md: 'none' } }}
-        >
-          <MenuIcon />
-        </IconButton>
+      <Toolbar
+        sx={{
+          gap: { xs: 1, md: 2 },
+          minHeight: { xs: 64, md: 72 },
+          position: 'relative',
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, md: 1.5 } }}>
+          <IconButton
+            color="inherit"
+            edge="start"
+            onClick={onMenuClick}
+            aria-label="abrir navegación"
+            sx={{ mr: 0.5, display: { md: 'none' } }}
+          >
+            <MenuIcon />
+          </IconButton>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
           <Box
             sx={{
               display: 'grid',
@@ -55,30 +73,52 @@ export default function Navbar({ onMenuClick }) {
           <Typography variant="h6" fontWeight={800}>
             Shopping
           </Typography>
+          <CategoryMenu />
         </Box>
 
-        <TextField
-          size="small"
-          placeholder="Buscar en Shopping..."
-          aria-label="Buscar en Shopping"
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <ShoppingBagOutlined fontSize="small" />
-                </InputAdornment>
-              ),
-            },
-          }}
+        <Paper
+          component="form"
+          onSubmit={handleSearch}
+          elevation={0}
           sx={{
-            display: { xs: 'none', md: 'block' },
-            width: 'min(460px, 38vw)',
-            ml: { md: 2 },
-            '& .MuiOutlinedInput-root': {
-              bgcolor: 'background.paper',
-            },
+            display: { xs: 'none', md: 'flex' },
+            alignItems: 'center',
+            position: 'absolute',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: 'min(44vw, 620px)',
+            height: 44,
+            p: '3px 3px 3px 14px',
+            borderRadius: 1.5,
+            border: '1px solid',
+            borderColor: 'divider',
+            overflow: 'hidden',
           }}
-        />
+        >
+          <InputBase
+            fullWidth
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="¿Qué estás buscando?"
+            inputProps={{ 'aria-label': 'Buscar productos' }}
+            startAdornment={(
+              <InputAdornment position="start">
+                <SearchOutlined fontSize="small" sx={{ color: '#8d96b2' }} />
+              </InputAdornment>
+            )}
+            sx={{
+              color: 'text.primary',
+              '& input::placeholder': { color: '#8d96b2', opacity: 1 },
+            }}
+          />
+          <Button
+            type="submit"
+            variant="contained"
+            sx={{ height: 36, minWidth: 92, px: 2.5 }}
+          >
+            Buscar
+          </Button>
+        </Paper>
 
         <Box sx={{ flexGrow: 1 }} />
 
