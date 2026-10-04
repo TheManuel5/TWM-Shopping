@@ -1,10 +1,9 @@
-import Custombuttons from './components/buttons/Custombuttons'
-import Login from './pages/login'
+import Orders from './pages/Orders/Orders'
 import './styles/app.css'
 
 function App() {
   return (
-    <Custombuttons />
+    <Orders />
   )
 }
 
