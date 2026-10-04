@@ -1,15 +1,18 @@
 import {
   AccountCircleOutlined,
   AddOutlined,
+  DeleteOutlineOutlined,
+  LocationOnOutlined,
   LockOutlined,
-  PhoneOutlined,
   SaveOutlined,
 } from '@mui/icons-material'
 import {
   Alert,
   Box,
   Button,
+  Chip,
   FormControl,
+  IconButton,
   InputLabel,
   MenuItem,
   Paper,
@@ -79,9 +82,9 @@ const emptyAddress = {
   primary: false,
 }
 
-function SectionHeading({ icon, title, description }) {
+function SectionHeading({ icon, title, description, sx }) {
   return (
-    <Stack direction="row" spacing={1.5} alignItems="flex-start" sx={{ mb: 3 }}>
+    <Stack direction="row" spacing={1.5} alignItems="flex-start" sx={sx}>
       <Box
         sx={{
           display: 'grid',
@@ -250,16 +253,16 @@ export default function UserProfile() {
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', xl: 'minmax(0, 1fr) minmax(420px, 0.9fr)' },
+          gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) minmax(0, 1fr)' },
           gap: 3,
-          alignItems: 'start',
+          alignItems: 'stretch',
         }}
       >
-        <Paper variant="outlined" sx={{ p: { xs: 2.5, sm: 3 } }}>
+        <Paper variant="outlined" sx={{ p: { xs: 2.5, sm: 3 }, minWidth: 0 }}>
           <SectionHeading
             icon={<AccountCircleOutlined />}
             title="Información personal"
-            description="Los datos marcados se mostrarán en tu cuenta."
+            sx={{ mb: 2.5 }}
           />
 
           <Box
@@ -270,51 +273,59 @@ export default function UserProfile() {
             }}
           >
             <TextField
+              size="small"
               label="Nombre completo"
               value={profile.fullName}
               onChange={(event) => updateProfileField('fullName', event.target.value)}
               required
             />
             <Tooltip title="El RUT no puede modificarse desde el perfil">
-              <TextField label="RUT" value={profile.rut} disabled />
+              <TextField size="small" label="RUT (no editable)" value={profile.rut} disabled />
             </Tooltip>
 
-            <FormControl>
-              <InputLabel id="birth-day-label">Día</InputLabel>
-              <Select
-                labelId="birth-day-label"
-                label="Día"
-                value={profile.birthDay}
-                onChange={(event) => updateProfileField('birthDay', event.target.value)}
-              >
-                {Array.from({ length: 31 }, (_, index) => String(index + 1)).map((day) => (
-                  <MenuItem key={day} value={day}>{day}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-              <FormControl>
-                <InputLabel id="birth-month-label">Mes</InputLabel>
-                <Select
-                  labelId="birth-month-label"
-                  label="Mes"
-                  value={profile.birthMonth}
-                  onChange={(event) => updateProfileField('birthMonth', event.target.value)}
-                >
-                  {['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'].map((month) => (
-                    <MenuItem key={month} value={month}>{month}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <TextField
-                label="Año"
-                value={profile.birthYear}
-                onChange={(event) => updateProfileField('birthYear', event.target.value)}
-                inputProps={{ inputMode: 'numeric', maxLength: 4 }}
-              />
+            <Box sx={{ gridColumn: { sm: '1 / -1' } }}>
+              <Typography variant="body2" fontWeight={700} sx={{ mb: 1 }}>
+                Fecha de nacimiento
+              </Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 1.5 }}>
+                <FormControl size="small">
+                  <InputLabel id="birth-day-label">Día</InputLabel>
+                  <Select
+                    labelId="birth-day-label"
+                    label="Día"
+                    value={profile.birthDay}
+                    onChange={(event) => updateProfileField('birthDay', event.target.value)}
+                  >
+                    {Array.from({ length: 31 }, (_, index) => String(index + 1)).map((day) => (
+                      <MenuItem key={day} value={day}>{day}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControl size="small">
+                  <InputLabel id="birth-month-label">Mes</InputLabel>
+                  <Select
+                    labelId="birth-month-label"
+                    label="Mes"
+                    value={profile.birthMonth}
+                    onChange={(event) => updateProfileField('birthMonth', event.target.value)}
+                  >
+                    {['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'].map((month) => (
+                      <MenuItem key={month} value={month}>{month}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <TextField
+                  size="small"
+                  label="Año"
+                  value={profile.birthYear}
+                  onChange={(event) => updateProfileField('birthYear', event.target.value)}
+                  inputProps={{ inputMode: 'numeric', maxLength: 4 }}
+                />
+              </Box>
             </Box>
 
             <TextField
+              size="small"
               label="Correo electrónico"
               type="email"
               value={profile.email}
@@ -324,62 +335,75 @@ export default function UserProfile() {
             />
           </Box>
 
-          <Box sx={{ mt: 3 }}>
-            <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-              <Typography variant="subtitle1" fontWeight={700}>
-                Teléfonos
-              </Typography>
-              <Button size="small" startIcon={<AddOutlined />} onClick={addPhone}>
-                Agregar
-              </Button>
-            </Stack>
-            <Stack spacing={1.5}>
+          <Box sx={{ mt: 2.5 }}>
+            <Typography variant="body2" fontWeight={700} sx={{ mb: 1 }}>
+              Teléfonos
+            </Typography>
+            <Stack spacing={1.25}>
               {profile.phones.map((phone) => (
                 <Stack key={phone.id} direction="row" spacing={1} alignItems="center">
                   <TextField
                     fullWidth
                     size="small"
-                    label={phone.label}
                     value={phone.number}
                     onChange={(event) => updatePhone(phone.id, event.target.value)}
                     slotProps={{
                       input: {
-                        startAdornment: <PhoneOutlined color="action" sx={{ mr: 1 }} />,
+                        endAdornment: (
+                          <Chip
+                            label={phone.label}
+                            size="small"
+                            color={phone.id === profile.phones[0].id ? 'primary' : 'default'}
+                            variant="outlined"
+                          />
+                        ),
                       },
                     }}
+                    inputProps={{ 'aria-label': phone.label }}
                   />
-                  <Button
+                  <IconButton
                     color="error"
                     size="small"
                     disabled={profile.phones.length === 1}
                     onClick={() => removePhone(phone.id)}
+                    aria-label={`Quitar ${phone.label}`}
+                    sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1.5 }}
                   >
-                    Quitar
-                  </Button>
+                    <DeleteOutlineOutlined fontSize="small" />
+                  </IconButton>
                 </Stack>
               ))}
             </Stack>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<AddOutlined />}
+              onClick={addPhone}
+              sx={{ mt: 2 }}
+            >
+              Agregar teléfono
+            </Button>
           </Box>
         </Paper>
 
-        <Paper variant="outlined" sx={{ p: { xs: 2.5, sm: 3 } }}>
+        <Paper variant="outlined" sx={{ p: { xs: 2.5, sm: 3 }, minWidth: 0 }}>
           <Box
             sx={{
               display: 'flex',
               flexDirection: { xs: 'column', sm: 'row' },
               justifyContent: 'space-between',
-              alignItems: { xs: 'stretch', sm: 'flex-start' },
+              alignItems: { xs: 'stretch', sm: 'center' },
               gap: 2,
-              mb: 3,
+              mb: 2.5,
             }}
           >
             <SectionHeading
-              icon={<AccountCircleOutlined />}
+              icon={<LocationOnOutlined />}
               title="Mis direcciones"
-              description="Selecciona una dirección principal."
             />
             <Button
               variant="outlined"
+              size="small"
               startIcon={<AddOutlined />}
               onClick={openNewAddressDialog}
               sx={{ flexShrink: 0 }}
@@ -388,7 +412,7 @@ export default function UserProfile() {
             </Button>
           </Box>
 
-          <Stack spacing={2}>
+          <Stack spacing={1.5}>
             {addresses.map((address) => (
               <AddressCard
                 key={address.id}
