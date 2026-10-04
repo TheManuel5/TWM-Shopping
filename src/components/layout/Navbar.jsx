@@ -1,17 +1,20 @@
 import {
-  AccountCircleOutlined,
+  FavoriteBorderOutlined,
   Menu as MenuIcon,
   ShoppingBagOutlined,
+  ShoppingCartOutlined,
 } from '@mui/icons-material'
 import {
   AppBar,
+  Badge,
   Box,
-  Button,
   IconButton,
+  InputAdornment,
+  TextField,
   Toolbar,
   Typography,
 } from '@mui/material'
-import { Link as RouterLink } from 'react-router-dom'
+import UserMenu from './UserMenu'
 
 export default function Navbar({ onMenuClick }) {
   return (
@@ -25,7 +28,7 @@ export default function Navbar({ onMenuClick }) {
         borderColor: 'primary.main',
       }}
     >
-      <Toolbar>
+      <Toolbar sx={{ gap: { xs: 1, md: 2 }, minHeight: { xs: 64, md: 72 } }}>
         <IconButton
           color="inherit"
           edge="start"
@@ -36,7 +39,7 @@ export default function Navbar({ onMenuClick }) {
           <MenuIcon />
         </IconButton>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
           <Box
             sx={{
               display: 'grid',
@@ -54,17 +57,44 @@ export default function Navbar({ onMenuClick }) {
           </Typography>
         </Box>
 
+        <TextField
+          size="small"
+          placeholder="Buscar en Shopping..."
+          aria-label="Buscar en Shopping"
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <ShoppingBagOutlined fontSize="small" />
+                </InputAdornment>
+              ),
+            },
+          }}
+          sx={{
+            display: { xs: 'none', md: 'block' },
+            width: 'min(460px, 38vw)',
+            ml: { md: 2 },
+            '& .MuiOutlinedInput-root': {
+              bgcolor: 'background.paper',
+            },
+          }}
+        />
+
         <Box sx={{ flexGrow: 1 }} />
 
-        <Button
-          component={RouterLink}
-          to="/perfil"
+        <IconButton
           color="inherit"
-          startIcon={<AccountCircleOutlined />}
+          aria-label="favoritos"
           sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
         >
-          Mi cuenta
-        </Button>
+          <FavoriteBorderOutlined />
+        </IconButton>
+        <IconButton color="inherit" aria-label="carrito de compras">
+          <Badge badgeContent={2} color="primary">
+            <ShoppingCartOutlined />
+          </Badge>
+        </IconButton>
+        <UserMenu />
       </Toolbar>
     </AppBar>
   )
