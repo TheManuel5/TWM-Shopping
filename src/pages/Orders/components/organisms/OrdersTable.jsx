@@ -12,7 +12,6 @@ import {
 } from '@mui/material';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
 
 const statusColors = {
   'En preparación': { background: '#fff0c5', color: '#956b00' },
@@ -101,7 +100,6 @@ export default function OrdersTable({ orders, selectedId, onSelect, onEdit, onDe
                     <DeleteOutlineIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>
-                <MoreVertIcon className="row-chevron" fontSize="small" />
               </TableCell>
             </TableRow>
           ))}
