@@ -21,7 +21,7 @@ import { useState } from 'react'
 import CategoryMenu from './CategoryMenu'
 import UserMenu from './UserMenu'
 
-export default function Navbar({ onMenuClick }) {
+export default function Navbar({ onMenuClick, showSidebarToggle = true }) {
   const [searchTerm, setSearchTerm] = useState('')
 
   const handleSearch = (event) => {
@@ -48,15 +48,17 @@ export default function Navbar({ onMenuClick }) {
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, md: 1.5 } }}>
-          <IconButton
-            color="inherit"
-            edge="start"
-            onClick={onMenuClick}
-            aria-label="abrir navegación"
-            sx={{ mr: 0.5, display: { md: 'none' } }}
-          >
-            <MenuIcon />
-          </IconButton>
+          {showSidebarToggle && (
+            <IconButton
+              color="inherit"
+              edge="start"
+              onClick={onMenuClick}
+              aria-label="abrir navegación"
+              sx={{ mr: 0.5, display: { md: 'none' } }}
+            >
+              <MenuIcon />
+            </IconButton>
+          )}
 
           <Box
             sx={{
