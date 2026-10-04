@@ -131,8 +131,68 @@ export default function Orders() {
         </>
       </Box>}
 
-      <Dialog open={formOpen} onClose={() => setFormOpen(false)} fullWidth maxWidth="sm"><Box component="form" onSubmit={submitOrder}><DialogTitle>{editingOrder ? `Editar pedido #${editingOrder.id}` : 'Crear nuevo pedido'}</DialogTitle><DialogContent><Box className="order-form-grid"><TextField required name="customer" label="Cliente" value={formData.customer} onChange={updateForm} /><TextField name="email" label="Correo electrónico" type="email" value={formData.email} onChange={updateForm} /><TextField select name="store" label="Tienda vendedora" value={formData.store} onChange={updateForm}><MenuItem value="Tienda Sur">Tienda Sur</MenuItem><MenuItem value="TechStore">TechStore</MenuItem><MenuItem value="HogarPlus">HogarPlus</MenuItem><MenuItem value="Moda Chile">Moda Chile</MenuItem></TextField><TextField required name="total" label="Total" value={formData.total} onChange={updateForm} placeholder="$0" /><TextField select name="status" label="Estado" value={formData.status} onChange={updateForm}>{['En preparación', 'Entregado', 'Enviado', 'Recibido', 'Cancelado'].map((status) => <MenuItem key={status} value={status}>{status}</MenuItem>)}</TextField><TextField name="address" label="Dirección de envío" value={formData.address} onChange={updateForm} multiline minRows={2} /></Box></DialogContent><DialogActions><Button onClick={() => setFormOpen(false)}>Cancelar</Button><Button type="submit" variant="contained">{editingOrder ? 'Guardar cambios' : 'Crear pedido'}</Button></DialogActions></Box></Dialog>
-      <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)} maxWidth="xs" fullWidth><DialogTitle>¿Eliminar pedido #{selectedOrder?.id}?</DialogTitle><DialogContent><Typography color="text.secondary">Esta acción quitará el pedido de la lista. Puedes cancelar para conservarlo.</Typography></DialogContent><DialogActions><Button onClick={() => setDeleteOpen(false)}>Cancelar</Button><Button color="error" variant="contained" onClick={confirmDelete}>Eliminar</Button></DialogActions></Dialog>
+      <Dialog open={formOpen} onClose={() => setFormOpen(false)} fullWidth maxWidth="sm">
+        <Box component="form" onSubmit={submitOrder}>
+          <DialogTitle sx={{ color: '#000000', fontWeight: 700, textTransform: 'none' }}>
+            {editingOrder ? `Editar pedido #${editingOrder.id}` : 'Crear nuevo pedido'}
+          </DialogTitle>
+          <DialogContent>
+            <Box className="order-form-grid">
+              <TextField required name="customer" label="Cliente" value={formData.customer} onChange={updateForm} />
+              <TextField name="email" label="Correo electrónico" type="email" value={formData.email} onChange={updateForm} />
+              <TextField select name="store" label="Tienda vendedora" value={formData.store} onChange={updateForm}>
+                <MenuItem value="Tienda Sur">Tienda Sur</MenuItem>
+                <MenuItem value="TechStore">TechStore</MenuItem>
+                <MenuItem value="HogarPlus">HogarPlus</MenuItem>
+                <MenuItem value="Moda Chile">Moda Chile</MenuItem>
+              </TextField>
+              <TextField required name="total" label="Total" value={formData.total} onChange={updateForm} placeholder="$0" />
+              <TextField select name="status" label="Estado" value={formData.status} onChange={updateForm}>
+                {['En preparación', 'Entregado', 'Enviado', 'Recibido', 'Cancelado'].map((status) => (
+                  <MenuItem key={status} value={status}>{status}</MenuItem>
+                ))}
+              </TextField>
+              <TextField name="address" label="Dirección de envío" value={formData.address} onChange={updateForm} multiline minRows={2} />
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2.5 }}>
+            <Button onClick={() => setFormOpen(false)} sx={{ textTransform: 'none', color: '#555' }}>
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              variant="contained"
+              sx={{
+                textTransform: 'none',
+                backgroundColor: '#6430df',
+                '&:hover': {
+                  backgroundColor: '#5324c4',
+                },
+                fontWeight: 700,
+                boxShadow: 'none',
+              }}
+            >
+              {editingOrder ? 'Guardar cambios' : 'Crear pedido'}
+            </Button>
+          </DialogActions>
+        </Box>
+      </Dialog>
+      <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ color: '#000000', fontWeight: 700, textTransform: 'none' }}>
+          ¿Eliminar pedido #{selectedOrder?.id}?
+        </DialogTitle>
+        <DialogContent>
+          <Typography color="text.secondary">Esta acción quitará el pedido de la lista. Puedes cancelar para conservarlo.</Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setDeleteOpen(false)} sx={{ textTransform: 'none' }}>
+            Cancelar
+          </Button>
+          <Button color="error" variant="contained" onClick={confirmDelete} sx={{ textTransform: 'none' }}>
+            Eliminar
+          </Button>
+        </DialogActions>
+      </Dialog>
       <Snackbar open={Boolean(notice)} autoHideDuration={2800} onClose={() => setNotice('')}><Alert severity="success" onClose={() => setNotice('')}>{notice}</Alert></Snackbar>
     </Box>
   );
