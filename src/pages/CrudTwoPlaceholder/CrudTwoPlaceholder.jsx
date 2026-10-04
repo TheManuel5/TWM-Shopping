@@ -1,27 +1,24 @@
-import { AccountCircleOutlined } from '@mui/icons-material'
+import { StorefrontOutlined } from '@mui/icons-material'
 import { Box, Paper, Typography } from '@mui/material'
 
-const UserProfile = () => {
+export default function CrudTwoPlaceholder() {
   return (
     <Box>
       <Typography component="h1" variant="h4" fontWeight={700}>
-        Mi perfil
+        CRUD 2
       </Typography>
       <Typography color="text.secondary" sx={{ mt: 0.5, mb: 3 }}>
-        Administra tu información personal, direcciones y seguridad.
+        Espacio reservado para el segundo módulo CRUD.
       </Typography>
-
       <Paper variant="outlined" sx={{ p: 4, textAlign: 'center' }}>
-        <AccountCircleOutlined color="primary" sx={{ fontSize: 56 }} />
+        <StorefrontOutlined color="primary" sx={{ fontSize: 56 }} />
         <Typography variant="h6" sx={{ mt: 1 }}>
-          Vista de perfil preparada
+          Módulo pendiente de integración
         </Typography>
         <Typography color="text.secondary">
-          El formulario completo se agregará en la siguiente etapa.
+          Aquí se conectará el trabajo de Manuel y Seba.
         </Typography>
       </Paper>
     </Box>
   )
 }
-
-export default UserProfile
