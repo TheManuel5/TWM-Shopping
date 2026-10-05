@@ -1,11 +1,14 @@
 import {
   Box,
   Button,
+  IconButton,
+  InputAdornment,
   MenuItem,
   Select,
   TextField,
 } from '@mui/material';
 import FilterAltOutlinedIcon from '@mui/icons-material/FilterAltOutlined';
+import CloseIcon from '@mui/icons-material/Close';
 
 export default function OrderFilters({ filters, onChange, onApply }) {
   return (
@@ -17,6 +20,23 @@ export default function OrderFilters({ filters, onChange, onApply }) {
         value={filters.search}
         onChange={(event) => onChange('search', event.target.value)}
         inputProps={{ 'aria-label': 'Buscar pedidos' }}
+        slotProps={{
+          input: {
+            endAdornment: filters.search ? (
+              <InputAdornment position="end">
+                <IconButton
+                  size="small"
+                  aria-label="Borrar búsqueda"
+                  title="Borrar búsqueda"
+                  onClick={() => onChange('search', '')}
+                  sx={{ color: '#667089' }}
+                >
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              </InputAdornment>
+            ) : null,
+          },
+        }}
       />
       <TextField
         select

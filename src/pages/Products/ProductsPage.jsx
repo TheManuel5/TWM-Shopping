@@ -99,6 +99,7 @@ export default function ProductsPage() {
       setPage(0)
       setSnackbar({ open: true, mensaje: 'Producto creado correctamente.' })
     }
+    setProductoSeleccionado(null)
   }
 
   const handleDeleteProduct = () => {
