@@ -4,7 +4,8 @@ import CrudOnePlaceholder from '../pages/CrudOnePlaceholder/CrudOnePlaceholder'
 import CrudTwoPlaceholder from '../pages/CrudTwoPlaceholder/CrudTwoPlaceholder'
 import Settings from '../pages/Settings/Settings'
 import Home from '../pages/Home/Home'
-import Login from '../pages/login'
+import Login from '../pages/login/login'
+import Register from '../pages/register/register'
 import UserProfile from '../pages/UserProfile/UserProfile'
 
 export default function AppRoutes() {
@@ -12,6 +13,7 @@ export default function AppRoutes() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
 
         <Route element={<AppLayout />}>
           <Route path="/" element={<Navigate to="/inicio" replace />} />
