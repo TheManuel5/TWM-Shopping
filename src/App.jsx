@@ -1,10 +1,17 @@
-import Custombuttons from './components/buttons/Custombuttons'
-import Login from './pages/login'
+import { CssBaseline, ThemeProvider } from '@mui/material'
+import AuthProvider from './contexts/AuthContext/AuthProvider'
+import AppRoutes from './routes/routes'
+import theme from './theme/theme'
 import './styles/app.css'
 
 function App() {
   return (
-    <Custombuttons />
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
+    </ThemeProvider>
   )
 }
 

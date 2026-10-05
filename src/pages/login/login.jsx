@@ -1,206 +1,191 @@
-import { useState } from 'react';
-import { 
-  Box, Button, TextField, Typography, Paper, 
-  Link, InputAdornment, IconButton, Checkbox, FormControlLabel 
-} from '@mui/material';
-import { Visibility, VisibilityOff, PersonAddOutlined } from '@mui/icons-material';
+import {
+  LockOutlined,
+  Visibility,
+  VisibilityOff,
+} from '@mui/icons-material'
+import {
+  Box,
+  Button,
+  IconButton,
+  InputAdornment,
+  Link,
+  Paper,
+  TextField,
+  Typography,
+  Checkbox,
+  FormControlLabel
+} from '@mui/material'
+import { useState } from 'react'
+import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom'
+import logoImage from '../../assets/login/Logo-prototipo.png'
+import illustrationImage from '../../assets/login/shop.png'
+import useAuth from '../../contexts/AuthContext/useAuth'
 
-import logoImg from '../../assets/login/Logo-prototipo.png'; 
-import ilustracionImg from '../../assets/login/shop.jpg';
+export default function Login() {
+  // 1. Cambiamos email por rut y añadimos recordarSesion
+  const [formData, setFormData] = useState({ rut: '', password: '', recordarSesion: false })
+  const [showPassword, setShowPassword] = useState(false)
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { login } = useAuth()
 
-export default function Register() {
-  // 1. Estados actualizados: Nombre, RUT, Password y Recordar Sesión
-  const [formData, setFormData] = useState({
-    nombre: '',
-    rut: '',
-    password: '',
-    recordarSesion: false
-  });
-  const [showPassword, setShowPassword] = useState(false);
+  // 2. Ajustamos la función para que entienda si es texto o checkbox
+  const updateField = (event) => {
+    const { name, value, type, checked } = event.target
+    setFormData((currentData) => ({ 
+      ...currentData, 
+      [name]: type === 'checkbox' ? checked : value 
+    }))
+  }
 
-  // Manejador de cambios (ahora soporta el checkbox)
-  const handleChange = (e) => {
-    const { name, value, checked, type } = e.target;
-    setFormData({
-      ...formData,
-      [name]: type === 'checkbox' ? checked : value
-    });
-  };
-
-  // Manejador del botón "Registrarse"
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // Requisito de tu tarea: imprimir en consola
-    console.log('Datos de Registro capturados:', formData);
-  };
+  const handleSubmit = (event) => {
+    event.preventDefault()
+    console.log('Datos de inicio de sesión:', formData)
+    login(formData)
+    navigate(location.state?.from ?? '/inicio', { replace: true })
+  }
 
   return (
-    <Box sx={{ 
-      display: 'flex', 
-      minHeight: '100vh', 
-      backgroundColor: '#FAFAFE',
-      overflow: 'hidden',
-    }}>
-      
-      {/* --- LADO IZQUIERDO (Diseño corporativo) --- */}
-      <Box sx={{ 
-        flex: 1, 
-        display: { xs: 'none', md: 'flex' }, 
-        flexDirection: 'column', 
-        justifyContent: 'center',
-        p: 8,
-      }}>
-        <Box component="img" src={logoImg} alt="Logo TWM" sx={{ width: '100%', maxWidth: 400, mb: 4 }} />
-        
-        <Typography variant="h2" sx={{ fontWeight: 800, color: '#030C2E', lineHeight: 1.1 }}>
-          Únete y descubre,<br />
-          <span style={{ color: '#602FF7' }}>un mundo de opciones</span>
-        </Typography>
-        
-        <Typography variant="h6" sx={{ color: '#5E6782', mt: 3, maxWidth: 400, fontWeight: 400 }}>
-          Crea tu cuenta gratis para conectar con emprendedores y acceder a los mejores productos y servicios.
-        </Typography>
-
-        <Box component="img" src={ilustracionImg} alt="Ilustración" sx={{ width: '100%', maxWidth: 500, mt: 4, borderRadius: 4 }} />
-      </Box>
-
-      {/* --- LADO DERECHO (Formulario de Registro) --- */}
-      <Box sx={{ 
-        flex: 1, 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        p: { xs: 2, md: 4 }
-      }}>
-        <Paper 
-          elevation={0}
-          component="form" 
-          onSubmit={handleSubmit}
-          sx={{ 
-            p: { xs: 4, md: 6 }, 
-            width: '100%', 
-            maxWidth: 480, 
-            borderRadius: 6, 
-            boxShadow: '0px 16px 48px rgba(3, 12, 46, 0.15)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 3
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'grid',
+        gridTemplateColumns: { xs: '1fr', md: '1.05fr 0.95fr' },
+        bgcolor: 'background.default',
+      }}
+    >
+      <Box
+        sx={{
+          display: { xs: 'none', md: 'flex' },
+          flexDirection: 'column',
+          justifyContent: 'center',
+          p: { md: 6, lg: 9 },
+          overflow: 'hidden',
+        }}
+      >
+        <Box component="img" src={logoImage} alt="Shopping" sx={{ width: 210, mb: 3 }} />
+        <Typography
+          component="h1"
+          sx={{
+            maxWidth: 600,
+            fontSize: { md: '2.8rem', lg: '3.6rem' },
+            lineHeight: 1.02,
+            fontWeight: 900,
+            letterSpacing: '-0.04em',
           }}
         >
-          {/* Cabecera del form */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, mb: 1 }}>
-            <Box sx={{ width: 72, height: 72, bgcolor: '#F0EDFF', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <PersonAddOutlined sx={{ color: '#602FF7', fontSize: 32 }} />
-            </Box>
-            <Typography variant="h4" sx={{ fontWeight: 700, color: '#030C2E' }}>
-              Crear Cuenta
-            </Typography>
-          </Box>
+          Compra, vende y encuentra{' '}
+          <Box component="span" sx={{ color: 'primary.main' }}>todo en un solo lugar</Box>
+        </Typography>
+        <Typography color="text.secondary" sx={{ mt: 2, maxWidth: 520, fontSize: '1.1rem' }}>
+          Conecta con emprendedores y descubre productos y servicios cerca de ti.
+        </Typography>
+        <Box
+          component="img"
+          src={illustrationImage}
+          alt="Productos disponibles en Shopping"
+          sx={{ width: 'min(100%, 560px)', mt: 3, alignSelf: 'center' }}
+        />
+      </Box>
 
-          {/* Input Nombre Completo */}
-          <Box>
-            <Typography sx={{ fontWeight: 700, color: '#030C2E', mb: 1, fontSize: 14 }}>Nombre Completo</Typography>
-            <TextField
-              required
-              fullWidth
-              id="nombre"
-              name="nombre"
-              placeholder="Ej. Juan Pérez"
-              value={formData.nombre}
-              onChange={handleChange}
-              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
-            />
+      <Box sx={{ display: 'grid', placeItems: 'center', p: { xs: 2, sm: 4 } }}>
+        <Paper
+          component="form"
+          onSubmit={handleSubmit}
+          elevation={0}
+          sx={{
+            width: '100%',
+            maxWidth: 480,
+            p: { xs: 3, sm: 5 },
+            borderRadius: 4,
+            border: '1px solid',
+            borderColor: 'divider',
+            boxShadow: '0 18px 48px rgba(3, 12, 46, 0.12)',
+          }}
+        >
+          <Box
+            sx={{
+              width: 64,
+              height: 64,
+              display: 'grid',
+              placeItems: 'center',
+              borderRadius: '50%',
+              bgcolor: 'secondary.main',
+              color: 'primary.main',
+              mx: 'auto',
+            }}
+          >
+            <LockOutlined fontSize="large" />
           </Box>
+          <Typography variant="h4" fontWeight={850} textAlign="center" sx={{ mt: 2 }}>
+            Iniciar sesión
+          </Typography>
+          <Typography color="text.secondary" textAlign="center" sx={{ mt: 0.75, mb: 3 }}>
+            Ingresa tus datos para continuar.
+          </Typography>
 
-          {/* Input RUT */}
-          <Box>
-            <Typography sx={{ fontWeight: 700, color: '#030C2E', mb: 1, fontSize: 14 }}>RUT</Typography>
-            <TextField
-              required
-              fullWidth
-              id="rut"
-              name="rut"
-              placeholder="12.345.678-9"
-              value={formData.rut}
-              onChange={handleChange}
-              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
-            />
-          </Box>
-
-          {/* Input Contraseña */}
-          <Box>
-            <Typography sx={{ fontWeight: 700, color: '#030C2E', mb: 1, fontSize: 14 }}>Contraseña</Typography>
-            <TextField
-              required
-              fullWidth
-              name="password"
-              type={showPassword ? 'text' : 'password'}
-              id="password"
-              placeholder="Crea una contraseña segura"
-              value={formData.password}
-              onChange={handleChange}
-              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
-              InputProps={{
+          {/* 3. Cambiado a RUT */}
+          <TextField
+            fullWidth
+            required
+            name="rut"
+            label="RUT"
+            placeholder="12.345.678-9"
+            value={formData.rut}
+            onChange={updateField}
+          />
+          <TextField
+            fullWidth
+            required
+            name="password"
+            type={showPassword ? 'text' : 'password'}
+            label="Contraseña"
+            value={formData.password}
+            onChange={updateField}
+            autoComplete="current-password"
+            sx={{ mt: 2 }}
+            slotProps={{
+              input: {
                 endAdornment: (
                   <InputAdornment position="end">
                     <IconButton
-                      onClick={() => setShowPassword(!showPassword)}
                       edge="end"
+                      onClick={() => setShowPassword((currentValue) => !currentValue)}
+                      aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                     >
                       {showPassword ? <VisibilityOff /> : <Visibility />}
                     </IconButton>
                   </InputAdornment>
                 ),
-              }}
-            />
-          </Box>
+              },
+            }}
+          />
 
-          {/* Checkbox Recordar mi sesión */}
+          {/* 4. Añadido el Checkbox de recordar sesión */}
           <FormControlLabel
             control={
               <Checkbox 
                 name="recordarSesion" 
                 checked={formData.recordarSesion} 
-                onChange={handleChange}
-                sx={{ 
-                  color: '#4B0CE8', 
-                  '&.Mui-checked': { color: '#4B0CE8' } 
-                }} 
+                onChange={updateField}
+                color="primary"
               />
             }
-            label={<Typography sx={{ color: '#07113F', fontWeight: 500 }}>Recordar mi sesión</Typography>}
-            sx={{ mt: -1 }} // Pequeño ajuste para que no quede tan separado
+            label={<Typography variant="body2" color="text.secondary" fontWeight={500}>Recordar mi sesión</Typography>}
+            sx={{ mt: 1, ml: 0.5 }}
           />
 
-          {/* Botón Submit */}
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            sx={{ 
-              py: 2, 
-              bgcolor: '#602FF7', 
-              borderRadius: 3, 
-              fontWeight: 700, 
-              fontSize: 16,
-              textTransform: 'none',
-              '&:hover': { bgcolor: '#4B0CE8' }
-            }}
-          >
-            Registrarse
+          <Button type="submit" fullWidth variant="contained" size="large" sx={{ mt: 2, py: 1.4 }}>
+            Ingresar
           </Button>
-
-          {/* Link volver a Login */}
-          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mt: 1 }}>
-            <Typography sx={{ color: '#64748B', fontSize: 14 }}>
-              ¿Ya tienes una cuenta?
-            </Typography>
-            <Link href="/login" underline="hover" sx={{ color: '#602FF7', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
-              Iniciar sesión
+          <Typography variant="body2" textAlign="center" color="text.secondary" sx={{ mt: 2.5 }}>
+            ¿Todavía no tienes una cuenta?{' '}
+            <Link component={RouterLink} to="/register" underline="hover" fontWeight={750}>
+              Regístrate
             </Link>
-          </Box>
+          </Typography>
         </Paper>
       </Box>
     </Box>
-  );
+  )
 }

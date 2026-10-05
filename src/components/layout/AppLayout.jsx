@@ -1,0 +1,43 @@
+import { Box, Toolbar } from '@mui/material'
+import { useState } from 'react'
+import { Outlet, useLocation } from 'react-router-dom'
+import Navbar from './Navbar'
+import Sidebar, { drawerWidth } from './Sidebar'
+
+export default function AppLayout() {
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const { pathname } = useLocation()
+  const showSidebar = pathname !== '/inicio' && pathname !== '/'
+
+  const toggleMobileDrawer = () => {
+    setMobileOpen((currentValue) => !currentValue)
+  }
+
+  return (
+    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+      <Navbar
+        onMenuClick={toggleMobileDrawer}
+        showSidebarToggle={showSidebar}
+      />
+      {showSidebar && (
+        <Sidebar
+          mobileOpen={mobileOpen}
+          onClose={() => setMobileOpen(false)}
+        />
+      )}
+
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          width: { md: showSidebar ? `calc(100% - ${drawerWidth}px)` : '100%' },
+          minWidth: 0,
+          p: { xs: 2, sm: 3, lg: 4 },
+        }}
+      >
+        <Toolbar />
+        <Outlet />
+      </Box>
+    </Box>
+  )
+}
