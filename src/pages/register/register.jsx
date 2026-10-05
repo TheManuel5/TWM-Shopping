@@ -7,7 +7,7 @@ import { Visibility, VisibilityOff, PersonAddOutlined } from '@mui/icons-materia
 
 // Imágenes reales de tu carpeta assets
 import logoImg from '../../assets/login/Logo-prototipo.png'; 
-import ilustracionImg from '../../assets/login/shop.jpg';
+import ilustracionImg from '../../assets/login/shop.png';
 
 export default function Register() {
   const [formData, setFormData] = useState({
