@@ -12,7 +12,7 @@ const readStoredUser = () => {
   }
 }
 
-const nameFromEmail = (email) => {
+const nameFromEmail = (email = '') => {
   const emailName = email.split('@')[0].replace(/[._-]+/g, ' ').trim()
 
   if (!emailName) return 'Usuario Shopping'
@@ -27,9 +27,12 @@ export default function AuthProvider({ children }) {
   const [user, setUser] = useState(readStoredUser)
 
   const login = useCallback((credentials) => {
+    const email = credentials.email?.trim() ?? ''
+    const rut = credentials.rut?.trim() ?? ''
     const authenticatedUser = {
-      name: nameFromEmail(credentials.email),
-      email: credentials.email,
+      name: email ? nameFromEmail(email) : 'Usuario Shopping',
+      email,
+      rut,
       role: 'Comprador',
     }
 

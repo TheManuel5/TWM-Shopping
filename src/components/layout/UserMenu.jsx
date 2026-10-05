@@ -124,7 +124,7 @@ export default function UserMenu() {
             {user.name}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            {user.email}
+            {user.email || user.rut}
           </Typography>
         </Box>
         <Divider />
