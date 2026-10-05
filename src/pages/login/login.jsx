@@ -14,14 +14,17 @@ import {
   Typography,
 } from '@mui/material'
 import { useState } from 'react'
-import { Link as RouterLink, useNavigate } from 'react-router-dom'
+import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom'
 import logoImage from '../../assets/login/Logo-prototipo.png'
 import illustrationImage from '../../assets/login/shop.png'
+import useAuth from '../../contexts/AuthContext/useAuth'
 
 export default function Login() {
   const [formData, setFormData] = useState({ email: '', password: '' })
   const [showPassword, setShowPassword] = useState(false)
   const navigate = useNavigate()
+  const location = useLocation()
+  const { login } = useAuth()
 
   const updateField = (event) => {
     const { name, value } = event.target
@@ -31,7 +34,8 @@ export default function Login() {
   const handleSubmit = (event) => {
     event.preventDefault()
     console.log('Datos de inicio de sesión:', formData)
-    navigate('/inicio')
+    login(formData)
+    navigate(location.state?.from ?? '/inicio', { replace: true })
   }
 
   return (
