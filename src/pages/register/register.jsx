@@ -6,14 +6,14 @@ import {
 import { Visibility, VisibilityOff, PersonAddOutlined } from '@mui/icons-material';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 
-// Imágenes reales de tu carpeta assets
+// Imágenes de la carpeta assets/login
 import logoImg from '../../assets/login/Logo-prototipo.png'; 
 import ilustracionImg from '../../assets/login/shop.png';
 
 export default function Register() {
   const navigate = useNavigate();
   
-  // 1. Añadido el campo 'rut' al estado inicial
+  // rut, nombre, email y password
   const [formData, setFormData] = useState({
     nombre: '',
     rut: '',
@@ -114,7 +114,7 @@ export default function Register() {
             />
           </Box>
 
-          {/* RUT (Añadido aquí) */}
+          {/* RUT */}
           <Box>
             <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#030C2E', mb: 1, fontFamily: 'Inter' }}>RUT</Typography>
             <TextField
