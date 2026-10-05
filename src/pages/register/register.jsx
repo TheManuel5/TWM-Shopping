@@ -12,8 +12,11 @@ import ilustracionImg from '../../assets/login/shop.png';
 
 export default function Register() {
   const navigate = useNavigate();
+  
+  // 1. Añadido el campo 'rut' al estado inicial
   const [formData, setFormData] = useState({
     nombre: '',
+    rut: '',
     email: '',
     password: ''
   });
@@ -106,6 +109,21 @@ export default function Register() {
               name="nombre"
               placeholder="Ej. Juan Pérez"
               value={formData.nombre}
+              onChange={handleChange}
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
+            />
+          </Box>
+
+          {/* RUT (Añadido aquí) */}
+          <Box>
+            <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#030C2E', mb: 1, fontFamily: 'Inter' }}>RUT</Typography>
+            <TextField
+              required
+              fullWidth
+              id="rut"
+              name="rut"
+              placeholder="12.345.678-9"
+              value={formData.rut}
               onChange={handleChange}
               sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
             />
