@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { 
   Box, Button, TextField, Typography, Paper, 
-  Link, InputAdornment, IconButton 
+  Link, InputAdornment, IconButton, Checkbox, FormControlLabel 
 } from '@mui/material';
 import { Visibility, VisibilityOff, PersonAddOutlined } from '@mui/icons-material';
 
@@ -9,20 +9,21 @@ import logoImg from '../../assets/login/Logo-prototipo.png';
 import ilustracionImg from '../../assets/login/shop.jpg';
 
 export default function Register() {
-  // 1. Estados para el formulario (Nombre, Email y Contraseña)
+  // 1. Estados actualizados: Nombre, RUT, Password y Recordar Sesión
   const [formData, setFormData] = useState({
     nombre: '',
-    email: '',
-    password: ''
+    rut: '',
+    password: '',
+    recordarSesion: false
   });
   const [showPassword, setShowPassword] = useState(false);
 
-  // Manejador de cambios en los inputs
+  // Manejador de cambios (ahora soporta el checkbox)
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, checked, type } = e.target;
     setFormData({
       ...formData,
-      [name]: value
+      [name]: type === 'checkbox' ? checked : value
     });
   };
 
@@ -89,7 +90,6 @@ export default function Register() {
           {/* Cabecera del form */}
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, mb: 1 }}>
             <Box sx={{ width: 72, height: 72, bgcolor: '#F0EDFF', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {/* Usamos un icono diferente para el registro */}
               <PersonAddOutlined sx={{ color: '#602FF7', fontSize: 32 }} />
             </Box>
             <Typography variant="h4" sx={{ fontWeight: 700, color: '#030C2E' }}>
@@ -112,17 +112,16 @@ export default function Register() {
             />
           </Box>
 
-          {/* Input Email */}
+          {/* Input RUT */}
           <Box>
-            <Typography sx={{ fontWeight: 700, color: '#030C2E', mb: 1, fontSize: 14 }}>Correo Electrónico</Typography>
+            <Typography sx={{ fontWeight: 700, color: '#030C2E', mb: 1, fontSize: 14 }}>RUT</Typography>
             <TextField
               required
               fullWidth
-              id="email"
-              name="email"
-              type="email"
-              placeholder="juan@ejemplo.com"
-              value={formData.email}
+              id="rut"
+              name="rut"
+              placeholder="12.345.678-9"
+              value={formData.rut}
               onChange={handleChange}
               sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
             />
@@ -156,6 +155,23 @@ export default function Register() {
             />
           </Box>
 
+          {/* Checkbox Recordar mi sesión */}
+          <FormControlLabel
+            control={
+              <Checkbox 
+                name="recordarSesion" 
+                checked={formData.recordarSesion} 
+                onChange={handleChange}
+                sx={{ 
+                  color: '#4B0CE8', 
+                  '&.Mui-checked': { color: '#4B0CE8' } 
+                }} 
+              />
+            }
+            label={<Typography sx={{ color: '#07113F', fontWeight: 500 }}>Recordar mi sesión</Typography>}
+            sx={{ mt: -1 }} // Pequeño ajuste para que no quede tan separado
+          />
+
           {/* Botón Submit */}
           <Button
             type="submit"
@@ -163,7 +179,6 @@ export default function Register() {
             variant="contained"
             sx={{ 
               py: 2, 
-              mt: 1,
               bgcolor: '#602FF7', 
               borderRadius: 3, 
               fontWeight: 700, 
