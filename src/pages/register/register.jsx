@@ -4,12 +4,14 @@ import {
   Link, InputAdornment, IconButton 
 } from '@mui/material';
 import { Visibility, VisibilityOff, PersonAddOutlined } from '@mui/icons-material';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 
 // Imágenes reales de tu carpeta assets
 import logoImg from '../../assets/login/Logo-prototipo.png'; 
 import ilustracionImg from '../../assets/login/shop.png';
 
 export default function Register() {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     nombre: '',
     email: '',
@@ -28,6 +30,7 @@ export default function Register() {
   const handleSubmit = (e) => {
     e.preventDefault();
     console.log('Datos de Registro capturados:', formData);
+    navigate('/login', { replace: true });
   };
 
   return (
@@ -175,7 +178,7 @@ export default function Register() {
             <Typography sx={{ fontSize: 14, fontWeight: 400, color: '#64748B', fontFamily: 'Inter' }}>
               ¿Ya tienes una cuenta?
             </Typography>
-            <Link href="/login" underline="hover" sx={{ fontSize: 14, fontWeight: 700, color: '#602FF7', fontFamily: 'Inter', cursor: 'pointer' }}>
+            <Link component={RouterLink} to="/login" underline="hover" sx={{ fontSize: 14, fontWeight: 700, color: '#602FF7', fontFamily: 'Inter', cursor: 'pointer' }}>
               Iniciar sesión
             </Link>
           </Box>

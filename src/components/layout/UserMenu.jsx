@@ -16,11 +16,19 @@ import {
 } from '@mui/material'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import useAuth from '../../contexts/AuthContext/useAuth'
 
 export default function UserMenu() {
   const [anchorElement, setAnchorElement] = useState(null)
   const navigate = useNavigate()
+  const { user, isAuthenticated, logout } = useAuth()
   const menuOpen = Boolean(anchorElement)
+  const userInitials = user?.name
+    .split(' ')
+    .slice(0, 2)
+    .map((namePart) => namePart.charAt(0))
+    .join('')
+    .toUpperCase()
 
   const closeMenu = () => setAnchorElement(null)
 
@@ -31,8 +39,26 @@ export default function UserMenu() {
 
   const handleLogout = () => {
     closeMenu()
+    logout()
     console.log('Sesión cerrada')
-    navigate('/login')
+    navigate('/inicio')
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <Button
+        color="inherit"
+        startIcon={<AccountCircleOutlined />}
+        onClick={() => navigate('/login')}
+        sx={{
+          px: { xs: 0.75, sm: 1.5 },
+          whiteSpace: 'nowrap',
+          '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' },
+        }}
+      >
+        Mi cuenta
+      </Button>
+    )
   }
 
   return (
@@ -61,14 +87,14 @@ export default function UserMenu() {
             fontWeight: 700,
           }}
         >
-          JT
+          {userInitials}
         </Avatar>
         <Box sx={{ display: { xs: 'none', sm: 'block' }, textAlign: 'left' }}>
           <Typography variant="body2" fontWeight={700} lineHeight={1.1}>
-            Jheffry Trepstein
+            {user.name}
           </Typography>
           <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-            Comprador
+            {user.role}
           </Typography>
         </Box>
       </Button>
@@ -95,10 +121,10 @@ export default function UserMenu() {
       >
         <Box sx={{ px: 2, py: 1.5 }}>
           <Typography variant="subtitle2" fontWeight={700}>
-            Jheffry Trepstein
+            {user.name}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            jheffry.trepstein@shopping.cl
+            {user.email}
           </Typography>
         </Box>
         <Divider />
