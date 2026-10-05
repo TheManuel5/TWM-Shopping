@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Container,
   Typography,
@@ -52,7 +52,8 @@ export default function ProductsPage() {
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-<Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>        <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Box>
           <Typography variant="h4" component="h1" fontWeight="bold">
             Gestión de Productos
           </Typography>
@@ -109,12 +110,14 @@ export default function ProductsPage() {
         </Table>
       </TableContainer>
 
-      <ProductFormModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        initialData={productoSeleccionado}
-        onSubmitSuccess={handleSaveProduct}
-      />
+      {modalOpen && (
+        <ProductFormModal
+          open
+          onClose={() => setModalOpen(false)}
+          initialData={productoSeleccionado}
+          onSubmitSuccess={handleSaveProduct}
+        />
+      )}
     </Container>
   );
-}   
+}

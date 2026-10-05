@@ -1,9 +1,9 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import AppLayout from '../components/layout/AppLayout'
 import CrudOnePlaceholder from '../pages/CrudOnePlaceholder/CrudOnePlaceholder'
-import CrudTwoPlaceholder from '../pages/CrudTwoPlaceholder/CrudTwoPlaceholder'
 import Settings from '../pages/Settings/Settings'
 import Home from '../pages/Home/Home'
+import ProductsPage from '../pages/Products/ProductsPage'
 import Login from '../pages/login/login'
 import Register from '../pages/register/register'
 import UserProfile from '../pages/UserProfile/UserProfile'
@@ -25,7 +25,7 @@ export default function AppRoutes() {
             <Route path="/perfil" element={<UserProfile />} />
             <Route path="/configuracion" element={<Settings />} />
             <Route path="/crud-1" element={<CrudOnePlaceholder />} />
-            <Route path="/crud-2" element={<CrudTwoPlaceholder />} />
+            <Route path="/crud-2" element={<ProductsPage />} />
           </Route>
         </Route>
 

@@ -1,20 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, Box } from '@mui/material';
 
 export default function ProductFormModal({ open, onClose, onSubmitSuccess, initialData = null }) {
   const isEditing = Boolean(initialData);
-  const [nombre, setNombre] = useState('');
-  const [precio, setPrecio] = useState('');
-
-  useEffect(() => {
-    if (initialData) {
-      setNombre(initialData.nombre || '');
-      setPrecio(initialData.precio || '');
-    } else {
-      setNombre('');
-      setPrecio('');
-    }
-  }, [initialData, open]);
+  const [nombre, setNombre] = useState(initialData?.nombre || '');
+  const [precio, setPrecio] = useState(initialData?.precio || '');
 
   const handleSubmit = (e) => {
     e.preventDefault();
