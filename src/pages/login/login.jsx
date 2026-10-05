@@ -22,14 +22,14 @@ import illustrationImage from '../../assets/login/shop.png'
 import useAuth from '../../contexts/AuthContext/useAuth'
 
 export default function Login() {
-  // 1. Cambiamos email por rut y añadimos recordarSesion
+  // rut y recordarSesion
   const [formData, setFormData] = useState({ rut: '', password: '', recordarSesion: false })
   const [showPassword, setShowPassword] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
   const { login } = useAuth()
 
-  // 2. Ajustamos la función para que entienda si es texto o checkbox
+  // Ajustamos la función para que entienda si es texto o checkbox
   const updateField = (event) => {
     const { name, value, type, checked } = event.target
     setFormData((currentData) => ({ 
@@ -124,7 +124,7 @@ export default function Login() {
             Ingresa tus datos para continuar.
           </Typography>
 
-          {/* 3. Cambiado a RUT */}
+          {/* RUT */}
           <TextField
             fullWidth
             required
@@ -161,7 +161,7 @@ export default function Login() {
             }}
           />
 
-          {/* 4. Añadido el Checkbox de recordar sesión */}
+          {/*Checkbox de recordar sesión */}
           <FormControlLabel
             control={
               <Checkbox 
