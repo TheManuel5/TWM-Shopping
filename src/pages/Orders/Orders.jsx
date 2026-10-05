@@ -26,7 +26,7 @@ import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
 import OrderFilters from './components/molecules/OrderFilters';
 import OrdersTable from './components/organisms/OrdersTable';
-import './orders.css';
+import './Orders.css';
 
 const initialOrders = [
   { id: '1032', date: '28-04-2024\n16:24', customer: 'Ana Torres', email: 'ana.torres@gmail.com', phone: '+56 9 9876 5432', store: 'Tienda Sur', address: 'Av. Pedro Montt 1234\nOsorno, Los Lagos\nChile', status: 'En preparación', total: '$51.170', products: [{ name: 'Zapatillas Deportivas Mujer Running', emoji: '👟', price: '$29.990', detail: 'Rosa / 38' }, { name: 'Mochila Urbana Unisex', emoji: '🎒', price: '$13.010', detail: 'Negro' }] },
