@@ -12,6 +12,8 @@ import {
   Paper,
   TextField,
   Typography,
+  Checkbox,
+  FormControlLabel
 } from '@mui/material'
 import { useState } from 'react'
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom'
@@ -20,15 +22,20 @@ import illustrationImage from '../../assets/login/shop.png'
 import useAuth from '../../contexts/AuthContext/useAuth'
 
 export default function Login() {
-  const [formData, setFormData] = useState({ email: '', password: '' })
+  // rut y recordarSesion
+  const [formData, setFormData] = useState({ rut: '', password: '', recordarSesion: false })
   const [showPassword, setShowPassword] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
   const { login } = useAuth()
 
+  // Ajustamos la función para que entienda si es texto o checkbox
   const updateField = (event) => {
-    const { name, value } = event.target
-    setFormData((currentData) => ({ ...currentData, [name]: value }))
+    const { name, value, type, checked } = event.target
+    setFormData((currentData) => ({ 
+      ...currentData, 
+      [name]: type === 'checkbox' ? checked : value 
+    }))
   }
 
   const handleSubmit = (event) => {
@@ -117,16 +124,15 @@ export default function Login() {
             Ingresa tus datos para continuar.
           </Typography>
 
+          {/* RUT */}
           <TextField
             fullWidth
             required
-            name="email"
-            type="email"
-            label="Correo electrónico"
-            placeholder="nombre@ejemplo.com"
-            value={formData.email}
+            name="rut"
+            label="RUT"
+            placeholder="12.345.678-9"
+            value={formData.rut}
             onChange={updateField}
-            autoComplete="email"
           />
           <TextField
             fullWidth
@@ -155,7 +161,21 @@ export default function Login() {
             }}
           />
 
-          <Button type="submit" fullWidth variant="contained" size="large" sx={{ mt: 3, py: 1.4 }}>
+          {/*Checkbox de recordar sesión */}
+          <FormControlLabel
+            control={
+              <Checkbox 
+                name="recordarSesion" 
+                checked={formData.recordarSesion} 
+                onChange={updateField}
+                color="primary"
+              />
+            }
+            label={<Typography variant="body2" color="text.secondary" fontWeight={500}>Recordar mi sesión</Typography>}
+            sx={{ mt: 1, ml: 0.5 }}
+          />
+
+          <Button type="submit" fullWidth variant="contained" size="large" sx={{ mt: 2, py: 1.4 }}>
             Ingresar
           </Button>
           <Typography variant="body2" textAlign="center" color="text.secondary" sx={{ mt: 2.5 }}>

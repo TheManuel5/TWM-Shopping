@@ -21,8 +21,8 @@ export const drawerWidth = 248
 const navigationItems = [
   { label: 'Inicio', path: '/inicio', icon: <DashboardOutlined /> },
   { label: 'Perfil', path: '/perfil', icon: <AccountCircleOutlined /> },
-  { label: 'CRUD 1', path: '/crud-1', icon: <Inventory2Outlined /> },
-  { label: 'CRUD 2', path: '/crud-2', icon: <StorefrontOutlined /> },
+  { label: 'Pedidos', path: '/crud-1', icon: <Inventory2Outlined /> },
+  { label: 'Productos', path: '/crud-2', icon: <StorefrontOutlined /> },
 ]
 
 function SidebarContent({ onNavigate }) {
