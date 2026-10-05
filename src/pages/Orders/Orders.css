@@ -7,10 +7,10 @@
 .orders-heading h1 { color: #13234d; font-size: 27px; font-weight: 800; line-height: 1.1; margin: 0 0 5px; letter-spacing: 0; }
 .orders-subtitle, .orders-count { color: #667089; font-size: 12px; }
 .orders-heading button, .orders-filters button, .status-form button { background: #6430df; box-shadow: none; text-transform: none; font-weight: 700; }
-.orders-filters { display: grid; grid-template-columns: minmax(200px, 1.7fr) minmax(145px, 1fr) 130px 130px minmax(145px, 1fr) auto; gap: 10px; padding: 12px; margin-bottom: 14px; background: #fff; border: 1px solid #e1e5ef; border-radius: 8px; }
+.orders-filters { display: grid; grid-template-columns: minmax(200px, 1.7fr) minmax(145px, 1fr) 130px 130px minmax(145px, 1fr) auto; gap: 10px; padding: 12px; margin-bottom: 14px; background: #fff; border: 1px solid #e1e5ef; border-radius: 8px; min-width: 0; }
 .orders-filters .MuiInputBase-root { background: #fff; font-size: 11px; }
 .orders-filters .MuiInputLabel-root, .orders-filters input { font-size: 11px; }
-.orders-filters button { white-space: nowrap; font-size: 11px; }
+.orders-filters button { white-space: nowrap; font-size: 11px; height: 40px; }
 .orders-table-paper { border: 1px solid #e1e5ef; border-radius: 8px; overflow-x: auto; }
 .orders-table-paper table { width: 100%; min-width: 860px; }
 .orders-page:not(.orders-page--with-detail) .orders-table-paper table { min-width: 100%; }
@@ -68,7 +68,9 @@
 .order-form-grid .MuiTextField-root:last-child { grid-column: 1 / -1; }
 .order-form-grid input, .order-form-grid .MuiSelect-select { font-size: 13px; }
 
-@media (max-width: 1200px) { .orders-filters { grid-template-columns: repeat(3, 1fr); } .orders-filters .orders-search { grid-column: span 2; } }
+@media (max-width: 1200px) { .orders-filters { grid-template-columns: repeat(3, 1fr); } .orders-filters .orders-search { grid-column: span 2; } .orders-filters button { grid-column: 1 / -1; } }
+@media (max-width: 1600px) { .orders-page--with-detail .orders-filters { grid-template-columns: repeat(3, 1fr); } .orders-page--with-detail .orders-filters .orders-search { grid-column: span 2; } .orders-page--with-detail .orders-filters button { grid-column: 1 / -1; } }
+@container (max-width: 1080px) { .orders-filters { grid-template-columns: repeat(3, 1fr); } .orders-filters .orders-search { grid-column: span 2; } .orders-filters button { grid-column: 1 / -1; } }
 @media (max-width: 800px) { .orders-page--with-detail { grid-template-columns: 1fr; } .order-detail-panel { min-height: auto; border-left: 0; border-top: 1px solid #dde2ed; } }
 @media (max-width: 680px) { .orders-main { padding: 18px 12px 28px; } .orders-heading { align-items: flex-start; flex-direction: column; } .orders-heading button { width: 100%; } .orders-filters { grid-template-columns: 1fr 1fr; } .orders-filters .orders-search, .orders-filters button { grid-column: 1 / -1; } .detail-grid, .dispatch-form { grid-template-columns: 1fr; } .dispatch-form .detail-section-title { grid-column: auto; } .dispatch-form button { width: 100%; } .order-form-grid { grid-template-columns: 1fr; } .order-form-grid .MuiTextField-root:last-child { grid-column: auto; } }
 @container (max-width: 720px) { .orders-filters { grid-template-columns: 1fr 1fr; } .orders-filters .orders-search, .orders-filters button { grid-column: 1 / -1; } }
