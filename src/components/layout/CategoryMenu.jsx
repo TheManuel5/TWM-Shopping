@@ -285,7 +285,7 @@ export default function CategoryMenu() {
                         },
                       }}
                     >
-                      <Typography variant="body2" sx={{ flexGrow: 1, fontWeight: 700 }}>
+                      <Typography variant="body2" sx={{ flexGrow: 1, fontWeight: 500 }}>
                         {category.label}
                       </Typography>
                       <ChevronRight sx={{ ml: 1, fontSize: 18, color: 'text.secondary' }} />
