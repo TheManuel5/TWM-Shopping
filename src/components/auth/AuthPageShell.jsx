@@ -4,7 +4,15 @@ import illustrationImage from '../../assets/login/shop.png'
 
 const decorativeDots = Array.from({ length: 18 }, (_, index) => index)
 
-export default function AuthPageShell({ accentHeadline, children, description, headline }) {
+export default function AuthPageShell({
+  accentHeadline,
+  children,
+  description,
+  formAreaSx,
+  gridTemplateColumns,
+  headline,
+  illustrationSx,
+}) {
   return (
     <Box
       sx={{
@@ -12,7 +20,7 @@ export default function AuthPageShell({ accentHeadline, children, description, h
         height: '100dvh',
         minHeight: 0,
         display: 'grid',
-        gridTemplateColumns: { xs: '1fr', md: '1.08fr 0.92fr' },
+        gridTemplateColumns: gridTemplateColumns ?? { xs: '1fr', md: '1.08fr 0.92fr' },
         bgcolor: 'background.default',
         overflow: 'hidden',
       }}
@@ -156,6 +164,7 @@ export default function AuthPageShell({ accentHeadline, children, description, h
             mt: 1.5,
             alignSelf: 'center',
             objectFit: 'contain',
+            ...illustrationSx,
           }}
         />
       </Box>
@@ -168,6 +177,7 @@ export default function AuthPageShell({ accentHeadline, children, description, h
           p: { xs: 2, sm: 3, md: 4 },
           overflowY: { xs: 'auto', md: 'hidden' },
           zIndex: 1,
+          ...formAreaSx,
         }}
       >
         {children}

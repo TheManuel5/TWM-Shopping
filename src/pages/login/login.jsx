@@ -29,23 +29,101 @@ const fieldStyles = {
   },
 }
 
+function cleanRut(value) {
+  return value.replace(/[^0-9kK]/g, '').slice(0, 9).toUpperCase()
+}
+
+function formatRut(value) {
+  const cleanedRut = cleanRut(value)
+
+  if (cleanedRut.length <= 7) {
+    return cleanedRut.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+  }
+
+  const body = cleanedRut.slice(0, -1)
+  const checkDigit = cleanedRut.slice(-1)
+  const formattedBody = body.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+
+  return `${formattedBody}-${checkDigit}`
+}
+
+function isValidRut(value) {
+  const cleanedRut = cleanRut(value)
+
+  if (cleanedRut.length < 8) {
+    return false
+  }
+
+  const body = cleanedRut.slice(0, -1)
+  const checkDigit = cleanedRut.slice(-1)
+  let multiplier = 2
+  let sum = 0
+
+  for (let index = body.length - 1; index >= 0; index -= 1) {
+    sum += Number(body[index]) * multiplier
+    multiplier = multiplier === 7 ? 2 : multiplier + 1
+  }
+
+  const expectedValue = 11 - (sum % 11)
+  const expectedDigit = expectedValue === 11 ? '0' : expectedValue === 10 ? 'K' : String(expectedValue)
+
+  return checkDigit === expectedDigit
+}
+
+function validateLoginForm(values) {
+  const errors = {}
+
+  if (!values.rut.trim()) {
+    errors.rut = 'El RUT es obligatorio.'
+  } else if (!isValidRut(values.rut)) {
+    errors.rut = 'Ingresa un RUT valido.'
+  }
+
+  if (!values.password.trim()) {
+    errors.password = 'La contrasena es obligatoria.'
+  } else if (values.password.length < 6) {
+    errors.password = 'Debe tener al menos 6 caracteres.'
+  }
+
+  return errors
+}
+
 export default function Login() {
   const [formData, setFormData] = useState({ rut: '', password: '', recordarSesion: false })
+  const [touchedFields, setTouchedFields] = useState({})
+  const [submitted, setSubmitted] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
   const { login } = useAuth()
+  const errors = validateLoginForm(formData)
+
+  const getFieldError = (fieldName) => (
+    (submitted || touchedFields[fieldName]) ? errors[fieldName] : ''
+  )
 
   const updateField = (event) => {
     const { name, value, type, checked } = event.target
     setFormData((currentData) => ({
       ...currentData,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: name === 'rut' ? formatRut(value) : type === 'checkbox' ? checked : value,
     }))
+  }
+
+  const handleBlur = (event) => {
+    const { name } = event.target
+    setTouchedFields((currentFields) => ({ ...currentFields, [name]: true }))
   }
 
   const handleSubmit = (event) => {
     event.preventDefault()
+    setSubmitted(true)
+    setTouchedFields({ rut: true, password: true })
+
+    if (Object.keys(errors).length > 0) {
+      return
+    }
+
     console.log('Datos de inicio de sesión:', formData)
     login(formData)
     navigate(location.state?.from ?? '/inicio', { replace: true })
@@ -59,6 +137,7 @@ export default function Login() {
     >
       <Paper
         component="form"
+        noValidate
         onSubmit={handleSubmit}
         elevation={0}
         sx={{
@@ -119,6 +198,9 @@ export default function Login() {
               placeholder="12.345.678-9"
               value={formData.rut}
               onChange={updateField}
+              onBlur={handleBlur}
+              error={Boolean(getFieldError('rut'))}
+              helperText={getFieldError('rut') || 'Ingresa tu RUT con formato 12.345.678-9.'}
               sx={fieldStyles}
               slotProps={{
                 input: {
@@ -130,9 +212,6 @@ export default function Login() {
                 },
               }}
             />
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-              Ingresa tu RUT con formato 12.345.678-9.
-            </Typography>
           </Box>
 
           <Box>
@@ -153,6 +232,9 @@ export default function Login() {
               placeholder="Ingresa tu contraseña"
               value={formData.password}
               onChange={updateField}
+              onBlur={handleBlur}
+              error={Boolean(getFieldError('password'))}
+              helperText={getFieldError('password')}
               autoComplete="current-password"
               sx={fieldStyles}
               slotProps={{
