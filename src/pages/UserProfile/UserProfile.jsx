@@ -29,6 +29,7 @@ import { useState } from 'react'
 import AddressCard from './components/AddressCard/AddressCard'
 import AddressDialog from './components/AddressDialog/AddressDialog'
 import PasswordDialog from './components/PasswordDialog/PasswordDialog'
+import '../../components/orders/Orders.css'
 
 const initialProfile = {
   fullName: 'Jheffry Trepstein',
@@ -100,7 +101,10 @@ function SectionHeading({ icon, title, description, sx }) {
         {icon}
       </Box>
       <Box>
-        <Typography variant="h6" fontWeight={700} sx={{ fontSize: '1.125rem' }}>
+        <Typography
+          variant="h6"
+          sx={{ color: '#13234d', fontSize: '1.125rem', fontWeight: 700 }}
+        >
           {title}
         </Typography>
         {description && (
@@ -213,62 +217,67 @@ export default function UserProfile() {
   }
 
   return (
-    <Box component="form" onSubmit={handleSaveProfile}>
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: { xs: 'column', md: 'row' },
-          justifyContent: 'space-between',
-          gap: 2,
-          mb: 3,
-        }}
-      >
-        <Box>
-          <Typography
-            component="h1"
-            fontWeight={700}
-            sx={{
-              color: '#13234d',
-              fontSize: { xs: '1.75rem', sm: '2.125rem' },
-              lineHeight: 1.1,
-              letterSpacing: 0,
-            }}
-          >
-            Mi perfil
-          </Typography>
-          <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-            Administra tu información personal, direcciones y seguridad.
-          </Typography>
+    <Box component="form" onSubmit={handleSaveProfile} className="orders-page">
+      <Box className="orders-main">
+        <Box className="orders-breadcrumb">
+          Panel de control <span>/</span> Mi perfil
         </Box>
-
         <Box
           sx={{
             display: 'flex',
-            flexDirection: 'column',
-            alignItems: { xs: 'flex-start', md: 'flex-end' },
-            textAlign: { xs: 'left', md: 'right' },
+            flexDirection: { xs: 'column', md: 'row' },
+            justifyContent: 'space-between',
+            alignItems: { xs: 'stretch', md: 'center' },
+            gap: 2,
+            mb: 2.5,
           }}
         >
-          <ToggleButtonGroup
-            value={activeRole}
-            exclusive
-            onChange={(_, nextRole) => nextRole && setActiveRole(nextRole)}
-            size="small"
-            color="primary"
-            aria-label="rol activo"
+          <Box>
+            <Typography
+              component="h1"
+              sx={{
+                color: '#13234d',
+                fontSize: { xs: '1.75rem', sm: '2.125rem' },
+                fontWeight: 700,
+                lineHeight: 1.1,
+                letterSpacing: 0,
+              }}
+            >
+              Mi perfil
+            </Typography>
+            <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+              Administra tu información personal, direcciones y seguridad.
+            </Typography>
+          </Box>
+
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: { xs: 'flex-start', md: 'flex-end' },
+              textAlign: { xs: 'left', md: 'right' },
+            }}
           >
-            <ToggleButton value="comprar">Comprar</ToggleButton>
-            <ToggleButton value="vender">Vender</ToggleButton>
-          </ToggleButtonGroup>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ mt: 0.75, display: 'block' }}
-          >
-            Puedes cambiar de rol en cualquier momento.
-          </Typography>
+            <ToggleButtonGroup
+              value={activeRole}
+              exclusive
+              onChange={(_, nextRole) => nextRole && setActiveRole(nextRole)}
+              size="small"
+              color="primary"
+              aria-label="rol activo"
+            >
+              <ToggleButton value="comprar">Comprar</ToggleButton>
+              <ToggleButton value="vender">Vender</ToggleButton>
+            </ToggleButtonGroup>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ mt: 0.75, display: 'block' }}
+            >
+              Puedes cambiar de rol en cualquier momento.
+            </Typography>
+          </Box>
         </Box>
-      </Box>
 
       <Box
         sx={{
@@ -519,6 +528,7 @@ export default function UserProfile() {
         message="Los cambios del perfil fueron guardados"
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       />
+      </Box>
     </Box>
   )
 }
