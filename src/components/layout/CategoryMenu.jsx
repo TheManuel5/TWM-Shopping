@@ -262,9 +262,6 @@ export default function CategoryMenu() {
               bgcolor: 'background.paper',
             }}
           >
-            <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 800 }}>
-              Categoría
-            </Typography>
             <Typography variant="h6" color="primary.main" sx={{ mb: 2, fontWeight: 850 }}>
               {activeCategory?.label}
             </Typography>
@@ -328,9 +325,6 @@ export default function CategoryMenu() {
                 boxShadow: '-8px 0 24px rgba(3, 12, 46, 0.08)',
               }}
             >
-              <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 800 }}>
-                Subcategoría
-              </Typography>
               <Typography variant="h6" color="primary.main" sx={{ mb: 2, fontWeight: 850 }}>
                 {activeNestedCategory.label}
               </Typography>
