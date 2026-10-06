@@ -11,6 +11,11 @@ import {
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   FormControl,
   IconButton,
   InputLabel,
@@ -124,6 +129,7 @@ export default function UserProfile() {
   const [addressDialogOpen, setAddressDialogOpen] = useState(false)
   const [addressDraft, setAddressDraft] = useState(emptyAddress)
   const [editingAddressId, setEditingAddressId] = useState(null)
+  const [addressToDelete, setAddressToDelete] = useState(null)
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false)
   const [notificationOpen, setNotificationOpen] = useState(false)
 
@@ -208,6 +214,27 @@ export default function UserProfile() {
         primary: address.id === addressId,
       })),
     )
+  }
+
+  const deleteAddress = () => {
+    if (!addressToDelete) return
+
+    setAddresses((currentAddresses) => {
+      const remainingAddresses = currentAddresses.filter(
+        (address) => address.id !== addressToDelete.id,
+      )
+
+      if (addressToDelete.primary && remainingAddresses.length > 0) {
+        return remainingAddresses.map((address, index) => ({
+          ...address,
+          primary: index === 0,
+        }))
+      }
+
+      return remainingAddresses
+    })
+    console.log('Dirección eliminada:', addressToDelete)
+    setAddressToDelete(null)
   }
 
   const handleSaveProfile = (event) => {
@@ -463,6 +490,8 @@ export default function UserProfile() {
               <AddressCard
                 key={address.id}
                 address={address}
+                deleteDisabled={addresses.length === 1}
+                onDelete={() => setAddressToDelete(address)}
                 onEdit={() => openEditAddressDialog(address)}
                 onSetPrimary={() => setPrimaryAddress(address.id)}
               />
@@ -520,6 +549,31 @@ export default function UserProfile() {
         open={passwordDialogOpen}
         onClose={() => setPasswordDialogOpen(false)}
       />
+
+      <Dialog
+        open={Boolean(addressToDelete)}
+        onClose={() => setAddressToDelete(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 700 }}>Eliminar dirección</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            ¿Confirmas que deseas eliminar la dirección {addressToDelete?.name}?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button onClick={() => setAddressToDelete(null)}>Cancelar</Button>
+          <Button
+            variant="contained"
+            color="error"
+            startIcon={<DeleteOutlineOutlined />}
+            onClick={deleteAddress}
+          >
+            Eliminar
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar
         open={notificationOpen}

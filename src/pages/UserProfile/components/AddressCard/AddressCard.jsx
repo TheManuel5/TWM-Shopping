@@ -1,7 +1,12 @@
-import { EditOutlined, HomeOutlined, LocationOnOutlined } from '@mui/icons-material'
-import { Box, Button, Chip, Radio, Stack, Typography } from '@mui/material'
+import {
+  DeleteOutlineOutlined,
+  EditOutlined,
+  HomeOutlined,
+  LocationOnOutlined,
+} from '@mui/icons-material'
+import { Box, Button, Chip, IconButton, Radio, Stack, Tooltip, Typography } from '@mui/material'
 
-export default function AddressCard({ address, onEdit, onSetPrimary }) {
+export default function AddressCard({ address, deleteDisabled, onDelete, onEdit, onSetPrimary }) {
   return (
     <Box
       sx={{
@@ -12,7 +17,7 @@ export default function AddressCard({ address, onEdit, onSetPrimary }) {
         borderRadius: 2,
       }}
     >
-      <Stack direction="row" alignItems="flex-start" spacing={1}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
         <Radio
           checked={address.primary}
           onChange={onSetPrimary}
@@ -23,7 +28,7 @@ export default function AddressCard({ address, onEdit, onSetPrimary }) {
         />
         <HomeOutlined color={address.primary ? 'primary' : 'action'} sx={{ mt: 0.5 }} />
         <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
             <Typography fontWeight={700}>{address.name}</Typography>
             {address.primary && (
               <Chip label="Dirección principal" size="small" color="primary" variant="outlined" />
@@ -45,9 +50,26 @@ export default function AddressCard({ address, onEdit, onSetPrimary }) {
             </Typography>
           )}
         </Box>
-        <Button size="small" startIcon={<EditOutlined />} onClick={onEdit}>
-          Editar
-        </Button>
+        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', flexShrink: 0 }}>
+          <Button size="small" startIcon={<EditOutlined />} onClick={onEdit}>
+            Editar
+          </Button>
+          <Tooltip
+            title={deleteDisabled ? 'Debes mantener al menos una dirección' : 'Eliminar dirección'}
+          >
+            <span>
+              <IconButton
+                size="small"
+                color="error"
+                disabled={deleteDisabled}
+                onClick={onDelete}
+                aria-label={`Eliminar dirección ${address.name}`}
+              >
+                <DeleteOutlineOutlined fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+        </Stack>
       </Stack>
     </Box>
   )
