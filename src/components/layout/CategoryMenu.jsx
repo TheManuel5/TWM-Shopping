@@ -163,7 +163,7 @@ export default function CategoryMenu() {
         onClose={() => setMenuOpen(false)}
         ModalProps={{ keepMounted: true }}
         sx={{
-          zIndex: (muiTheme) => muiTheme.zIndex.appBar + 1,
+          zIndex: (muiTheme) => muiTheme.zIndex.drawer + 1,
           '& .MuiBackdrop-root': {
             top: { xs: 64, md: 72 },
             bgcolor: 'rgba(3, 12, 46, 0.38)',

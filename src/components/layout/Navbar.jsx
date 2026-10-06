@@ -34,7 +34,7 @@ export default function Navbar({ onMenuClick, showSidebarToggle = true }) {
       position="fixed"
       elevation={0}
       sx={{
-        zIndex: (muiTheme) => muiTheme.zIndex.drawer + 1,
+        zIndex: (muiTheme) => muiTheme.zIndex.drawer + 2,
         bgcolor: 'text.primary',
         borderBottom: '2px solid',
         borderColor: 'primary.main',
