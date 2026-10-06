@@ -37,9 +37,9 @@ import PasswordDialog from './components/PasswordDialog/PasswordDialog'
 import '../../components/orders/Orders.css'
 
 const initialProfile = {
-  fullName: 'Jheffry Trepstein',
+  fullName: 'Juan Ramirez',
   rut: '12.345.678-9',
-  email: 'jheffry.trepstein@shopping.cl',
+  email: 'juan.ramirez@shopping.cl',
   birthDay: '14',
   birthMonth: 'Marzo',
   birthYear: '1998',
