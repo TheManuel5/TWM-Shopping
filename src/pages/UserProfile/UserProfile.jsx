@@ -180,18 +180,19 @@ export default function UserProfile() {
   }
 
   const saveAddress = () => {
+    const mustRemainPrimary =
+      editingAddressId &&
+      !addressDraft.primary &&
+      !addresses.some(
+        (address) => address.id !== editingAddressId && address.primary,
+      )
+    const savedAddress = {
+      ...addressDraft,
+      id: editingAddressId ?? Date.now(),
+      primary: mustRemainPrimary ? true : addressDraft.primary,
+    }
+
     setAddresses((currentAddresses) => {
-      const isOnlyPrimary =
-        editingAddressId &&
-        !addressDraft.primary &&
-        !currentAddresses.some(
-          (address) => address.id !== editingAddressId && address.primary,
-        )
-      const savedAddress = {
-        ...addressDraft,
-        id: editingAddressId ?? Date.now(),
-        primary: isOnlyPrimary ? true : addressDraft.primary,
-      }
       const remainingAddresses = editingAddressId
         ? currentAddresses.filter((address) => address.id !== editingAddressId)
         : currentAddresses
@@ -204,6 +205,10 @@ export default function UserProfile() {
         savedAddress,
       ].sort((firstAddress, secondAddress) => firstAddress.id - secondAddress.id)
     })
+    console.log(
+      editingAddressId ? 'Dirección actualizada:' : 'Dirección agregada:',
+      savedAddress,
+    )
     setAddressDialogOpen(false)
   }
 
