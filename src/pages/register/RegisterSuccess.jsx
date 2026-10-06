@@ -1,4 +1,4 @@
-import { CheckCircleOutline } from '@mui/icons-material'
+import { CheckCircleOutlined } from '@mui/icons-material'
 import { Box, Button, Link, Paper, Stack, Typography } from '@mui/material'
 import { Link as RouterLink } from 'react-router-dom'
 import AuthPageShell from '../../components/auth/AuthPageShell'
@@ -34,7 +34,7 @@ export default function RegisterSuccess() {
             mx: 'auto',
           }}
         >
-          <CheckCircleOutline />
+          <CheckCircleOutlined />
         </Box>
         <Typography
           component="h2"
