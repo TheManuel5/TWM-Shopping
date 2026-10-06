@@ -24,7 +24,7 @@ import AuthPageShell from '../../components/auth/AuthPageShell'
 
 const fieldStyles = {
   '& .MuiOutlinedInput-root': {
-    height: 46,
+    height: 48,
     bgcolor: 'background.paper',
   },
 }
@@ -35,7 +35,7 @@ function RegisterField({ children, htmlFor }) {
       component="label"
       htmlFor={htmlFor}
       variant="caption"
-      sx={{ mb: 0.5, display: 'block', fontWeight: 700 }}
+      sx={{ mb: 0.6, display: 'block', fontWeight: 700 }}
     >
       {children}
     </Typography>
@@ -55,7 +55,7 @@ export default function Register() {
   const handleSubmit = (event) => {
     event.preventDefault()
     console.log('Datos de Registro capturados:', formData)
-    navigate('/login', { replace: true })
+    navigate('/register-success', { replace: true })
   }
 
   return (
@@ -71,7 +71,7 @@ export default function Register() {
         sx={{
           width: '100%',
           maxWidth: 480,
-          p: { xs: 2.5, sm: 3.5 },
+          p: { xs: 3, sm: 4 },
           borderRadius: 4,
           border: '1px solid',
           borderColor: 'divider',
@@ -80,8 +80,8 @@ export default function Register() {
       >
         <Box
           sx={{
-            width: 54,
-            height: 54,
+            width: 58,
+            height: 58,
             display: 'grid',
             placeItems: 'center',
             borderRadius: '50%',
@@ -95,8 +95,7 @@ export default function Register() {
         <Typography
           component="h2"
           sx={{
-            mt: 1,
-            mb: 1.5,
+            mt: 1.5,
             color: 'text.primary',
             fontSize: '1.75rem',
             fontWeight: 800,
@@ -105,8 +104,11 @@ export default function Register() {
         >
           Crear cuenta
         </Typography>
+        <Typography color="text.secondary" sx={{ mt: 0.5, mb: 2.5, textAlign: 'center' }}>
+          Completa tus datos para registrarte.
+        </Typography>
 
-        <Stack spacing={1.15}>
+        <Stack spacing={1.5}>
           <Box>
             <RegisterField htmlFor="register-name">Nombre completo</RegisterField>
             <TextField
@@ -217,13 +219,13 @@ export default function Register() {
             fullWidth
             variant="contained"
             size="large"
-            sx={{ minHeight: 46, fontWeight: 700 }}
+            sx={{ minHeight: 48, fontWeight: 700 }}
           >
             Registrarse
           </Button>
         </Stack>
 
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5, textAlign: 'center' }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>
           ¿Ya tienes una cuenta?{' '}
           <Link component={RouterLink} to="/login" underline="hover" sx={{ fontWeight: 700 }}>
             Iniciar sesión
