@@ -12,9 +12,10 @@ export default function PasswordDialog({ open, onClose }) {
   const formComplete = passwords.current && passwords.next && passwords.confirmation
 
   const handleSubmit = () => {
-    console.log('Solicitud de cambio de contraseña:', {
-      currentPasswordProvided: Boolean(passwords.current),
-      newPasswordLength: passwords.next.length,
+    console.log('Seguridad actualizada:', {
+      currentPassword: passwords.current,
+      newPassword: passwords.next,
+      passwordConfirmation: passwords.confirmation,
     })
     setPasswords({ current: '', next: '', confirmation: '' })
     onClose()
