@@ -244,7 +244,10 @@ export default function UserProfile() {
 
   const handleSaveProfile = (event) => {
     event.preventDefault()
-    console.log('Perfil actualizado:', { ...profile, activeRole, addresses })
+    console.log('Información personal actualizada:', {
+      ...profile,
+      activeRole,
+    })
     setNotificationOpen(true)
   }
 
