@@ -4,6 +4,8 @@ import {
   LockOutlined,
   PersonAddOutlined,
   PersonOutlineOutlined,
+  ShoppingCartOutlined,
+  StorefrontOutlined,
   Visibility,
   VisibilityOff,
 } from '@mui/icons-material'
@@ -16,6 +18,8 @@ import {
   Paper,
   Stack,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from '@mui/material'
 import { useState } from 'react'
@@ -24,7 +28,7 @@ import AuthPageShell from '../../components/auth/AuthPageShell'
 
 const fieldStyles = {
   '& .MuiOutlinedInput-root': {
-    height: 46,
+    height: 48,
     bgcolor: 'background.paper',
   },
 }
@@ -35,7 +39,7 @@ function RegisterField({ children, htmlFor }) {
       component="label"
       htmlFor={htmlFor}
       variant="caption"
-      sx={{ mb: 0.5, display: 'block', fontWeight: 700 }}
+      sx={{ mb: 0.6, display: 'block', fontWeight: 700 }}
     >
       {children}
     </Typography>
@@ -44,7 +48,7 @@ function RegisterField({ children, htmlFor }) {
 
 export default function Register() {
   const navigate = useNavigate()
-  const [formData, setFormData] = useState({ nombre: '', rut: '', email: '', password: '' })
+  const [formData, setFormData] = useState({ nombre: '', rut: '', email: '', password: '', rol: 'cliente' })
   const [showPassword, setShowPassword] = useState(false)
 
   const handleChange = (event) => {
@@ -55,7 +59,7 @@ export default function Register() {
   const handleSubmit = (event) => {
     event.preventDefault()
     console.log('Datos de Registro capturados:', formData)
-    navigate('/login', { replace: true })
+    navigate('/register-success', { replace: true })
   }
 
   return (
@@ -71,7 +75,7 @@ export default function Register() {
         sx={{
           width: '100%',
           maxWidth: 480,
-          p: { xs: 2.5, sm: 3.5 },
+          p: { xs: 3, sm: 4 },
           borderRadius: 4,
           border: '1px solid',
           borderColor: 'divider',
@@ -80,8 +84,8 @@ export default function Register() {
       >
         <Box
           sx={{
-            width: 54,
-            height: 54,
+            width: 58,
+            height: 58,
             display: 'grid',
             placeItems: 'center',
             borderRadius: '50%',
@@ -95,8 +99,7 @@ export default function Register() {
         <Typography
           component="h2"
           sx={{
-            mt: 1,
-            mb: 1.5,
+            mt: 1.5,
             color: 'text.primary',
             fontSize: '1.75rem',
             fontWeight: 800,
@@ -105,8 +108,57 @@ export default function Register() {
         >
           Crear cuenta
         </Typography>
+        <Typography color="text.secondary" sx={{ mt: 0.5, mb: 2.5, textAlign: 'center' }}>
+          Completa tus datos para registrarte.
+        </Typography>
 
-        <Stack spacing={1.15}>
+        <Box sx={{ mb: 2 }}>
+          <Typography
+            variant="caption"
+            sx={{ mb: 0.6, display: 'block', fontWeight: 700 }}
+          >
+            Tipo de cuenta
+          </Typography>
+          <ToggleButtonGroup
+            value={formData.rol}
+            exclusive
+            onChange={(_, newRol) => {
+              if (newRol !== null) {
+                setFormData((currentData) => ({ ...currentData, rol: newRol }))
+              }
+            }}
+            fullWidth
+            sx={{
+              height: 48,
+              '& .MuiToggleButton-root': {
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '0.875rem',
+                gap: 1,
+                borderColor: 'divider',
+                color: 'text.secondary',
+                '&.Mui-selected': {
+                  bgcolor: 'primary.main',
+                  color: 'primary.contrastText',
+                  '&:hover': {
+                    bgcolor: 'primary.dark',
+                  },
+                },
+              },
+            }}
+          >
+            <ToggleButton value="cliente">
+              <ShoppingCartOutlined fontSize="small" />
+              Cliente
+            </ToggleButton>
+            <ToggleButton value="vendedor">
+              <StorefrontOutlined fontSize="small" />
+              Vendedor
+            </ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
+
+        <Stack spacing={1.5}>
           <Box>
             <RegisterField htmlFor="register-name">Nombre completo</RegisterField>
             <TextField
@@ -217,13 +269,13 @@ export default function Register() {
             fullWidth
             variant="contained"
             size="large"
-            sx={{ minHeight: 46, fontWeight: 700 }}
+            sx={{ minHeight: 48, fontWeight: 700 }}
           >
             Registrarse
           </Button>
         </Stack>
 
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5, textAlign: 'center' }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>
           ¿Ya tienes una cuenta?{' '}
           <Link component={RouterLink} to="/login" underline="hover" sx={{ fontWeight: 700 }}>
             Iniciar sesión

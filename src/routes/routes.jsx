@@ -6,6 +6,7 @@ import Orders from '../pages/Orders/Orders'
 import ProductsPage from '../pages/Products/ProductsPage'
 import Login from '../pages/login/login'
 import Register from '../pages/register/register'
+import RegisterSuccess from '../pages/register/RegisterSuccess'
 import UserProfile from '../pages/UserProfile/UserProfile'
 import { GuestOnlyRoute, ProtectedRoute } from './RouteGuards'
 
@@ -16,6 +17,7 @@ export default function AppRoutes() {
         <Route element={<GuestOnlyRoute />}>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/register-success" element={<RegisterSuccess />} />
         </Route>
 
         <Route element={<AppLayout />}>
