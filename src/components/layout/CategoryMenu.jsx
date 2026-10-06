@@ -105,28 +105,25 @@ const categorySections = [
   },
 ]
 
-function CategoryCode({ children }) {
-  return (
-    <Typography
-      component="span"
-      variant="caption"
-      sx={{ display: 'inline-block', minWidth: 42, color: 'text.secondary', fontWeight: 700 }}
-    >
-      {children}
-    </Typography>
-  )
-}
-
 export default function CategoryMenu() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [activeCode, setActiveCode] = useState('1.3')
+  const [activeNestedCode, setActiveNestedCode] = useState(null)
 
   const allMainCategories = categorySections.flatMap((section) => section.items)
   const activeCategory = allMainCategories.find((category) => category.code === activeCode)
+  const activeNestedCategory = activeCategory?.children?.find(
+    (category) => category.code === activeNestedCode && category.children,
+  )
+
+  const activateCategory = (category) => {
+    setActiveCode(category.code)
+    setActiveNestedCode(null)
+  }
 
   const selectCategory = (category) => {
     if (category.children) {
-      setActiveCode(category.code)
+      activateCategory(category)
       return
     }
 
@@ -137,6 +134,7 @@ export default function CategoryMenu() {
   const selectLeafCategory = (category) => {
     console.log('Categoría seleccionada:', category)
     setMenuOpen(false)
+    setActiveNestedCode(null)
   }
 
   return (
@@ -173,12 +171,13 @@ export default function CategoryMenu() {
           '& .MuiDrawer-paper': {
             top: { xs: 64, md: 72 },
             bottom: 0,
-            width: { xs: '94vw', sm: 650 },
+            width: { xs: '94vw', sm: activeNestedCategory ? 920 : 650 },
             height: { xs: 'calc(100% - 64px)', md: 'calc(100% - 72px)' },
             maxWidth: '100%',
             borderRight: 'none',
             boxShadow: '12px 20px 38px rgba(3, 12, 46, 0.18)',
             overflow: 'hidden',
+            transition: 'width 180ms ease',
           },
         }}
       >
@@ -187,10 +186,23 @@ export default function CategoryMenu() {
           sx={{
             height: '100%',
             display: 'grid',
-            gridTemplateColumns: { xs: '46% 54%', sm: '280px minmax(0, 1fr)' },
+            gridTemplateColumns: {
+              xs: '46% 54%',
+              sm: activeNestedCategory
+                ? '280px 320px minmax(280px, 1fr)'
+                : '280px minmax(0, 1fr)',
+            },
           }}
         >
-          <Box sx={{ overflowY: 'auto', borderRight: '1px solid', borderColor: 'divider' }}>
+          <Box
+            sx={{
+              gridColumn: 1,
+              gridRow: 1,
+              overflowY: 'auto',
+              borderRight: '1px solid',
+              borderColor: 'divider',
+            }}
+          >
             {categorySections.map((section, sectionIndex) => {
               const SectionIcon = section.Icon
 
@@ -200,12 +212,11 @@ export default function CategoryMenu() {
                   <Stack
                     direction="row"
                     spacing={1}
-                    alignItems="center"
-                    sx={{ px: 2, pt: 2, pb: 0.75, color: 'primary.main' }}
+                    sx={{ px: 2, pt: 2, pb: 0.75, color: 'primary.main', alignItems: 'center' }}
                   >
                     <SectionIcon fontSize="small" />
-                    <Typography variant="subtitle1" fontWeight={850}>
-                      {section.code}. {section.label}
+                    <Typography variant="subtitle1" sx={{ fontWeight: 850 }}>
+                      {section.label}
                     </Typography>
                   </Stack>
 
@@ -214,7 +225,7 @@ export default function CategoryMenu() {
                       <ListItemButton
                         key={category.code}
                         selected={category.code === activeCode}
-                        onMouseEnter={() => category.children && setActiveCode(category.code)}
+                        onMouseEnter={() => category.children && activateCategory(category)}
                         onClick={() => selectCategory(category)}
                         sx={{
                           minHeight: 38,
@@ -227,8 +238,7 @@ export default function CategoryMenu() {
                           },
                         }}
                       >
-                        <CategoryCode>{category.code}</CategoryCode>
-                        <Typography variant="body2" lineHeight={1.35} sx={{ flexGrow: 1 }}>
+                        <Typography variant="body2" sx={{ flexGrow: 1, lineHeight: 1.35 }}>
                           {category.label}
                         </Typography>
                         {category.children && (
@@ -242,11 +252,20 @@ export default function CategoryMenu() {
             })}
           </Box>
 
-          <Box sx={{ p: { xs: 2, sm: 3 }, overflowY: 'auto', bgcolor: 'background.paper' }}>
-            <Typography variant="overline" color="text.secondary" fontWeight={800}>
-              Categoría {activeCategory?.code}
+          <Box
+            sx={{
+              gridColumn: { xs: 2, sm: 'auto' },
+              gridRow: 1,
+              display: { xs: activeNestedCategory ? 'none' : 'block', sm: 'block' },
+              p: { xs: 2, sm: 3 },
+              overflowY: 'auto',
+              bgcolor: 'background.paper',
+            }}
+          >
+            <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 800 }}>
+              Categoría
             </Typography>
-            <Typography variant="h6" color="primary.main" fontWeight={850} sx={{ mb: 2 }}>
+            <Typography variant="h6" color="primary.main" sx={{ mb: 2, fontWeight: 850 }}>
               {activeCategory?.label}
             </Typography>
 
@@ -254,34 +273,26 @@ export default function CategoryMenu() {
               {activeCategory?.children?.map((category) => (
                 <Box key={category.code}>
                   {category.children ? (
-                    <>
-                      <Stack direction="row" spacing={1} alignItems="baseline" sx={{ mb: 0.75 }}>
-                        <CategoryCode>{category.code}</CategoryCode>
-                        <Typography variant="subtitle2" color="primary.main" fontWeight={850}>
-                          {category.label}
-                        </Typography>
-                      </Stack>
-                      <Stack spacing={0.25}>
-                        {category.children.map((childCategory) => (
-                          <Button
-                            key={childCategory.code}
-                            color="inherit"
-                            onClick={() => selectLeafCategory(childCategory)}
-                            sx={{
-                              justifyContent: 'flex-start',
-                              px: 1,
-                              py: 0.4,
-                              ml: 1,
-                              textAlign: 'left',
-                              fontWeight: 400,
-                            }}
-                          >
-                            <CategoryCode>{childCategory.code}</CategoryCode>
-                            {childCategory.label}
-                          </Button>
-                        ))}
-                      </Stack>
-                    </>
+                    <ListItemButton
+                      selected={category.code === activeNestedCode}
+                      onMouseEnter={() => setActiveNestedCode(category.code)}
+                      onClick={() => setActiveNestedCode(category.code)}
+                      sx={{
+                        mx: -1,
+                        px: 1.5,
+                        py: 0.8,
+                        borderRadius: 1.5,
+                        '&.Mui-selected': {
+                          bgcolor: 'secondary.main',
+                          color: 'primary.main',
+                        },
+                      }}
+                    >
+                      <Typography variant="body2" sx={{ flexGrow: 1, fontWeight: 700 }}>
+                        {category.label}
+                      </Typography>
+                      <ChevronRight sx={{ ml: 1, fontSize: 18, color: 'text.secondary' }} />
+                    </ListItemButton>
                   ) : (
                     <Button
                       color="inherit"
@@ -296,7 +307,6 @@ export default function CategoryMenu() {
                         color: 'primary.main',
                       }}
                     >
-                      <CategoryCode>{category.code}</CategoryCode>
                       {category.label}
                     </Button>
                   )}
@@ -304,6 +314,49 @@ export default function CategoryMenu() {
               ))}
             </Stack>
           </Box>
+
+          {activeNestedCategory && (
+            <Box
+              sx={{
+                gridColumn: { xs: 2, sm: 'auto' },
+                gridRow: 1,
+                p: { xs: 2, sm: 3 },
+                overflowY: 'auto',
+                bgcolor: 'background.paper',
+                borderLeft: '1px solid',
+                borderColor: 'divider',
+                boxShadow: '-8px 0 24px rgba(3, 12, 46, 0.08)',
+              }}
+            >
+              <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 800 }}>
+                Subcategoría
+              </Typography>
+              <Typography variant="h6" color="primary.main" sx={{ mb: 2, fontWeight: 850 }}>
+                {activeNestedCategory.label}
+              </Typography>
+
+              <Stack spacing={0.5}>
+                {activeNestedCategory.children.map((category) => (
+                  <Button
+                    key={category.code}
+                    color="inherit"
+                    onClick={() => selectLeafCategory(category)}
+                    sx={{
+                      width: '100%',
+                      justifyContent: 'flex-start',
+                      px: 0,
+                      py: 0.5,
+                      textAlign: 'left',
+                      fontWeight: 500,
+                      color: 'primary.main',
+                    }}
+                  >
+                    {category.label}
+                  </Button>
+                ))}
+              </Stack>
+            </Box>
+          )}
         </Box>
       </Drawer>
     </>
