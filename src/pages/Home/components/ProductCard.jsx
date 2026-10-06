@@ -71,10 +71,13 @@ export default function ProductCard({ product, favorite, onToggleFavorite, onAdd
       </Box>
 
       <CardContent sx={{ p: 2, display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
-        <Typography variant="body2" fontWeight={750} lineHeight={1.35} sx={{ minHeight: 38 }}>
+        <Typography
+          variant="body2"
+          sx={{ minHeight: 38, fontWeight: 750, lineHeight: 1.35 }}
+        >
           {product.name}
         </Typography>
-        <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 1 }}>
+        <Stack direction="row" spacing={0.5} sx={{ mt: 1, alignItems: 'center' }}>
           <StarRounded sx={{ fontSize: 17, color: '#f5a623' }} />
           <Typography variant="caption" fontWeight={700}>{product.rating}</Typography>
           <Typography variant="caption" color="text.secondary">({product.reviews})</Typography>
@@ -86,12 +89,19 @@ export default function ProductCard({ product, favorite, onToggleFavorite, onAdd
         >
           {product.previousPrice}
         </Typography>
-        <Typography variant="h6" color="primary.main" fontWeight={850} lineHeight={1.2}>
+        <Typography
+          variant="h6"
+          color="primary.main"
+          sx={{ fontWeight: 850, lineHeight: 1.2 }}
+        >
           {product.price}
         </Typography>
 
-        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 'auto', pt: 1.5 }}>
-          <Stack direction="row" spacing={0.5} alignItems="center">
+        <Stack
+          direction="row"
+          sx={{ mt: 'auto', pt: 1.5, alignItems: 'center', justifyContent: 'space-between' }}
+        >
+          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
             <LocalShippingOutlined sx={{ fontSize: 15, color: 'text.secondary' }} />
             <Typography variant="caption" color="text.secondary">
               Envío a todo Chile

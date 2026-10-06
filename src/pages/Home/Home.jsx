@@ -189,7 +189,10 @@ function HeroBanner() {
           >
             Ver ofertas
           </Button>
-          <Typography variant="caption" display="block" sx={{ mt: 1.5, color: 'rgba(255,255,255,0.7)' }}>
+          <Typography
+            variant="caption"
+            sx={{ display: 'block', mt: 1.5, color: 'rgba(255,255,255,0.7)' }}
+          >
             Tecnología, hogar, moda, deportes y mucho más.
           </Typography>
         </Box>
@@ -318,11 +321,13 @@ export default function Home() {
             }}
           >
             <Box>
-              <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color }}>
+              <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', color }}>
                 <Icon sx={{ fontSize: 15 }} />
-                <Typography variant="overline" fontWeight={900} lineHeight={1.2}>{eyebrow}</Typography>
+                <Typography variant="overline" sx={{ fontWeight: 900, lineHeight: 1.2 }}>
+                  {eyebrow}
+                </Typography>
               </Stack>
-              <Typography variant="body1" fontWeight={850} lineHeight={1.15} sx={{ mt: 0.75 }}>
+              <Typography variant="body1" sx={{ mt: 0.75, fontWeight: 850, lineHeight: 1.15 }}>
                 {title}
               </Typography>
               <Button
@@ -361,8 +366,8 @@ export default function Home() {
             key={title}
             direction="row"
             spacing={1.25}
-            alignItems="center"
             sx={{
+              alignItems: 'center',
               p: 1.75,
               borderRight: { lg: index < serviceBenefits.length - 1 ? '1px solid' : 'none' },
               borderBottom: { xs: index < serviceBenefits.length - 1 ? '1px solid' : 'none', lg: 'none' },
@@ -371,7 +376,9 @@ export default function Home() {
           >
             <Icon color="primary" fontSize="small" />
             <Box>
-              <Typography variant="caption" display="block" fontWeight={800}>{title}</Typography>
+              <Typography variant="caption" sx={{ display: 'block', fontWeight: 800 }}>
+                {title}
+              </Typography>
               <Typography variant="caption" color="text.secondary">{detail}</Typography>
             </Box>
           </Stack>
@@ -379,8 +386,11 @@ export default function Home() {
       </Paper>
 
       <Box component="section" id="productos-destacados" sx={{ mt: 2.5, scrollMarginTop: 96 }}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.5 }}>
-          <Stack direction="row" spacing={1} alignItems="center">
+        <Stack
+          direction="row"
+          sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}
+        >
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
             <ShoppingBagOutlined color="primary" />
             <Typography component="h2" variant="h5" fontWeight={850}>
               Productos destacados
