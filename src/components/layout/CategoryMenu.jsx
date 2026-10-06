@@ -16,6 +16,7 @@ import {
   Typography,
 } from '@mui/material'
 import { useState } from 'react'
+import { headerOffset } from './layoutConstants'
 
 const categorySections = [
   {
@@ -141,20 +142,24 @@ export default function CategoryMenu() {
     <>
       <Button
         color="inherit"
-        startIcon={<AppsOutlined />}
-        endIcon={<KeyboardArrowDown />}
         onClick={() => setMenuOpen((currentOpen) => !currentOpen)}
+        aria-label="Abrir categorías"
         aria-controls={menuOpen ? 'category-drawer' : undefined}
         aria-haspopup="true"
         aria-expanded={menuOpen ? 'true' : undefined}
         sx={{
-          display: { xs: 'none', md: 'inline-flex' },
-          px: 1.5,
+          minWidth: { xs: 40, sm: 'auto' },
+          px: { xs: 0.75, sm: 1.25 },
+          gap: { xs: 0, sm: 0.75 },
           whiteSpace: 'nowrap',
           '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' },
         }}
       >
-        Categorías
+        <AppsOutlined fontSize="small" />
+        <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+          Categorías
+        </Box>
+        <KeyboardArrowDown sx={{ display: { xs: 'none', sm: 'block' }, fontSize: 19 }} />
       </Button>
 
       <Drawer
@@ -165,14 +170,17 @@ export default function CategoryMenu() {
         sx={{
           zIndex: (muiTheme) => muiTheme.zIndex.drawer + 1,
           '& .MuiBackdrop-root': {
-            top: { xs: 64, md: 72 },
+            top: headerOffset,
             bgcolor: 'rgba(3, 12, 46, 0.38)',
           },
           '& .MuiDrawer-paper': {
-            top: { xs: 64, md: 72 },
+            top: headerOffset,
             bottom: 0,
             width: { xs: '94vw', sm: activeNestedCategory ? 920 : 650 },
-            height: { xs: 'calc(100% - 64px)', md: 'calc(100% - 72px)' },
+            height: {
+              xs: `calc(100% - ${headerOffset.xs})`,
+              md: `calc(100% - ${headerOffset.md})`,
+            },
             maxWidth: '100%',
             borderRight: 'none',
             boxShadow: '12px 20px 38px rgba(3, 12, 46, 0.18)',

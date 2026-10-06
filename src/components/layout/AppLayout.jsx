@@ -1,8 +1,9 @@
-import { Box, Toolbar } from '@mui/material'
+import { Box } from '@mui/material'
 import { useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import Navbar from './Navbar'
 import Sidebar, { drawerWidth } from './Sidebar'
+import { headerOffset } from './layoutConstants'
 
 export default function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -32,10 +33,10 @@ export default function AppLayout() {
           flexGrow: 1,
           width: { md: showSidebar ? `calc(100% - ${drawerWidth}px)` : '100%' },
           minWidth: 0,
-          p: { xs: 2, sm: 3, lg: 4 },
+          p: { xs: 1.5, sm: 2.5, lg: 4 },
         }}
       >
-        <Toolbar />
+        <Box aria-hidden="true" sx={{ height: headerOffset }} />
         <Outlet />
       </Box>
     </Box>

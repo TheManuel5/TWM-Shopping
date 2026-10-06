@@ -171,7 +171,18 @@ export default function ProductsPage() {
         </Box>
 
         {/* Filtros — mismo estilo que pedidos */}
-        <Box className="orders-filters" sx={{ gridTemplateColumns: 'minmax(240px, 1.5fr) minmax(180px, 1fr) max-content !important' }}>
+        <Box
+          className="orders-filters products-filters"
+          sx={{
+            gridTemplateColumns: {
+              xs: '1fr !important',
+              sm: 'minmax(220px, 1.5fr) minmax(180px, 1fr) !important',
+              lg: 'minmax(240px, 1.5fr) minmax(180px, 1fr) max-content !important',
+            },
+            '& .orders-search': { gridColumn: { xs: 'auto', sm: '1 / -1', lg: 'auto' } },
+            '& > button': { gridColumn: { xs: 'auto', sm: '1 / -1', lg: 'auto' } },
+          }}
+        >
           <TextField
             className="orders-search"
             size="small"

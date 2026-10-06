@@ -131,8 +131,8 @@ function HeroBanner() {
       sx={{
         position: 'relative',
         overflow: 'hidden',
-        minHeight: 270,
-        p: { xs: 3, sm: 4 },
+        minHeight: { xs: 250, sm: 270 },
+        p: { xs: 2.5, sm: 4 },
         borderRadius: 3,
         color: 'common.white',
         background: 'linear-gradient(115deg, #4d20dc 0%, #7412f8 58%, #6420f4 100%)',
@@ -164,7 +164,7 @@ function HeroBanner() {
             component="h1"
             sx={{
               maxWidth: 430,
-              fontSize: { xs: '2rem', md: '2.45rem' },
+              fontSize: { xs: 'clamp(1.75rem, 9vw, 2rem)', md: '2.45rem' },
               lineHeight: 1.02,
               fontWeight: 900,
               letterSpacing: '-0.035em',
@@ -312,7 +312,7 @@ export default function Home() {
               minHeight: 138,
               p: 2,
               display: 'grid',
-              gridTemplateColumns: 'minmax(0, 1fr) 104px',
+              gridTemplateColumns: { xs: 'minmax(0, 1fr) 88px', sm: 'minmax(0, 1fr) 104px' },
               alignItems: 'center',
               gap: 1.25,
               borderRadius: 2.5,
@@ -344,7 +344,12 @@ export default function Home() {
               component="img"
               src={image}
               alt=""
-              sx={{ width: 104, height: 96, objectFit: 'cover', borderRadius: 2 }}
+              sx={{
+                width: { xs: 88, sm: 104 },
+                height: { xs: 84, sm: 96 },
+                objectFit: 'cover',
+                borderRadius: 2,
+              }}
             />
           </Paper>
         ))}
@@ -387,12 +392,22 @@ export default function Home() {
 
       <Box component="section" id="productos-destacados" sx={{ mt: 2.5, scrollMarginTop: 96 }}>
         <Stack
-          direction="row"
-          sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}
+          direction={{ xs: 'column', sm: 'row' }}
+          sx={{
+            alignItems: { xs: 'flex-start', sm: 'center' },
+            justifyContent: 'space-between',
+            gap: 1,
+            mb: 1.5,
+          }}
         >
           <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
             <ShoppingBagOutlined color="primary" />
-            <Typography component="h2" variant="h5" fontWeight={850}>
+            <Typography
+              component="h2"
+              variant="h5"
+              fontWeight={850}
+              sx={{ fontSize: { xs: '1.35rem', sm: '1.5rem' } }}
+            >
               Productos destacados
             </Typography>
           </Stack>

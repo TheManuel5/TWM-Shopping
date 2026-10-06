@@ -356,7 +356,13 @@ export default function UserProfile() {
               <Typography variant="body2" fontWeight={700} sx={{ mb: 1 }}>
                 Fecha de nacimiento
               </Typography>
-              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 1.5 }}>
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' },
+                  gap: 1.5,
+                }}
+              >
                 <FormControl size="small">
                   <InputLabel id="birth-day-label">Día</InputLabel>
                   <Select

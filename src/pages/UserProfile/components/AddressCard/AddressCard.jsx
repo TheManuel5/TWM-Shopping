@@ -17,7 +17,11 @@ export default function AddressCard({ address, deleteDisabled, onDelete, onEdit,
         borderRadius: 2,
       }}
     >
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{ alignItems: 'flex-start', flexWrap: { xs: 'wrap', sm: 'nowrap' } }}
+      >
         <Radio
           checked={address.primary}
           onChange={onSetPrimary}
@@ -50,7 +54,15 @@ export default function AddressCard({ address, deleteDisabled, onDelete, onEdit,
             </Typography>
           )}
         </Box>
-        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', flexShrink: 0 }}>
+        <Stack
+          direction="row"
+          spacing={0.5}
+          sx={{
+            alignItems: 'center',
+            flexShrink: 0,
+            ml: { xs: 7, sm: 0 },
+          }}
+        >
           <Button size="small" startIcon={<EditOutlined />} onClick={onEdit}>
             Editar
           </Button>

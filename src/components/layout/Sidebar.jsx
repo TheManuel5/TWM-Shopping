@@ -11,10 +11,10 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Toolbar,
   Typography,
 } from '@mui/material'
 import { NavLink } from 'react-router-dom'
+import { desktopHeaderHeight, headerOffset } from './layoutConstants'
 
 export const drawerWidth = 248
 
@@ -25,10 +25,10 @@ const navigationItems = [
   { label: 'Productos', path: '/crud-2', icon: <StorefrontOutlined /> },
 ]
 
-function SidebarContent({ onNavigate }) {
+function SidebarContent({ includeHeaderSpacer = true, onNavigate }) {
   return (
     <>
-      <Toolbar />
+      {includeHeaderSpacer && <div aria-hidden="true" style={{ height: desktopHeaderHeight }} />}
       <Typography
         variant="overline"
         color="text.secondary"
@@ -76,10 +76,14 @@ export default function Sidebar({ mobileOpen, onClose }) {
         ModalProps={{ keepMounted: true }}
         sx={{
           display: { xs: 'block', md: 'none' },
-          '& .MuiDrawer-paper': { width: drawerWidth },
+          '& .MuiDrawer-paper': {
+            top: headerOffset.xs,
+            width: drawerWidth,
+            height: `calc(100% - ${headerOffset.xs})`,
+          },
         }}
       >
-        <SidebarContent onNavigate={onClose} />
+        <SidebarContent includeHeaderSpacer={false} onNavigate={onClose} />
       </Drawer>
 
       <Drawer

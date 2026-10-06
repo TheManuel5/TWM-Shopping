@@ -48,15 +48,20 @@ export default function UserMenu() {
     return (
       <Button
         color="inherit"
-        startIcon={<AccountCircleOutlined />}
         onClick={() => navigate('/login')}
+        aria-label="Iniciar sesión en Mi cuenta"
         sx={{
-          px: { xs: 0.75, sm: 1.5 },
+          minWidth: { xs: 36, sm: 'auto' },
+          px: { xs: 0.5, sm: 1.5 },
+          gap: { xs: 0, sm: 0.75 },
           whiteSpace: 'nowrap',
           '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' },
         }}
       >
-        Mi cuenta
+        <AccountCircleOutlined fontSize="small" />
+        <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+          Mi cuenta
+        </Box>
       </Button>
     )
   }
@@ -69,7 +74,6 @@ export default function UserMenu() {
         aria-controls={menuOpen ? 'user-menu' : undefined}
         aria-haspopup="true"
         aria-expanded={menuOpen ? 'true' : undefined}
-        endIcon={<ExpandMore />}
         sx={{
           minWidth: 0,
           px: { xs: 0.5, sm: 1 },
@@ -90,13 +94,14 @@ export default function UserMenu() {
           {userInitials}
         </Avatar>
         <Box sx={{ display: { xs: 'none', sm: 'block' }, textAlign: 'left' }}>
-          <Typography variant="body2" fontWeight={700} lineHeight={1.1}>
+          <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.1 }}>
             {user.name}
           </Typography>
           <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)' }}>
             {user.role}
           </Typography>
         </Box>
+        <ExpandMore sx={{ display: { xs: 'none', sm: 'block' }, ml: 0.5 }} />
       </Button>
 
       <Menu
