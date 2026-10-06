@@ -100,7 +100,7 @@ function SectionHeading({ icon, title, description, sx }) {
         {icon}
       </Box>
       <Box>
-        <Typography variant="h6" fontWeight={700}>
+        <Typography variant="h6" fontWeight={700} sx={{ fontSize: '1.125rem' }}>
           {title}
         </Typography>
         {description && (
@@ -224,7 +224,16 @@ export default function UserProfile() {
         }}
       >
         <Box>
-          <Typography component="h1" variant="h4" fontWeight={800}>
+          <Typography
+            component="h1"
+            fontWeight={700}
+            sx={{
+              color: '#13234d',
+              fontSize: { xs: '1.75rem', sm: '2.125rem' },
+              lineHeight: 1.1,
+              letterSpacing: 0,
+            }}
+          >
             Mi perfil
           </Typography>
           <Typography color="text.secondary" sx={{ mt: 0.5 }}>
@@ -232,7 +241,14 @@ export default function UserProfile() {
           </Typography>
         </Box>
 
-        <Box sx={{ textAlign: { xs: 'left', md: 'right' } }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: { xs: 'flex-start', md: 'flex-end' },
+            textAlign: { xs: 'left', md: 'right' },
+          }}
+        >
           <ToggleButtonGroup
             value={activeRole}
             exclusive
@@ -244,7 +260,11 @@ export default function UserProfile() {
             <ToggleButton value="comprar">Comprar</ToggleButton>
             <ToggleButton value="vender">Vender</ToggleButton>
           </ToggleButtonGroup>
-          <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ mt: 0.75, display: 'block' }}
+          >
             Puedes cambiar de rol en cualquier momento.
           </Typography>
         </Box>
@@ -258,7 +278,20 @@ export default function UserProfile() {
           alignItems: 'stretch',
         }}
       >
-        <Paper variant="outlined" sx={{ p: { xs: 2.5, sm: 3 }, minWidth: 0 }}>
+        <Paper
+          variant="outlined"
+          sx={{
+            p: { xs: 2.5, sm: 3 },
+            minWidth: 0,
+            '& .MuiOutlinedInput-root': { minHeight: 52 },
+            '& .MuiInputBase-input, & .MuiSelect-select': { fontSize: 16 },
+            '& .MuiInputLabel-root': {
+              fontSize: 16,
+              bgcolor: 'background.paper',
+              px: 0.5,
+            },
+          }}
+        >
           <SectionHeading
             icon={<AccountCircleOutlined />}
             title="Información personal"
@@ -402,11 +435,15 @@ export default function UserProfile() {
               title="Mis direcciones"
             />
             <Button
-              variant="outlined"
-              size="small"
+              variant="contained"
               startIcon={<AddOutlined />}
               onClick={openNewAddressDialog}
-              sx={{ flexShrink: 0 }}
+              sx={{
+                flexShrink: 0,
+                textTransform: 'none',
+                fontWeight: 700,
+                boxShadow: 'none',
+              }}
             >
               Agregar dirección
             </Button>

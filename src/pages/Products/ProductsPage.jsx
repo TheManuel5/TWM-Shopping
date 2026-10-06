@@ -14,7 +14,6 @@ import {
   MenuItem,
   Pagination,
   Paper,
-  Select,
   Snackbar,
   Table,
   TableBody,
@@ -33,7 +32,6 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import FilterAltOutlinedIcon from '@mui/icons-material/FilterAltOutlined'
 import InventoryIcon from '@mui/icons-material/Inventory'
-import SearchIcon from '@mui/icons-material/Search'
 import ProductFormModal from '../../components/crud2/ProductFormModal'
 import PRODUCTOS_INICIALES from '../Crud2/data/productosData'
 import '../../components/orders/Orders.css'
