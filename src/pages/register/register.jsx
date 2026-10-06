@@ -4,6 +4,8 @@ import {
   LockOutlined,
   PersonAddOutlined,
   PersonOutlineOutlined,
+  ShoppingCartOutlined,
+  StorefrontOutlined,
   Visibility,
   VisibilityOff,
 } from '@mui/icons-material'
@@ -16,6 +18,8 @@ import {
   Paper,
   Stack,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from '@mui/material'
 import { useState } from 'react'
@@ -44,7 +48,7 @@ function RegisterField({ children, htmlFor }) {
 
 export default function Register() {
   const navigate = useNavigate()
-  const [formData, setFormData] = useState({ nombre: '', rut: '', email: '', password: '' })
+  const [formData, setFormData] = useState({ nombre: '', rut: '', email: '', password: '', rol: 'cliente' })
   const [showPassword, setShowPassword] = useState(false)
 
   const handleChange = (event) => {
@@ -107,6 +111,52 @@ export default function Register() {
         <Typography color="text.secondary" sx={{ mt: 0.5, mb: 2.5, textAlign: 'center' }}>
           Completa tus datos para registrarte.
         </Typography>
+
+        <Box sx={{ mb: 2 }}>
+          <Typography
+            variant="caption"
+            sx={{ mb: 0.6, display: 'block', fontWeight: 700 }}
+          >
+            Tipo de cuenta
+          </Typography>
+          <ToggleButtonGroup
+            value={formData.rol}
+            exclusive
+            onChange={(_, newRol) => {
+              if (newRol !== null) {
+                setFormData((currentData) => ({ ...currentData, rol: newRol }))
+              }
+            }}
+            fullWidth
+            sx={{
+              height: 48,
+              '& .MuiToggleButton-root': {
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '0.875rem',
+                gap: 1,
+                borderColor: 'divider',
+                color: 'text.secondary',
+                '&.Mui-selected': {
+                  bgcolor: 'primary.main',
+                  color: 'primary.contrastText',
+                  '&:hover': {
+                    bgcolor: 'primary.dark',
+                  },
+                },
+              },
+            }}
+          >
+            <ToggleButton value="cliente">
+              <ShoppingCartOutlined fontSize="small" />
+              Cliente
+            </ToggleButton>
+            <ToggleButton value="vendedor">
+              <StorefrontOutlined fontSize="small" />
+              Vendedor
+            </ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
 
         <Stack spacing={1.5}>
           <Box>
