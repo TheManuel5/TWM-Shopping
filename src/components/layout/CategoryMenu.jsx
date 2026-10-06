@@ -304,7 +304,7 @@ export default function CategoryMenu() {
                         py: 0.25,
                         textAlign: 'left',
                         fontWeight: 500,
-                        color: 'primary.main',
+                        color: 'text.primary',
                       }}
                     >
                       {category.label}
@@ -348,7 +348,7 @@ export default function CategoryMenu() {
                       py: 0.5,
                       textAlign: 'left',
                       fontWeight: 500,
-                      color: 'primary.main',
+                      color: 'text.primary',
                     }}
                   >
                     {category.label}
