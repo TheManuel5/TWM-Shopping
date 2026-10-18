@@ -1,4 +1,4 @@
-import { CheckCircleOutlineOutlined as CheckCircleOutlined } from '@mui/icons-material'
+import { CheckCircleOutline } from '@mui/icons-material'
 import { Box, Button, Link, Paper, Stack, Typography } from '@mui/material'
 import { Link as RouterLink } from 'react-router-dom'
 import AuthPageShell from '../../components/auth/AuthPageShell'
