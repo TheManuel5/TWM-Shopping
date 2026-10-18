@@ -1,5 +1,5 @@
 import { AdminPanelSettingsOutlined, ShoppingCartOutlined, StorefrontOutlined } from '@mui/icons-material'
-import { Box, Button, Paper } from '@mui/material'
+import { Button, Paper } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 import useAuth from '../../../contexts/AuthContext/useAuth'
 

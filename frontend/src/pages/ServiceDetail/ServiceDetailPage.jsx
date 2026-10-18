@@ -30,10 +30,7 @@ import {
 } from '@mui/material'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import applianceImage from '../../assets/products/appliance.jpg'
-import chairImage from '../../assets/products/chair.jpg'
 import laptopImage from '../../assets/products/laptop.jpg'
-import phoneImage from '../../assets/products/phone.jpg'
 import ReviewsAndQASection from '../../components/organisms/ReviewsAndQASection/ReviewsAndQASection'
 
 export default function ServiceDetailPage() {
