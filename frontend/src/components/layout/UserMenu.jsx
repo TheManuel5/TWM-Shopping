@@ -5,7 +5,6 @@ import {
   SettingsOutlined,
 } from '@mui/icons-material'
 import {
-  Avatar,
   Box,
   Button,
   Divider,
@@ -66,16 +65,8 @@ export default function UserMenu() {
   const nombreReal = userData.nombre || userData.Nombre || userData.name || ''
   const apellidoReal = userData.apellido || userData.Apellido || ''
   const rutReal = userData.run || userData.Run || userData.rut || userData.Rut || ''
-  const rolReal = userData.rol || userData.Role || userData.role || 'Usuario'
 
   const fullName = nombreReal ? `${nombreReal} ${apellidoReal}`.trim() : 'Usuario'
-  
-  const userInitials = fullName
-    .split(' ')
-    .slice(0, 2)
-    .map((namePart) => namePart.charAt(0))
-    .join('')
-    .toUpperCase()
 
   return (
     <>
@@ -86,33 +77,18 @@ export default function UserMenu() {
         aria-haspopup="true"
         aria-expanded={menuOpen ? 'true' : undefined}
         sx={{
-          minWidth: 0,
-          px: { xs: 0.5, sm: 1 },
+          minWidth: { xs: 38, sm: 'auto' },
+          px: { xs: 0.75, sm: 1 },
           borderRadius: 2,
+          fontWeight: 600,
           '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' },
         }}
       >
-        <Avatar
-          sx={{
-            width: 34,
-            height: 34,
-            mr: { xs: 0, sm: 1 },
-            bgcolor: 'primary.main',
-            fontSize: '0.875rem',
-            fontWeight: 700,
-          }}
-        >
-          {userInitials}
-        </Avatar>
-        <Box sx={{ display: { xs: 'none', sm: 'block' }, textAlign: 'left' }}>
-          <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.1 }}>
-            {fullName}
-          </Typography>
-          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', textTransform: 'capitalize' }}>
-            {rolReal}
-          </Typography>
+        <AccountCircleOutlined fontSize="small" />
+        <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' }, ml: 0.75, whiteSpace: 'nowrap' }}>
+          Mi cuenta
         </Box>
-        <ExpandMoreOutlined sx={{ display: { xs: 'none', sm: 'block' }, ml: 0.5 }} />
+        <ExpandMoreOutlined sx={{ display: { xs: 'none', sm: 'block' }, ml: 0.25, fontSize: 18 }} />
       </Button>
 
       <Menu

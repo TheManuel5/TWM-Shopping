@@ -1,7 +1,6 @@
 import {
   FavoriteBorderOutlined,
-  KeyboardArrowDownOutlined,
-  LocationOnOutlined,
+  GridViewRounded,
   Menu as MenuIcon,
   SearchOutlined,
   ShoppingBagOutlined,
@@ -12,68 +11,100 @@ import {
   Badge,
   Box,
   Button,
-  Container,
   IconButton,
   InputAdornment,
   InputBase,
-  Menu,
-  MenuItem,
   Paper,
   Toolbar,
   Typography,
 } from '@mui/material'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import useAuth from '../../contexts/AuthContext/useAuth'
 import CategoryMenu from './CategoryMenu'
 import UserMenu from './UserMenu'
 
-const COMUNAS_DISPONIBLES = ['Osorno', 'Puerto Montt', 'Puerto Varas', 'Frutillar', 'Valdivia']
+function SearchForm({ searchTerm, onSearchTermChange, onSubmit, mobile = false }) {
+  return (
+    <Paper
+      component="form"
+      onSubmit={onSubmit}
+      elevation={0}
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        flexGrow: 1,
+        minWidth: 0,
+        height: mobile ? 46 : 42,
+        p: '3px 4px 3px 12px',
+        borderRadius: 2,
+        bgcolor: '#ffffff',
+        border: '1px solid',
+        borderColor: mobile ? 'divider' : 'transparent',
+      }}
+    >
+      <InputBase
+        fullWidth
+        value={searchTerm}
+        onChange={(event) => onSearchTermChange(event.target.value)}
+        placeholder="¿Qué estás buscando?"
+        inputProps={{ 'aria-label': 'Buscar productos y servicios' }}
+        startAdornment={
+          <InputAdornment position="start">
+            <SearchOutlined fontSize="small" sx={{ color: '#8690aa' }} />
+          </InputAdornment>
+        }
+        sx={{ fontSize: '0.9rem', color: 'text.primary' }}
+      />
+      <Button type="submit" variant="contained" sx={{ height: 34, px: { xs: 2, md: 2.75 }, borderRadius: 1.5 }}>
+        Buscar
+      </Button>
+    </Paper>
+  )
+}
 
 export default function Navbar({ onMenuClick, showSidebarToggle = true }) {
   const [searchTerm, setSearchTerm] = useState('')
-  const [anchorLoc, setAnchorLoc] = useState(null)
-  const { selectedComuna = 'Osorno', setSelectedComuna } = useAuth()
+  const [categoryOpen, setCategoryOpen] = useState(false)
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const navigate = useNavigate()
 
   const handleSearch = (event) => {
     event.preventDefault()
-    navigate(`/catalogo?q=${encodeURIComponent(searchTerm.trim())}`)
+    const normalizedSearch = searchTerm.trim()
+    setMobileSearchOpen(false)
+    navigate(`/catalogo${normalizedSearch ? `?q=${encodeURIComponent(normalizedSearch)}` : ''}`)
   }
 
   return (
-    <AppBar
-      position="fixed"
-      elevation={0}
-      color="inherit"
-      sx={{
-        zIndex: (muiTheme) => muiTheme.zIndex.drawer + 2,
-        bgcolor: 'background.paper',
-        color: 'text.primary',
-        borderBottom: '1px solid',
-        borderColor: 'divider',
-      }}
-    >
-      <Container maxWidth="xl">
+    <>
+      <AppBar
+        position="fixed"
+        elevation={0}
+        sx={{
+          zIndex: (theme) => theme.zIndex.drawer + 2,
+          bgcolor: '#050d25',
+          color: '#ffffff',
+          borderBottom: '2px solid',
+          borderColor: 'primary.main',
+        }}
+      >
         <Toolbar
           disableGutters
           sx={{
-            minHeight: 68,
+            minHeight: { xs: '60px !important', md: '64px !important' },
+            px: { xs: 1.25, sm: 2, lg: 3.5 },
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: { xs: 1, md: 2.5 },
+            gap: { xs: 0.5, sm: 1, lg: 2 },
           }}
         >
-          {/* Logo Shopping + Selector Ubicación */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, md: 2 } }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 }, flexShrink: 0 }}>
             {showSidebarToggle && (
               <IconButton
                 color="inherit"
-                edge="start"
                 onClick={onMenuClick}
-                aria-label="abrir navegación"
-                sx={{ display: { md: 'none' } }}
+                aria-label="Abrir navegación de usuario"
+                sx={{ display: { xs: 'inline-flex', md: 'none' } }}
               >
                 <MenuIcon />
               </IconButton>
@@ -81,22 +112,17 @@ export default function Navbar({ onMenuClick, showSidebarToggle = true }) {
 
             <Box
               onClick={() => navigate('/inicio')}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-                cursor: 'pointer',
-              }}
+              sx={{ display: 'flex', alignItems: 'center', gap: 0.75, cursor: 'pointer' }}
             >
               <Box
                 sx={{
                   display: 'grid',
                   placeItems: 'center',
-                  width: 38,
-                  height: 38,
+                  width: { xs: 34, md: 38 },
+                  height: { xs: 34, md: 38 },
                   bgcolor: 'primary.main',
-                  color: '#fff',
-                  borderRadius: 2.5,
+                  color: '#ffffff',
+                  borderRadius: 2,
                 }}
               >
                 <ShoppingBagOutlined fontSize="small" />
@@ -104,140 +130,121 @@ export default function Navbar({ onMenuClick, showSidebarToggle = true }) {
               <Typography
                 variant="h6"
                 sx={{
+                  display: { xs: 'none', sm: 'block' },
                   fontWeight: 900,
-                  letterSpacing: '-0.5px',
-                  color: 'text.primary',
+                  letterSpacing: '-0.4px',
+                  color: '#ffffff',
                 }}
               >
                 Shopping
               </Typography>
             </Box>
 
-            {/* Enviar a Osorno (P01-P23) */}
             <Button
               color="inherit"
-              size="small"
-              onClick={(e) => setAnchorLoc(e.currentTarget)}
-              startIcon={<LocationOnOutlined color="primary" />}
-              endIcon={<KeyboardArrowDownOutlined fontSize="small" />}
+              onClick={() => setCategoryOpen((current) => !current)}
+              startIcon={<GridViewRounded fontSize="small" />}
+              aria-haspopup="dialog"
+              aria-expanded={categoryOpen}
               sx={{
-                display: { xs: 'none', sm: 'inline-flex' },
-                textAlign: 'left',
-                px: 1.25,
-                py: 0.5,
-                borderRadius: 2,
+                minWidth: { xs: 38, sm: 'auto' },
+                px: { xs: 0.75, sm: 1.25 },
+                fontWeight: 700,
+                bgcolor: categoryOpen ? 'rgba(255,255,255,0.14)' : 'transparent',
+                '&:hover': { bgcolor: 'rgba(255,255,255,0.12)' },
+                '& .MuiButton-startIcon': { mr: { xs: 0, sm: 0.75 } },
               }}
             >
-              <Box sx={{ lineHeight: 1.1 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.68rem' }}>
-                  Enviar a
-                </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                  {selectedComuna}
-                </Typography>
+              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                Categorías
               </Box>
             </Button>
-            <Menu
-              anchorEl={anchorLoc}
-              open={Boolean(anchorLoc)}
-              onClose={() => setAnchorLoc(null)}
-            >
-              {COMUNAS_DISPONIBLES.map((comuna) => (
-                <MenuItem
-                  key={comuna}
-                  selected={comuna === selectedComuna}
-                  onClick={() => {
-                    setSelectedComuna?.(comuna)
-                    setAnchorLoc(null)
-                  }}
-                >
-                  {comuna}
-                </MenuItem>
-              ))}
-            </Menu>
           </Box>
 
-          {/* Barra de búsqueda central */}
-          <Paper
-            component="form"
-            onSubmit={handleSearch}
-            elevation={0}
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              flexGrow: 1,
-              maxWidth: 640,
-              height: 44,
-              p: '3px 4px 3px 14px',
-              borderRadius: 2.5,
-              bgcolor: '#f7f6ff',
-              border: '1px solid',
-              borderColor: 'divider',
-            }}
-          >
-            <InputBase
-              fullWidth
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="¿Qué estás buscando?"
-              startAdornment={
-                <InputAdornment position="start">
-                  <SearchOutlined fontSize="small" sx={{ color: 'text.secondary' }} />
-                </InputAdornment>
-              }
-              sx={{ fontSize: '0.92rem' }}
+          <Box sx={{ display: { xs: 'none', md: 'flex' }, flexGrow: 1, maxWidth: 680, mx: 'auto', minWidth: 180 }}>
+            <SearchForm
+              searchTerm={searchTerm}
+              onSearchTermChange={setSearchTerm}
+              onSubmit={handleSearch}
             />
-            <Button
-              type="submit"
-              variant="contained"
-              sx={{ height: 36, px: 2.5, borderRadius: 2 }}
-            >
-              Buscar
-            </Button>
-          </Paper>
+          </Box>
 
-          {/* Acciones Derecha: Mi cuenta, Favoritos, Carrito */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, md: 1.5 } }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0, sm: 0.25, lg: 0.75 }, flexShrink: 0 }}>
+            <IconButton
+              color="inherit"
+              onClick={() => setMobileSearchOpen((current) => !current)}
+              aria-label="Abrir búsqueda"
+              sx={{ display: { xs: 'inline-flex', md: 'none' } }}
+            >
+              <SearchOutlined />
+            </IconButton>
+
             <UserMenu />
 
             <Button
               color="inherit"
               onClick={() => navigate('/favoritos')}
-              startIcon={
-                <Badge badgeContent={8} color="primary">
-                  <FavoriteBorderOutlined />
-                </Badge>
-              }
-              sx={{ display: { xs: 'none', md: 'inline-flex' }, fontWeight: 600 }}
+              startIcon={<FavoriteBorderOutlined />}
+              sx={{
+                minWidth: { xs: 38, lg: 'auto' },
+                px: { xs: 0.75, lg: 1 },
+                fontWeight: 600,
+                '& .MuiButton-startIcon': { mr: { xs: 0, lg: 0.75 } },
+                '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' },
+              }}
             >
-              Favoritos
+              <Box component="span" sx={{ display: { xs: 'none', lg: 'inline' } }}>
+                Favoritos
+              </Box>
             </Button>
 
             <Button
               color="inherit"
               onClick={() => navigate('/carrito')}
               startIcon={
-                <Badge badgeContent={3} color="primary">
+                <Badge badgeContent={0} showZero color="primary">
                   <ShoppingCartOutlined />
                 </Badge>
               }
-              sx={{ fontWeight: 700 }}
+              sx={{
+                minWidth: { xs: 38, sm: 'auto' },
+                px: { xs: 0.75, sm: 1 },
+                fontWeight: 700,
+                '& .MuiButton-startIcon': { mr: { xs: 0, sm: 0.75 } },
+                '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' },
+              }}
             >
-              <Box sx={{ display: { xs: 'none', sm: 'block' }, textAlign: 'left', lineHeight: 1.1 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.68rem' }}>
-                  Carrito
-                </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 800 }}>
-                  $49.980
-                </Typography>
+              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                Carrito
               </Box>
             </Button>
           </Box>
         </Toolbar>
-      </Container>
 
-      {/* Segunda barra horizontal con Mega-Menú P02 */}
-      <CategoryMenu />
-    </AppBar>
+        {mobileSearchOpen && (
+          <Box
+            sx={{
+              display: { xs: 'block', md: 'none' },
+              position: 'absolute',
+              top: { xs: 60, md: 64 },
+              left: 0,
+              right: 0,
+              p: 1,
+              bgcolor: '#050d25',
+              boxShadow: '0 12px 24px rgba(3,12,46,0.22)',
+            }}
+          >
+            <SearchForm
+              mobile
+              searchTerm={searchTerm}
+              onSearchTermChange={setSearchTerm}
+              onSubmit={handleSearch}
+            />
+          </Box>
+        )}
+      </AppBar>
+
+      {categoryOpen && <CategoryMenu open onClose={() => setCategoryOpen(false)} />}
+    </>
   )
 }
