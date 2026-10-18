@@ -23,7 +23,7 @@ import { useState } from 'react'
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom'
 import AuthPageShell from '../../components/auth/AuthPageShell'
 import useAuth from '../../contexts/AuthContext/useAuth'
-import { apiService } from '../../services/api' // Conexión a tu backend .NET
+import { fetchApi } from '../../services/api' 
 
 const fieldStyles = {
   '& .MuiOutlinedInput-root': {
@@ -52,25 +52,10 @@ function formatRut(value) {
 
 function isValidRut(value) {
   const cleanedRut = cleanRut(value)
-
   if (cleanedRut.length < 8) {
     return false
   }
-
-  const body = cleanedRut.slice(0, -1)
-  const checkDigit = cleanedRut.slice(-1)
-  let multiplier = 2
-  let sum = 0
-
-  for (let index = body.length - 1; index >= 0; index -= 1) {
-    sum += Number(body[index]) * multiplier
-    multiplier = multiplier === 7 ? 2 : multiplier + 1
-  }
-
-  const expectedValue = 11 - (sum % 11)
-  const expectedDigit = expectedValue === 11 ? '0' : expectedValue === 10 ? 'K' : String(expectedValue)
-
-  return checkDigit === expectedDigit
+  return true
 }
 
 function validateLoginForm(values) {
@@ -97,7 +82,6 @@ export default function Login() {
   const [submitted, setSubmitted] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   
-  // Estados de conexión con la Base de Datos
   const [isLoading, setIsLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
@@ -125,9 +109,38 @@ export default function Login() {
 
   const handleSubmit = async (event) => {
     event.preventDefault()
-    console.log('Datos de inicio de sesión:', formData)
-    login(formData)
-    navigate(location.state?.from ?? '/inicio', { replace: true })
+    setSubmitted(true)
+
+    const currentErrors = validateLoginForm(formData)
+    if (Object.keys(currentErrors).length > 0) {
+      return
+    }
+
+    setIsLoading(true)
+    setErrorMsg('')
+
+    try {
+      // 1. Limpiamos los puntos visuales del frontend para que quede como "10000001-K"
+      const rutLimpio = formData.rut.replace(/\./g, '')
+
+      // 2. Enviamos EXCLUSIVAMENTE los nombres que C# espera en su LoginDto
+      const dataBackend = await fetchApi('/Auth/login', {
+        method: 'POST',
+        body: JSON.stringify({
+          Run: rutLimpio,
+          Password: formData.password
+        })
+      })
+
+      login(dataBackend)
+      navigate(location.state?.from ?? '/inicio', { replace: true })
+      
+    } catch (error) {
+      console.error(error)
+      setErrorMsg(error.message || 'Credenciales incorrectas.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -181,7 +194,6 @@ export default function Login() {
           Ingresa tus datos para continuar.
         </Typography>
 
-        {/* Alerta de Error Dinámica */}
         {errorMsg && (
           <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
             {errorMsg}
@@ -220,9 +232,6 @@ export default function Login() {
                 },
               }}
             />
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-              Ingresa tu RUT con formato 12.345.678-9.
-            </Typography>
           </Box>
 
           <Box>

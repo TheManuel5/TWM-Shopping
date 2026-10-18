@@ -60,8 +60,15 @@ export default function UserMenu() {
     )
   }
 
-  // MAGIA AQUÍ: Concatenamos los datos reales que vienen de PostgreSQL vía .NET
-  const fullName = user.nombre && user.apellido ? `${user.nombre} ${user.apellido}` : (user.name || 'Usuario')
+  // MAGIA AQUÍ: Interceptamos el objeto anidado que manda C#
+  const userData = user.user || user || {}
+  
+  const nombreReal = userData.nombre || userData.Nombre || userData.name || ''
+  const apellidoReal = userData.apellido || userData.Apellido || ''
+  const rutReal = userData.run || userData.Run || userData.rut || userData.Rut || ''
+  const rolReal = userData.rol || userData.Role || userData.role || 'Usuario'
+
+  const fullName = nombreReal ? `${nombreReal} ${apellidoReal}`.trim() : 'Usuario'
   
   const userInitials = fullName
     .split(' ')
@@ -101,9 +108,8 @@ export default function UserMenu() {
           <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.1 }}>
             {fullName}
           </Typography>
-          {/* Mostramos el Rol que viene desde la BD y lo ponemos en mayúscula inicial */}
           <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', textTransform: 'capitalize' }}>
-            {user.rol || user.role}
+            {rolReal}
           </Typography>
         </Box>
         <ExpandMoreOutlined sx={{ display: { xs: 'none', sm: 'block' }, ml: 0.5 }} />
@@ -134,7 +140,7 @@ export default function UserMenu() {
             {fullName}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            RUT: {user.run || user.rut}
+            RUT: {rutReal}
           </Typography>
         </Box>
         <Divider />

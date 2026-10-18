@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("TWM.API")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5b0c7e147428e574662213ee76c694d6d93ecf55")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+52004e0905ea5845f3baa2494c3be463d895b8c0")]
 [assembly: System.Reflection.AssemblyProductAttribute("TWM.API")]
 [assembly: System.Reflection.AssemblyTitleAttribute("TWM.API")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
