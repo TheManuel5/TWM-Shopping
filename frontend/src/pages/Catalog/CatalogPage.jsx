@@ -22,7 +22,6 @@ import {
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import applianceImage from '../../assets/products/appliance.jpg'
-import chairImage from '../../assets/products/chair.jpg'
 import fashionImage from '../../assets/products/fashion.jpg'
 import shoeImage from '../../assets/products/shoe.jpg'
 import ColorSwatch from '../../components/atoms/ColorSwatch/ColorSwatch'
@@ -92,7 +91,7 @@ export default function CatalogPage() {
         }))
 
         setProducts(adaptedData)
-      } catch (err) {
+      } catch {
         setError('No se pudo conectar con la base de datos PostgreSQL.')
       } finally {
         setLoading(false)
