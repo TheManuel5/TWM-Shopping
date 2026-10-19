@@ -8,16 +8,21 @@ import {
   Box,
   Button,
   Card,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Grid,
   MenuItem,
   Paper,
   Select,
+  Snackbar,
   Stack,
   Tab,
   Tabs,
   Typography,
 } from '@mui/material'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import applianceImage from '../../assets/products/appliance.jpg'
 import chairImage from '../../assets/products/chair.jpg'
@@ -49,11 +54,43 @@ export default function OrdersReturnsPage() {
   const [selectedDev, setSelectedDev] = useState('DEV-008')
   const [reason, setReason] = useState('Talla incorrecta')
   const [returnQty, setReturnQty] = useState(1)
+  const [statusFilter, setStatusFilter] = useState('Todas')
+  const [notice, setNotice] = useState('')
+  const [instructionsOpen, setInstructionsOpen] = useState(false)
+  const [photos, setPhotos] = useState([])
+  const photoInputRef = useRef(null)
 
-  const activeReturn = returnsList.find((r) => r.id === selectedDev) || returnsList[0]
+  useEffect(() => () => {
+    photos.forEach((photo) => URL.revokeObjectURL(photo.preview))
+  }, [photos])
+
+  const visibleReturns = returnsList.filter((item) => statusFilter === 'Todas' || item.status === statusFilter)
+  const activeReturn = visibleReturns.find((r) => r.id === selectedDev) ?? visibleReturns[0] ?? null
+  const validReturnQty = Number.isInteger(returnQty) && returnQty >= 1 && returnQty <= 2
+  const resetForm = () => {
+    setReason('Talla incorrecta')
+    setReturnQty(1)
+    setPhotos([])
+    if (photoInputRef.current) photoInputRef.current.value = ''
+  }
+  const handlePhotos = (event) => {
+    const files = [...(event.target.files ?? [])]
+    const validFiles = files.filter((file) => ['image/jpeg', 'image/png', 'image/webp'].includes(file.type) && file.size <= 5 * 1024 * 1024)
+    const freeSlots = Math.max(0, 3 - photos.length)
+    const incoming = validFiles.slice(0, freeSlots).map((file) => ({ file, preview: URL.createObjectURL(file) }))
+    if (validFiles.length !== files.length || validFiles.length > freeSlots) {
+      setNotice('Máximo 3 imágenes JPG/PNG/WebP de hasta 5 MB cada una')
+    }
+    setPhotos((current) => [...current, ...incoming])
+    event.target.value = ''
+  }
 
   const handleCreateReturn = () => {
-    const newId = `DEV-00${returnsList.length + 5}`
+    if (!validReturnQty || !reason) {
+      setNotice('Selecciona un motivo y una cantidad válida')
+      return
+    }
+    const newId = `DEV-${Date.now()}`
     const created = {
       id: newId,
       orderId: '#1032',
@@ -63,7 +100,14 @@ export default function OrdersReturnsPage() {
       date: 'Hoy',
       status: 'En proceso',
       image: shoeImage,
+      reason,
     }
+    console.log('Solicitud de devolución simulada (no enviada al backend):', {
+      id: newId, pedido: created.orderId, motivo: reason, cantidad: returnQty,
+      fotos: photos.map(({ file }) => file.name),
+    })
+    setNotice('Devolución creada solo en esta demostración; no se envió al servidor')
+    resetForm()
     setReturnsList((prev) => [created, ...prev])
     setSelectedDev(newId)
   }
@@ -79,22 +123,36 @@ export default function OrdersReturnsPage() {
 
       <Tabs
         value={tab}
+        variant="scrollable"
+        scrollButtons="auto"
         onChange={(_, v) => setTab(v)}
         sx={{ mb: 3, borderBottom: '1px solid', borderColor: 'divider' }}
       >
-        <Tab value="Compras" label="Compras" onClick={() => navigate('/pedido/1032')} />
+        <Tab value="Compras" label="Compras" />
         <Tab value="Devoluciones" label="Devoluciones" />
       </Tabs>
 
-      <Grid container spacing={2.5}>
+      {tab === 'Compras' ? (
+        <Card sx={{ p: 3 }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2}>
+            <Stack spacing={0.5}>
+              <Typography variant="subtitle1" fontWeight={800}>Pedido #1032 — ejemplo de compra</Typography>
+              <Typography variant="body2" color="text.secondary">20 sep 2026 · Tienda Sur · 2 productos</Typography>
+              <Typography variant="caption" color="text.secondary">El historial real requiere datos del backend.</Typography>
+            </Stack>
+            <Button variant="outlined" onClick={() => navigate('/pedido/1032')}>Ver seguimiento de ejemplo</Button>
+          </Stack>
+        </Card>
+      ) : <Grid container spacing={2.5}>
         {/* Columna Izquierda: Listado de Expedientes DEV (P14) */}
         <Grid item xs={12} md={4}>
-          <Select fullWidth size="small" value="Todas" sx={{ bgcolor: 'background.paper', mb: 2 }}>
+          <Select fullWidth size="small" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} sx={{ bgcolor: 'background.paper', mb: 2 }}>
             <MenuItem value="Todas">Todas las devoluciones</MenuItem>
+            {['Aprobada', 'En proceso', 'Rechazada', 'Finalizada'].map((status) => <MenuItem key={status} value={status}>{status}</MenuItem>)}
           </Select>
 
           <Stack spacing={1.5}>
-            {returnsList.map((dev) => {
+            {visibleReturns.map((dev) => {
               const selected = dev.id === activeReturn.id
               return (
                 <Card
@@ -191,10 +249,15 @@ export default function OrdersReturnsPage() {
                     Fotos de respaldo (opcional)
                   </Typography>
                   <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-                    {[shoeImage, chairImage].map((img, i) => (
-                      <Box key={i} component="img" src={img} alt="" sx={{ width: 58, height: 58, borderRadius: 2, objectFit: 'cover' }} />
+                    {photos.map((photo) => (
+                      <Box key={photo.preview} component="img" src={photo.preview} alt={`Foto adjunta: ${photo.file.name}`} sx={{ width: 58, height: 58, borderRadius: 2, objectFit: 'cover' }} />
                     ))}
+                    <input ref={photoInputRef} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onChange={handlePhotos} />
                     <Paper
+                      component="button"
+                      type="button"
+                      onClick={() => photoInputRef.current?.click()}
+                      disabled={photos.length >= 3}
                       variant="outlined"
                       sx={{
                         width: 110,
@@ -204,7 +267,8 @@ export default function OrdersReturnsPage() {
                         flexDirection: 'column',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        cursor: 'pointer',
+                        cursor: photos.length >= 3 ? 'not-allowed' : 'pointer',
+                        bgcolor: 'background.paper',
                       }}
                     >
                       <AddPhotoAlternateOutlined fontSize="small" color="primary" />
@@ -213,8 +277,8 @@ export default function OrdersReturnsPage() {
                   </Stack>
 
                   <Stack direction="row" justifyContent="flex-end" spacing={1.5}>
-                    <Button variant="outlined">Cancelar</Button>
-                    <Button variant="contained" onClick={handleCreateReturn}>
+                    <Button variant="outlined" onClick={resetForm}>Cancelar</Button>
+                    <Button variant="contained" onClick={handleCreateReturn} disabled={!validReturnQty || !reason}>
                       Solicitar devolución
                     </Button>
                   </Stack>
@@ -223,7 +287,7 @@ export default function OrdersReturnsPage() {
             </Card>
 
             {/* Bloque Inferior: Seguimiento del Expediente y Reembolso (P14) */}
-            <Card sx={{ p: 3 }}>
+            {activeReturn ? <Card sx={{ p: 3 }}>
               <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
                 <Box>
                   <Typography variant="h6">Solicitud de devolución {activeReturn.id}</Typography>
@@ -235,7 +299,7 @@ export default function OrdersReturnsPage() {
               </Stack>
 
               <OrderStepper
-                activeStep={activeReturn.status === 'Finalizada' ? 4 : 2}
+                activeStep={activeReturn.status === 'Finalizada' ? 4 : activeReturn.status === 'Aprobada' ? 2 : 1}
                 steps={RETURN_STEPS}
               />
 
@@ -264,13 +328,13 @@ export default function OrdersReturnsPage() {
                       <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
                         Estado del reembolso
                       </Typography>
-                      <StatusChip status={activeReturn.status === 'Finalizada' ? 'Completado' : 'En proceso'} />
+                      <StatusChip status={activeReturn.status === 'Finalizada' ? 'Completado' : activeReturn.status === 'Rechazada' ? 'Rechazada' : 'En proceso'} />
                     </Stack>
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
-                      Tu reembolso se está gestionando. Te avisaremos apenas se haya acreditado en tu cuenta.
+                      {activeReturn.status === 'Rechazada' ? 'La devolución de ejemplo fue rechazada; no hay reembolso pendiente.' : 'El estado del reembolso es demostrativo y no está conectado a pagos reales.'}
                     </Typography>
                     <Stack direction="row" spacing={1}>
-                      <Button variant="outlined" size="small" fullWidth>
+                      <Button variant="outlined" size="small" fullWidth onClick={() => setInstructionsOpen(true)}>
                         Ver instrucciones
                       </Button>
                       <Button
@@ -286,10 +350,18 @@ export default function OrdersReturnsPage() {
                   </Paper>
                 </Grid>
               </Grid>
-            </Card>
+            </Card> : <Card sx={{ p: 3 }}><Typography color="text.secondary">No hay devoluciones con el filtro seleccionado.</Typography></Card>}
           </Stack>
         </Grid>
-      </Grid>
+      </Grid>}
+      <Dialog open={instructionsOpen} onClose={() => setInstructionsOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Instrucciones de devolución</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">Esta vista es una demostración. Cuando la devolución esté conectada al backend, aquí aparecerán las instrucciones de despacho y entrega proporcionadas por la tienda.</Typography>
+        </DialogContent>
+        <DialogActions><Button onClick={() => setInstructionsOpen(false)}>Cerrar</Button></DialogActions>
+      </Dialog>
+      <Snackbar open={Boolean(notice)} autoHideDuration={4000} message={notice} onClose={() => setNotice('')} />
     </Box>
   )
 }

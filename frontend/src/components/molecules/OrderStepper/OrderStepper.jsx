@@ -1,4 +1,4 @@
-import { Step, StepLabel, Stepper, Typography } from '@mui/material'
+import { Step, StepLabel, Stepper, Typography, useMediaQuery } from '@mui/material'
 
 const DEFAULT_STEPS = [
   { label: 'Recibido', description: 'Tu pedido fue registrado' },
@@ -8,14 +8,16 @@ const DEFAULT_STEPS = [
 ]
 
 export default function OrderStepper({ activeStep = 1, steps = DEFAULT_STEPS }) {
+  const isMobile = useMediaQuery('(max-width:600px)')
+  const safeStep = Math.max(0, Math.min(Number(activeStep) || 0, steps.length))
   return (
-    <Stepper activeStep={activeStep} alternativeLabel sx={{ py: 2 }}>
+    <Stepper activeStep={safeStep} orientation={isMobile ? 'vertical' : 'horizontal'} alternativeLabel={!isMobile} sx={{ py: 2, maxWidth: '100%' }}>
       {steps.map((step, index) => (
-        <Step key={step.label} completed={index < activeStep}>
+        <Step key={step.label} completed={index < safeStep}>
           <StepLabel
              optional={
               step.description && (
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center' }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: isMobile ? 'left' : 'center' }}>
                   {step.description}
                 </Typography>
               )

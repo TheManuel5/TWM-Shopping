@@ -16,16 +16,19 @@ import {
   Breadcrumbs,
   Button,
   Card,
+  Alert,
   Divider,
   Grid,
   IconButton,
   Link,
   Paper,
+  Snackbar,
   Stack,
   Typography,
 } from '@mui/material'
 import { jsPDF } from 'jspdf'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
+import { useState } from 'react'
 import chairImage from '../../assets/products/chair.jpg'
 import shoeImage from '../../assets/products/shoe.jpg'
 import StatusChip from '../../components/atoms/StatusChip/StatusChip'
@@ -33,15 +36,27 @@ import OrderStepper from '../../components/molecules/OrderStepper/OrderStepper'
 
 export default function OrderTrackingPage() {
   const navigate = useNavigate()
+  const { id } = useParams()
+  const [notice, setNotice] = useState('')
+  const isExampleOrder = !id || id === '1032'
+
+  const handleCopyTracking = async () => {
+    try {
+      await navigator.clipboard.writeText('9087654321')
+      setNotice('Número de seguimiento copiado')
+    } catch {
+      setNotice('No se pudo copiar el número de seguimiento')
+    }
+  }
 
   const handleDownloadInvoicePDF = () => {
     const doc = new jsPDF()
     doc.setFontSize(16)
-    doc.text('SHOPPING - COMPROBANTE DE VENTA (BOLETA)', 14, 20)
+    doc.text('SHOPPING - RESUMEN DE COMPRA (DEMO)', 14, 20)
     doc.setFontSize(10)
     doc.text('Pedido N°: #1032   |   Fecha: 20 de septiembre de 2026', 14, 30)
     doc.text('Vendedor: Tienda Sur (RUT: 76.123.456-7) - Osorno', 14, 37)
-    doc.text('Cliente: Ana Rodríguez (RUT: 12.345.678-9)', 14, 44)
+    doc.text('Cliente: datos de demostración, no asociados a una sesión real', 14, 44)
     doc.line(14, 50, 196, 50)
 
     doc.text('1x Zapatillas New Balance 574 Hombre Gris (Talla 42) ..... $29.990', 14, 60)
@@ -56,11 +71,23 @@ export default function OrderTrackingPage() {
     doc.text('Medio de Pago: Visa terminada en **** 4242', 14, 112)
     doc.text('Despacho: Chilexpress | N° Seguimiento: 9087654321 | Estado: En preparación', 14, 119)
 
-    doc.save('Comprobante_Venta_Pedido_1032.pdf')
+    doc.text('DOCUMENTO DEMOSTRATIVO - NO ES BOLETA TRIBUTARIA', 14, 136)
+    doc.save('Resumen_Demo_Pedido_1032.pdf')
+  }
+
+  if (!isExampleOrder) {
+    return (
+      <Card sx={{ p: 3, maxWidth: 720, mx: 'auto' }}>
+        <Typography variant="h5" fontWeight={800}>Pedido no disponible</Typography>
+        <Typography color="text.secondary" sx={{ my: 2 }}>No hay información de demostración para el pedido #{id}. El seguimiento real debe consultarse al backend.</Typography>
+        <Button variant="outlined" onClick={() => navigate('/mis-compras')}>Volver a mis compras</Button>
+      </Card>
+    )
   }
 
   return (
     <Box sx={{ maxWidth: 1180, mx: 'auto' }}>
+      <Alert severity="info" sx={{ mb: 2 }}>Pedido de demostración #1032. No corresponde a una compra real de la sesión actual.</Alert>
       <Breadcrumbs sx={{ mb: 2, fontSize: '0.85rem' }}>
         <Link underline="hover" color="inherit" onClick={() => navigate('/perfil')} sx={{ cursor: 'pointer' }}>
           Mi cuenta
@@ -216,7 +243,7 @@ export default function OrderTrackingPage() {
                 <Typography variant="body2" color="text.secondary">N° de seguimiento</Typography>
                 <Stack direction="row" spacing={0.5} alignItems="center">
                   <Typography variant="body2" sx={{ fontWeight: 800 }}>9087654321</Typography>
-                  <IconButton size="small" onClick={() => navigator.clipboard?.writeText('9087654321')}>
+                  <IconButton size="small" onClick={handleCopyTracking} aria-label="Copiar número de seguimiento">
                     <ContentCopyOutlined sx={{ fontSize: 15 }} />
                   </IconButton>
                 </Stack>
@@ -251,7 +278,7 @@ export default function OrderTrackingPage() {
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25}>
             <Button variant="contained" startIcon={<DescriptionOutlined />} onClick={handleDownloadInvoicePDF} sx={{ flexGrow: 1 }}>
-              Ver comprobante
+              Descargar resumen (demo)
             </Button>
             <Button variant="outlined" startIcon={<ChatOutlined />} onClick={() => navigate('/mensajes')}>
               Contactar vendedor
@@ -262,6 +289,7 @@ export default function OrderTrackingPage() {
           </Stack>
         </Grid>
       </Grid>
+      <Snackbar open={Boolean(notice)} message={notice} autoHideDuration={3000} onClose={() => setNotice('')} />
     </Box>
   )
 }

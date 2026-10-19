@@ -15,6 +15,7 @@ import {
   Grid,
   InputAdornment,
   Paper,
+  Snackbar,
   Stack,
   Tab,
   Table,
@@ -83,26 +84,55 @@ const INITIAL_QUOTES = [
   },
 ]
 
+const MONTHS = {
+  enero: 0, febrero: 1, marzo: 2, abril: 3, mayo: 4, junio: 5,
+  julio: 6, agosto: 7, septiembre: 8, octubre: 9, noviembre: 10, diciembre: 11,
+}
+
+function quoteIsExpired(validUntil) {
+  const match = validUntil.match(/^(\d{1,2}) de ([a-záéíóú]+) de (\d{4})$/i)
+  if (!match) return false
+  const month = MONTHS[match[2].toLowerCase()]
+  if (month === undefined) return false
+  const expiration = new Date(Number(match[3]), month, Number(match[1]), 23, 59, 59)
+  return expiration < new Date()
+}
+
 export default function QuotesPage() {
   const navigate = useNavigate()
   const [quotes, setQuotes] = useState(INITIAL_QUOTES)
   const [selectedId, setSelectedId] = useState('COT-024')
   const [tab, setTab] = useState('Todas')
+  const [search, setSearch] = useState('')
+  const [notice, setNotice] = useState('')
 
-  const activeQuote = quotes.find((q) => q.id === selectedId) || quotes[0]
+  const visibleQuotes = quotes.filter((quote) => {
+    const matchesTab = tab === 'Todas' || (
+      tab === 'Solicitadas' && quote.status === 'Solicitada' ||
+      tab === 'Respondidas' && quote.status === 'Respondida' ||
+      tab === 'Aceptadas' && quote.status === 'Aceptada por el cliente' ||
+      tab === 'Expiradas' && quote.status === 'Expirada'
+    )
+    const matchesSearch = `${quote.id} ${quote.vendor} ${quote.status}`.toLowerCase().includes(search.trim().toLowerCase())
+    return matchesTab && matchesSearch
+  })
+  const activeQuote = visibleQuotes.find((quote) => quote.id === selectedId) ?? visibleQuotes[0] ?? null
+  const expiredSelection = activeQuote ? quoteIsExpired(activeQuote.validUntil) : false
 
   // Permiso Actualizar del Cliente en Tabla 2.3: cambiar estado a "Aceptada por el cliente"
   const handleAcceptQuote = () => {
-    setQuotes((prev) =>
-      prev.map((q) => (q.id === activeQuote.id ? { ...q, status: 'Aceptada por el cliente' } : q)),
-    )
+    if (!activeQuote || activeQuote.status !== 'Respondida' || expiredSelection) return
+    setQuotes((prev) => prev.map((quote) => quote.id === activeQuote.id ? { ...quote, status: 'Aceptada por el cliente' } : quote))
+    console.log('Aceptación de cotización simulada (sin compra ni pago):', { id: activeQuote.id })
+    setNotice('Aceptación simulada: no se generó una compra ni se registró un pago')
   }
 
   // Exportación nativa PDF del Documento de Cotización (Etapa 11 - Pág. 24 del PDF)
   const handleDownloadQuotePDF = () => {
+    if (!activeQuote) return
     const doc = new jsPDF()
     doc.setFontSize(16)
-    doc.text(`SHOPPING - DOCUMENTO DE COTIZACIÓN (${activeQuote.id})`, 14, 20)
+    doc.text(`SHOPPING - COTIZACIÓN DE DEMOSTRACIÓN (${activeQuote.id})`, 14, 20)
     doc.setFontSize(10)
     doc.text(`Proveedor: ${activeQuote.vendor}   |   Estado: ${activeQuote.status}`, 14, 30)
     doc.text(`Fecha de Emisión: ${activeQuote.emittedDate}`, 14, 37)
@@ -119,10 +149,10 @@ export default function QuotesPage() {
     doc.setFontSize(13)
     doc.text(`TOTAL COTIZADO: ${formatCLP(activeQuote.total)} CLP`, 14, y + 14)
 
-    doc.save(`Documento_Cotizacion_${activeQuote.id}.pdf`)
+    doc.text('Datos de demostración. No es una cotización emitida por un proveedor real.', 14, y + 25)
+    doc.save(`Cotizacion_Demo_${activeQuote.id}.pdf`)
   }
 
-  const visibleQuotes = quotes.filter((q) => tab === 'Todas' || q.status.startsWith(tab.slice(0, -1)))
 
   return (
     <Box sx={{ maxWidth: 1280, mx: 'auto' }}>
@@ -145,6 +175,8 @@ export default function QuotesPage() {
       </Stack>
 
       <Tabs
+        variant="scrollable"
+        scrollButtons="auto"
         value={tab}
         onChange={(_, v) => setTab(v)}
         sx={{ mb: 2.5, bgcolor: 'background.paper', borderRadius: 2.5, px: 1 }}
@@ -164,6 +196,8 @@ export default function QuotesPage() {
               fullWidth
               size="small"
               placeholder="Buscar cotizaciones..."
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
               slotProps={{
                 input: {
                   startAdornment: (
@@ -203,13 +237,16 @@ export default function QuotesPage() {
                   </Paper>
                 )
               })}
+              {visibleQuotes.length === 0 && (
+                <Typography color="text.secondary" variant="body2">No hay cotizaciones que coincidan con tu búsqueda.</Typography>
+              )}
             </Stack>
           </Card>
         </Grid>
 
         {/* Detalle Derecho de la Cotización Seleccionada (P13) */}
         <Grid item xs={12} md={8}>
-          <Card sx={{ p: 3 }}>
+          {activeQuote ? <Card sx={{ p: 3 }}>
             <Stack
               direction={{ xs: 'column', sm: 'row' }}
               justifyContent="space-between"
@@ -363,19 +400,23 @@ export default function QuotesPage() {
                   <Button
                     variant="contained"
                     startIcon={<ShoppingCartOutlined />}
-                    onClick={() => {
-                      handleAcceptQuote()
-                      navigate('/checkout')
-                    }}
+                    disabled={activeQuote.status !== 'Respondida' || expiredSelection}
+                    onClick={handleAcceptQuote}
                   >
-                    Aceptar y comprar
+                    Aceptar cotización (simulado)
                   </Button>
+                  {expiredSelection && <Typography variant="caption" color="error.main">Esta cotización de ejemplo ya superó su fecha de vigencia.</Typography>}
                 </Stack>
               </Grid>
             </Grid>
-          </Card>
+          </Card> : (
+            <Card sx={{ p: 3 }}>
+              <Typography color="text.secondary">Selecciona una cotización disponible para ver el detalle.</Typography>
+            </Card>
+          )}
         </Grid>
       </Grid>
+      <Snackbar open={Boolean(notice)} autoHideDuration={4000} message={notice} onClose={() => setNotice('')} />
     </Box>
   )
 }
