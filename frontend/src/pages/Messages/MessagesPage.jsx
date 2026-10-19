@@ -9,18 +9,17 @@ import {
 } from '@mui/icons-material'
 import {
   Avatar,
-  Badge,
   Box,
   Button,
   Card,
   Chip,
   Divider,
-  Grid,
   IconButton,
   InputAdornment,
   MenuItem,
   Paper,
   Select,
+  Snackbar,
   Stack,
   TextField,
   Typography,
@@ -31,10 +30,10 @@ import shoeImage from '../../assets/products/shoe.jpg'
 import StatusChip from '../../components/atoms/StatusChip/StatusChip'
 
 const CONVERSATIONS = [
-  { id: 'tienda-sur', name: 'Tienda Sur', initials: 'TS', lastMsg: 'Perfecto, entonces te reservo la talla 42...', time: '10:24', unread: 2, online: true },
-  { id: 'tecno-austral', name: 'Tecnología Austral', initials: 'TA', lastMsg: 'Hola Ana, hemos despachado tu equipo...', time: 'Ayer', unread: 1, online: true },
-  { id: 'audio-austral', name: 'Audio Austral', initials: 'AA', lastMsg: 'Sí, contamos con stock disponible...', time: '12 sep', unread: 0, online: false },
-  { id: 'casa-hogar', name: 'Casa & Hogar Sur', initials: 'CH', lastMsg: '¡Muchas gracias por tu compra!', time: '10 sep', unread: 0, online: false },
+  { hasOrder: true, id: 'tienda-sur', name: 'Tienda Sur', initials: 'TS', lastMsg: 'Perfecto, entonces te reservo la talla 42...', time: '10:24', unread: 2, online: true },
+  { hasOrder: true, id: 'tecno-austral', name: 'Tecnología Austral', initials: 'TA', lastMsg: 'Hola Ana, hemos despachado tu equipo...', time: 'Ayer', unread: 1, online: true },
+  { hasOrder: false, id: 'audio-austral', name: 'Audio Austral', initials: 'AA', lastMsg: 'Sí, contamos con stock disponible...', time: '12 sep', unread: 0, online: false },
+  { hasOrder: false, id: 'casa-hogar', name: 'Casa & Hogar Sur', initials: 'CH', lastMsg: '¡Muchas gracias por tu compra!', time: '10 sep', unread: 0, online: false },
 ]
 
 const INITIAL_MESSAGES = [
@@ -47,37 +46,77 @@ const INITIAL_MESSAGES = [
 export default function MessagesPage() {
   const navigate = useNavigate()
   const [activeConv, setActiveConv] = useState('tienda-sur')
-  const [messages, setMessages] = useState(INITIAL_MESSAGES)
+  const [conversations, setConversations] = useState(CONVERSATIONS)
+  const [messagesByConversation, setMessagesByConversation] = useState({ 'tienda-sur': INITIAL_MESSAGES })
   const [text, setText] = useState('')
+  const [search, setSearch] = useState('')
   const [filterChip, setFilterChip] = useState('Todos')
+  const [notice, setNotice] = useState('')
+  const currentConversation = conversations.find((conv) => conv.id === activeConv)
+  const messages = messagesByConversation[activeConv] ?? []
+  const visibleConversations = conversations.filter((conv) => {
+    const matchesSearch = `${conv.name} ${conv.lastMsg}`.toLowerCase().includes(search.trim().toLowerCase())
+    const matchesFilter = filterChip === 'Todos' || (filterChip === 'No leídos' && conv.unread > 0) || (filterChip === 'Pedidos' && conv.hasOrder)
+    return matchesSearch && matchesFilter
+  })
+
+  const openConversation = (conversationId) => {
+    setActiveConv(conversationId)
+    setText('')
+    setConversations((prev) => prev.map((conv) => conv.id === conversationId ? { ...conv, unread: 0 } : conv))
+  }
 
   const handleSend = (e) => {
     e.preventDefault()
     if (!text.trim()) return
-    setMessages((prev) => [
+    const cleanText = text.trim()
+    setMessagesByConversation((prev) => ({
       ...prev,
-      { id: Date.now(), from: 'me', time: 'Ahora', text: text.trim() },
-    ])
+      [activeConv]: [...(prev[activeConv] ?? []), { id: Date.now(), from: 'me', time: 'Ahora', text: cleanText }],
+    }))
+    setConversations((prev) => prev.map((conv) => conv.id === activeConv ? { ...conv, lastMsg: cleanText, time: 'Ahora' } : conv))
+    console.log('Mensaje simulado (no enviado al backend):', { conversacionId: activeConv, contenido: cleanText })
+    setNotice('Mensaje agregado localmente; no fue enviado al vendedor')
     setText('')
   }
 
   return (
-    <Box sx={{ maxWidth: 1320, mx: 'auto' }}>
+    <Box sx={{ width: '100%', minWidth: 0, maxWidth: 1320, mx: 'auto' }}>
       <Typography variant="h4" sx={{ mb: 0.5 }}>
         Mensajes
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
-        Conversa directamente con las tiendas sobre tus pedidos, productos y cotizaciones (RF19).
+        Conversaciones de demostración sobre pedidos, productos y cotizaciones (RF19). Los mensajes no se envían al backend.
       </Typography>
 
-      <Card sx={{ p: 0, overflow: 'hidden' }}>
-        <Grid container sx={{ minHeight: 620 }}>
+      <Card sx={{ p: 0, overflow: 'hidden', borderRadius: 2.5 }}>
+        {/* Usamos CSS Grid: MUI 9 ya no interpreta `item`, `xs` ni `md` del Grid antiguo. */}
+        <Box sx={{
+          display: 'grid',
+          gridTemplateColumns: {
+            xs: 'minmax(0, 1fr)',
+            md: 'minmax(215px, 32%) minmax(0, 1fr)',
+            lg: 'minmax(235px, 26%) minmax(0, 1fr) minmax(225px, 24%)',
+          },
+          alignItems: 'stretch',
+          minWidth: 0,
+        }}>
           {/* Columna 1: Lista de Conversaciones (P12) */}
-          <Grid item xs={12} md={3.5} sx={{ borderRight: '1px solid', borderColor: 'divider', p: 2 }}>
+          <Box sx={{
+            minWidth: 0,
+            p: 1.75,
+            borderRight: { md: '1px solid' },
+            borderBottom: { xs: '1px solid', md: 'none' },
+            borderColor: 'divider',
+            gridColumn: { xs: '1', md: '1' },
+            gridRow: { xs: 'auto', md: '1' },
+          }}>
             <TextField
               fullWidth
               size="small"
               placeholder="Buscar conversaciones..."
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
               slotProps={{
                 input: {
                   startAdornment: (
@@ -91,7 +130,7 @@ export default function MessagesPage() {
             />
 
             <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
-              {['Todos', 'No leídos (2)', 'Pedidos'].map((f) => (
+              {['Todos', 'No leídos', 'Pedidos'].map((f) => (
                 <Chip
                   key={f}
                   label={f}
@@ -103,15 +142,21 @@ export default function MessagesPage() {
             </Stack>
 
             <Stack spacing={1}>
-              {CONVERSATIONS.map((c) => {
+              {visibleConversations.map((c) => {
                 const selected = c.id === activeConv
                 return (
                   <Paper
                     key={c.id}
+                    component="button"
+                    type="button"
                     elevation={0}
-                    onClick={() => setActiveConv(c.id)}
+                    onClick={() => openConversation(c.id)}
                     sx={{
-                      p: 1.5,
+                      width: '100%',
+                      textAlign: 'left',
+                      border: 'none',
+                      font: 'inherit',
+                      p: 1.25,
                       cursor: 'pointer',
                       borderRadius: 2.5,
                       bgcolor: selected ? 'secondary.main' : 'transparent',
@@ -120,41 +165,64 @@ export default function MessagesPage() {
                       gap: 1.5,
                     }}
                   >
-                    <Avatar sx={{ bgcolor: 'text.primary', fontWeight: 800 }}>{c.initials}</Avatar>
+                    <Avatar sx={{ bgcolor: selected ? 'primary.main' : 'secondary.main', color: selected ? 'primary.contrastText' : 'primary.main', fontWeight: 700, width: 36, height: 36, fontSize: 12, flexShrink: 0 }}>{c.initials}</Avatar>
                     <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                      <Stack direction="row" justifyContent="space-between">
+                      <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={0.5}>
                         <Typography variant="subtitle2" sx={{ fontWeight: 800 }} noWrap>
                           {c.name}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, fontSize: '0.67rem' }}>
                           {c.time}
                         </Typography>
                       </Stack>
                       <Stack direction="row" justifyContent="space-between" alignItems="center">
-                        <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 160 }}>
+                        <Typography variant="caption" color="text.secondary" noWrap sx={{ flex: 1, minWidth: 0, maxWidth: 160 }}>
                           {c.lastMsg}
                         </Typography>
-                        {c.unread > 0 && <Badge badgeContent={c.unread} color="primary" sx={{ mr: 1 }} />}
+                        {c.unread > 0 && <Chip label={c.unread} size="small" color="primary" />}
                       </Stack>
                     </Box>
                   </Paper>
                 )
               })}
+              {visibleConversations.length === 0 && <Typography variant="body2" color="text.secondary">Sin conversaciones que coincidan con el filtro.</Typography>}
             </Stack>
-          </Grid>
+          </Box>
 
           {/* Columna 2: Ventana de Chat Activa (P12) */}
-          <Grid item xs={12} md={5.5} sx={{ display: 'flex', flexDirection: 'column', borderRight: '1px solid', borderColor: 'divider' }}>
+          <Box sx={{
+            minWidth: 0,
+            minHeight: 0,
+            height: { xs: 660, md: 720, lg: 690 },
+            display: 'flex',
+            flexDirection: 'column',
+            borderRight: { lg: '1px solid' },
+            borderColor: 'divider',
+            gridColumn: { xs: '1', md: '2' },
+            gridRow: { xs: 'auto', md: '1' },
+          }}>
             <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <Avatar sx={{ bgcolor: 'text.primary', fontWeight: 800 }}>TS</Avatar>
+              <Avatar sx={{ bgcolor: 'text.primary', fontWeight: 800 }}>{currentConversation?.initials}</Avatar>
               <Box>
-                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Tienda Sur</Typography>
-                <Typography variant="caption" color="success.main" sx={{ fontWeight: 700 }}>● En línea</Typography>
+                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>{currentConversation?.name}</Typography>
+                <Typography variant="caption" color={currentConversation?.online ? 'success.main' : 'text.secondary'} sx={{ fontWeight: 700 }}>
+                  {currentConversation?.online ? '● En línea' : 'Desconectado'}
+                </Typography>
               </Box>
             </Box>
 
-            <Box sx={{ p: 2.5, flexGrow: 1, bgcolor: '#fbfaff', overflowY: 'auto' }}>
-              <Stack spacing={2}>
+            <Box sx={{ p: { xs: 1.5, sm: 2 }, flexGrow: 1, minHeight: 0, bgcolor: '#fbfaff', overflowY: 'auto' }}>
+              <Stack spacing={1.5}>
+                {activeConv === 'tienda-sur' && (
+                  <Typography variant="caption" color="text.disabled" sx={{ textAlign: 'center', mb: 0.25 }}>
+                    Hoy, 14 de agosto · Conversación de ejemplo
+                  </Typography>
+                )}
+                {messages.length === 0 && (
+                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+                    No hay mensajes de ejemplo en esta conversación. Puedes escribir un mensaje simulado.
+                  </Typography>
+                )}
                 {messages.map((m) => {
                   const isMe = m.from === 'me'
                   return (
@@ -184,6 +252,7 @@ export default function MessagesPage() {
                 })}
 
                 {/* Tarjeta Embebida del Pedido #1032 alineada con Talla 42 (P12) */}
+                {activeConv === 'tienda-sur' && (
                 <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5 }}>
                   <Stack direction="row" spacing={1.5} alignItems="center">
                     <Box component="img" src={shoeImage} alt="" sx={{ width: 54, height: 54, borderRadius: 2, objectFit: 'cover' }} />
@@ -202,6 +271,7 @@ export default function MessagesPage() {
                     Ver pedido →
                   </Button>
                 </Paper>
+                )}
               </Stack>
             </Box>
 
@@ -237,50 +307,71 @@ export default function MessagesPage() {
                   size="small"
                   value={text}
                   onChange={(e) => setText(e.target.value)}
-                  placeholder="Escribe un mensaje para Tienda Sur..."
+                  placeholder={`Escribe un mensaje para ${currentConversation?.name ?? 'la tienda'}...`}
+                  inputProps={{ maxLength: 2000 }}
                 />
-                <IconButton type="submit" sx={{ bgcolor: 'primary.main', color: '#fff', '&:hover': { bgcolor: 'primary.dark' } }}>
+                <IconButton type="submit" disabled={!text.trim()} aria-label="Enviar mensaje simulado" sx={{ bgcolor: 'primary.main', color: '#fff', '&:hover': { bgcolor: 'primary.dark' } }}>
                   <SendOutlined fontSize="small" />
                 </IconButton>
               </Stack>
             </Box>
-          </Grid>
+          </Box>
 
           {/* Columna 3: Información de la tienda y Producto en conversación (P12) */}
-          <Grid item xs={12} md={3} sx={{ p: 2.5 }}>
+          <Box sx={{
+            minWidth: 0,
+            p: 2,
+            gridColumn: { xs: '1', md: '1 / -1', lg: '3' },
+            gridRow: { xs: 'auto', md: '2', lg: '1' },
+            borderTop: { xs: '1px solid', lg: 'none' },
+            borderColor: 'divider',
+          }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 2 }}>
               Información de la tienda
             </Typography>
             <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
-              <Avatar sx={{ width: 48, height: 48, bgcolor: 'text.primary', fontWeight: 800 }}>TS</Avatar>
+              <Avatar sx={{ width: 48, height: 48, bgcolor: 'text.primary', fontWeight: 800 }}>{currentConversation?.initials}</Avatar>
               <Box>
-                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Tienda Sur</Typography>
-                <Typography variant="caption">★ <strong>4,8</strong> (1.256 reseñas)</Typography>
+                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>{currentConversation?.name}</Typography>
+                {activeConv === 'tienda-sur' && <Typography variant="caption">★ <strong>4,8</strong> (1.256 reseñas)</Typography>}
               </Box>
             </Stack>
 
             <Stack spacing={1} sx={{ mb: 2 }}>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <LocationOnOutlined fontSize="small" color="primary" />
-                <Typography variant="caption">Osorno, Los Lagos</Typography>
-              </Stack>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <LocalShippingOutlined fontSize="small" color="primary" />
-                <Typography variant="caption">Despachos a todo Chile</Typography>
-              </Stack>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <VerifiedOutlined fontSize="small" color="primary" />
-                <Typography variant="caption">Tienda verificada</Typography>
-              </Stack>
+              {activeConv === 'tienda-sur' ? (
+                <>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <LocationOnOutlined fontSize="small" color="primary" />
+                    <Typography variant="caption">Osorno, Los Lagos</Typography>
+                  </Stack>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <LocalShippingOutlined fontSize="small" color="primary" />
+                    <Typography variant="caption">Despachos a todo Chile</Typography>
+                  </Stack>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <VerifiedOutlined fontSize="small" color="primary" />
+                    <Typography variant="caption">Tienda verificada</Typography>
+                  </Stack>
+                </>
+              ) : (
+                <Typography variant="caption" color="text.secondary">Información adicional no disponible en esta demostración.</Typography>
+              )}
             </Stack>
+
+            {activeConv === 'tienda-sur' && (
+              <Button variant="outlined" fullWidth size="small" onClick={() => navigate('/producto/1')}>
+                Ver producto
+              </Button>
+            )}
 
             <Divider sx={{ my: 2 }} />
 
             <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.5 }}>
               Producto en conversación
             </Typography>
+            {activeConv === 'tienda-sur' ? (
             <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2.5, mb: 2 }}>
-              <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1.5 }}>
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
                 <Box component="img" src={shoeImage} alt="" sx={{ width: 52, height: 52, borderRadius: 2, objectFit: 'cover' }} />
                 <Box>
                   <Typography variant="caption" sx={{ fontWeight: 800, display: 'block' }}>
@@ -289,19 +380,37 @@ export default function MessagesPage() {
                   <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>$29.990</Typography>
                 </Box>
               </Stack>
-              <Select fullWidth size="small" value="42" sx={{ mb: 1 }}>
+              <Select fullWidth size="small" value="42" sx={{ mb: 1 }} readOnly>
                 <MenuItem value="42">Talla: 42</MenuItem>
               </Select>
-              <Select fullWidth size="small" value="Gris" sx={{ mb: 1.5 }}>
+              <Select fullWidth size="small" value="Gris" sx={{ mb: 1.5 }} readOnly>
                 <MenuItem value="Gris">Color: Gris</MenuItem>
               </Select>
               <Button variant="outlined" fullWidth size="small" onClick={() => navigate('/producto/1')}>
                 Ver producto
               </Button>
             </Paper>
-          </Grid>
-        </Grid>
+            ) : <Typography variant="caption" color="text.secondary">Sin producto vinculado a esta conversación de ejemplo.</Typography>}
+
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>
+              Ayuda
+            </Typography>
+            <Stack spacing={0.5}>
+              <Button size="small" color="inherit" sx={{ justifyContent: 'flex-start', textTransform: 'none' }} onClick={() => setNotice('Las políticas de cada tienda estarán disponibles al conectar el backend')}>
+                Ver políticas de la tienda
+              </Button>
+              <Button size="small" color="inherit" sx={{ justifyContent: 'flex-start', textTransform: 'none' }} onClick={() => setNotice('El reporte de problemas todavía no está conectado al servidor')}>
+                Reportar un problema
+              </Button>
+              <Button size="small" color="inherit" sx={{ justifyContent: 'flex-start', textTransform: 'none' }} onClick={() => setNotice('El bloqueo de tiendas necesita integración con el servidor')}>
+                Bloquear tienda
+              </Button>
+            </Stack>
+          </Box>
+        </Box>
       </Card>
+      <Snackbar open={Boolean(notice)} message={notice} autoHideDuration={3500} onClose={() => setNotice('')} />
     </Box>
   )
 }

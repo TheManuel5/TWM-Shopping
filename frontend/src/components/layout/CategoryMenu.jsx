@@ -1,308 +1,251 @@
 import {
-  AccessTimeOutlined,
-  DesktopWindowsOutlined,
-  ExpandMoreOutlined,
-  GroupOutlined,
-  LocationOnOutlined,
+  ArrowBackOutlined,
+  ChevronRightOutlined,
+  Inventory2Outlined,
+  LocalOfferOutlined,
 } from '@mui/icons-material'
 import {
   Box,
-  Button,
-  Collapse,
-  Container,
   Divider,
-  FormControl,
-  Grid,
-  MenuItem,
-  Paper,
-  Select,
-  Tab,
-  Tabs,
+  Drawer,
+  IconButton,
+  List,
+  ListItemButton,
+  ListItemText,
   Typography,
 } from '@mui/material'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CATEGORY_TREE } from '../../utils/taxonomyData'
+import { headerOffset } from './layoutConstants'
 
-const TOP_LINKS = [
-  { label: 'Productos', hasMega: true, tab: 'Productos' },
-  { label: 'Servicios', hasMega: true, tab: 'Servicios' },
-  { label: 'Tecnología', path: '/catalogo?categoria=Tecnología' },
-  { label: 'Celulares', path: '/catalogo?categoria=Celulares' },
-  { label: 'Hogar y Cocina', path: '/catalogo?categoria=Hogar y Cocina' },
-  { label: 'Ropa, moda y calzado', path: '/catalogo?categoria=Calzado' },
-  { label: 'Más categorías', hasMega: true, tab: 'Productos' },
-]
+const PANEL_WIDTH = 300
+const SECTION_ORDER = ['Servicios', 'Productos']
 
-export default function CategoryMenu() {
+export default function CategoryMenu({ open, onClose }) {
   const navigate = useNavigate()
-  const [openMega, setOpenMega] = useState(false)
-  const [activeTab, setActiveTab] = useState('Servicios')
-  const [comunaFilter, setComunaFilter] = useState('Osorno')
-  const [modalidadFilter, setModalidadFilter] = useState('Todas')
-  const [duracionFilter, setDuracionFilter] = useState('Cualquiera')
-  const [edadFilter, setEdadFilter] = useState('Todas')
+  const [activeSection, setActiveSection] = useState(null)
+  const [activeCategory, setActiveCategory] = useState(null)
+  const [activeChild, setActiveChild] = useState(null)
 
-  const handleNavClick = (item) => {
-    if (item.hasMega) {
-      if (openMega && activeTab === item.tab) {
-        setOpenMega(false)
-      } else {
-        setActiveTab(item.tab)
-        setOpenMega(true)
-      }
-    } else if (item.path) {
-      setOpenMega(false)
-      navigate(item.path)
+  const panelCount = 1 + (activeCategory ? 1 : 0) + (activeChild ? 1 : 0)
+
+  const closeMenu = () => {
+    onClose()
+  }
+
+  const navigateToCategory = (section, categoryName) => {
+    const query = new URLSearchParams()
+    query.set('categoria', categoryName)
+    if (section === 'Servicios') query.set('tipo', 'servicio')
+    closeMenu()
+    navigate(`/catalogo?${query.toString()}`)
+  }
+
+  const selectPrimaryCategory = (section, category) => {
+    if (!category.children?.length) {
+      navigateToCategory(section, category.name)
+      return
     }
+
+    setActiveSection(section)
+    setActiveCategory(category)
+    setActiveChild(null)
+  }
+
+  const selectSecondaryCategory = (category) => {
+    if (!category.children?.length) {
+      navigateToCategory(activeSection, category.name)
+      return
+    }
+
+    setActiveChild(category)
   }
 
   return (
-    <Box sx={{ position: 'relative', bgcolor: 'background.paper', borderTop: '1px solid', borderColor: 'divider' }}>
-      <Container
-        maxWidth="xl"
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: { xs: 1, md: 3 },
-          overflowX: 'auto',
-          height: 44,
-          '&::-webkit-scrollbar': { display: 'none' },
-        }}
-      >
-        {TOP_LINKS.map((item) => {
-          const isSelected = openMega && item.hasMega && item.tab === activeTab
-          return (
-            <Button
-              key={item.label}
-              size="small"
-              onClick={() => handleNavClick(item)}
-              endIcon={item.hasMega ? <ExpandMoreOutlined fontSize="small" /> : null}
-              sx={{
-                color: isSelected ? 'primary.main' : 'text.primary',
-                fontWeight: isSelected ? 700 : 500,
-                whiteSpace: 'nowrap',
-                borderRadius: 0,
-                height: '100%',
-                borderBottom: isSelected ? '2px solid' : '2px solid transparent',
-                borderColor: isSelected ? 'primary.main' : 'transparent',
-              }}
-            >
-              {item.label}
-            </Button>
-          )
-        })}
-      </Container>
-
-      {/* Mega-Menú Desplegable P02 */}
-      <Collapse in={openMega}>
-        <Paper
-          elevation={4}
+    <Drawer
+      anchor="left"
+      open={open}
+      onClose={closeMenu}
+      sx={{
+        zIndex: (theme) => theme.zIndex.drawer + 1,
+        '& .MuiBackdrop-root': {
+          top: headerOffset,
+          bgcolor: 'rgba(3, 12, 46, 0.42)',
+        },
+        '& .MuiDrawer-paper': {
+          top: headerOffset,
+          height: {
+            xs: `calc(100% - ${headerOffset.xs})`,
+            md: `calc(100% - ${headerOffset.md})`,
+          },
+          width: {
+            xs: '100vw',
+            sm: `${panelCount * PANEL_WIDTH}px`,
+          },
+          maxWidth: '100vw',
+          overflow: 'hidden',
+          borderRight: '1px solid',
+          borderColor: 'divider',
+          transition: (theme) => theme.transitions.create('width'),
+        },
+      }}
+    >
+      <Box sx={{ display: 'flex', height: '100%', minWidth: 0 }}>
+        <Box
           sx={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            zIndex: 1300,
-            borderTop: '1px solid',
-            borderColor: 'divider',
-            borderRadius: '0 0 16px 16px',
-            py: 2.5,
-            px: { xs: 2, md: 4 },
+            display: { xs: activeCategory ? 'none' : 'flex', sm: 'flex' },
+            flexDirection: 'column',
+            flex: { xs: '1 1 100%', sm: `0 0 ${PANEL_WIDTH}px` },
+            minWidth: 0,
+            overflowY: 'auto',
+            bgcolor: 'background.paper',
           }}
         >
-          <Container maxWidth="xl">
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Tabs
-                value={activeTab}
-                onChange={(_, val) => setActiveTab(val)}
-                textColor="primary"
-                indicatorColor="primary"
-              >
-                <Tab value="Productos" label="Productos" sx={{ fontWeight: 700 }} />
-                <Tab value="Servicios" label="Servicios" sx={{ fontWeight: 700 }} />
-              </Tabs>
-              <Button size="small" color="inherit" onClick={() => setOpenMega(false)}>
-                Cerrar ✕
-              </Button>
+          {SECTION_ORDER.map((section, sectionIndex) => (
+            <Box key={section}>
+              {sectionIndex > 0 && <Divider sx={{ my: 1 }} />}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, pt: 1.25, pb: 0.5, color: 'primary.main' }}>
+                {section === 'Servicios' ? <LocalOfferOutlined fontSize="small" /> : <Inventory2Outlined fontSize="small" />}
+                <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                  {section}
+                </Typography>
+              </Box>
+              <List disablePadding>
+                {CATEGORY_TREE[section].map((category) => {
+                  const selected = activeSection === section && activeCategory?.id === category.id
+                  return (
+                    <ListItemButton
+                      key={category.id}
+                      selected={selected}
+                      onClick={() => selectPrimaryCategory(section, category)}
+                      sx={{
+                        mx: 1,
+                        minHeight: 40,
+                        borderRadius: 1.5,
+                        color: 'text.primary',
+                        '&.Mui-selected': {
+                          bgcolor: 'secondary.main',
+                          color: 'primary.main',
+                        },
+                        '&.Mui-selected:hover': { bgcolor: 'secondary.main' },
+                      }}
+                    >
+                      <ListItemText
+                        primary={category.name}
+                        primaryTypographyProps={{ fontSize: '0.86rem', fontWeight: selected ? 700 : 500 }}
+                      />
+                      {category.children?.length > 0 && <ChevronRightOutlined fontSize="small" color="action" />}
+                    </ListItemButton>
+                  )
+                })}
+              </List>
             </Box>
+          ))}
+        </Box>
 
-            <Divider sx={{ mb: 2.5 }} />
-
-            {activeTab === 'Servicios' ? (
-              <>
-                <Grid container spacing={3}>
-                  {CATEGORY_TREE.Servicios.slice(0, 4).map((cat) => (
-                    <Grid item xs={12} sm={6} md={3} key={cat.id}>
-                      <Typography
-                        variant="subtitle2"
-                        sx={{ fontWeight: 800, mb: 1, color: 'text.primary', cursor: 'pointer' }}
-                        onClick={() => {
-                          setOpenMega(false)
-                          navigate(`/catalogo?tipo=servicio&categoria=${encodeURIComponent(cat.name)}`)
-                        }}
-                      >
-                        {cat.name}
-                      </Typography>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-                        {(cat.children || []).map((sub) => (
-                          <Box key={sub.id}>
-                            <Typography
-                              variant="body2"
-                              color="text.secondary"
-                              onClick={() => {
-                                setOpenMega(false)
-                                navigate(`/servicio/detalle?cat=${encodeURIComponent(sub.name)}`)
-                              }}
-                              sx={{
-                                cursor: 'pointer',
-                                '&:hover': { color: 'primary.main', fontWeight: 600 },
-                              }}
-                            >
-                              {sub.name}
-                            </Typography>
-                            {sub.children && (
-                              <Box sx={{ pl: 1.5, mt: 0.5, display: 'flex', flexDirection: 'column', gap: 0.4 }}>
-                                {sub.children.map((leaf) => (
-                                  <Typography
-                                    key={leaf.id}
-                                    variant="caption"
-                                    color="text.secondary"
-                                    onClick={() => {
-                                      setOpenMega(false)
-                                      navigate(`/servicio/detalle?cat=${encodeURIComponent(leaf.name)}`)
-                                    }}
-                                    sx={{ cursor: 'pointer', '&:hover': { color: 'primary.main' } }}
-                                  >
-                                    • {leaf.name}
-                                  </Typography>
-                                ))}
-                              </Box>
-                            )}
-                          </Box>
-                        ))}
-                      </Box>
-                    </Grid>
-                  ))}
-                </Grid>
-
-                {/* Barra de filtros rápidos de Servicios (P02) */}
-                <Box
-                  sx={{
-                    mt: 3,
-                    p: 2,
-                    bgcolor: 'secondary.light',
-                    borderRadius: 3,
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    gap: 2,
-                    alignItems: 'center',
-                  }}
-                >
-                  <FormControl size="small" sx={{ minWidth: 180, bgcolor: 'background.paper', borderRadius: 2 }}>
-                    <Select
-                      value={comunaFilter}
-                      onChange={(e) => setComunaFilter(e.target.value)}
-                      startAdornment={<LocationOnOutlined color="primary" fontSize="small" sx={{ mr: 1 }} />}
-                    >
-                      <MenuItem value="Osorno">Comuna: Osorno</MenuItem>
-                      <MenuItem value="Puerto Montt">Comuna: Puerto Montt</MenuItem>
-                      <MenuItem value="Valdivia">Comuna: Valdivia</MenuItem>
-                    </Select>
-                  </FormControl>
-
-                  <FormControl size="small" sx={{ minWidth: 180, bgcolor: 'background.paper', borderRadius: 2 }}>
-                    <Select
-                      value={modalidadFilter}
-                      onChange={(e) => setModalidadFilter(e.target.value)}
-                      startAdornment={<DesktopWindowsOutlined color="primary" fontSize="small" sx={{ mr: 1 }} />}
-                    >
-                      <MenuItem value="Todas">Modalidad: Todas</MenuItem>
-                      <MenuItem value="A domicilio">A domicilio</MenuItem>
-                      <MenuItem value="En local">En local</MenuItem>
-                      <MenuItem value="Remoto">Online / Remoto</MenuItem>
-                    </Select>
-                  </FormControl>
-
-                  <FormControl size="small" sx={{ minWidth: 180, bgcolor: 'background.paper', borderRadius: 2 }}>
-                    <Select
-                      value={duracionFilter}
-                      onChange={(e) => setDuracionFilter(e.target.value)}
-                      startAdornment={<AccessTimeOutlined color="primary" fontSize="small" sx={{ mr: 1 }} />}
-                    >
-                      <MenuItem value="Cualquiera">Duración: Cualquiera</MenuItem>
-                      <MenuItem value="60">Hasta 60 min</MenuItem>
-                      <MenuItem value="90">90 minutos</MenuItem>
-                    </Select>
-                  </FormControl>
-
-                  <FormControl size="small" sx={{ minWidth: 180, bgcolor: 'background.paper', borderRadius: 2 }}>
-                    <Select
-                      value={edadFilter}
-                      onChange={(e) => setEdadFilter(e.target.value)}
-                      startAdornment={<GroupOutlined color="primary" fontSize="small" sx={{ mr: 1 }} />}
-                    >
-                      <MenuItem value="Todas">Edad mínima: Todas</MenuItem>
-                      <MenuItem value="18">Mayores de 18 años</MenuItem>
-                    </Select>
-                  </FormControl>
-
-                  <Button
-                    variant="contained"
-                     sx={{ ml: 'auto', px: 3 }}
-                    onClick={() => {
-                      setOpenMega(false)
-                      navigate('/servicio/detalle')
+        {activeCategory && (
+          <Box
+            sx={{
+              display: { xs: activeChild ? 'none' : 'flex', sm: 'flex' },
+              flexDirection: 'column',
+              flex: { xs: '1 1 100%', sm: `0 0 ${PANEL_WIDTH}px` },
+              minWidth: 0,
+              overflowY: 'auto',
+              bgcolor: 'background.paper',
+              borderLeft: { sm: '1px solid' },
+              borderColor: { sm: 'divider' },
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 2, py: 1.5 }}>
+              <IconButton
+                size="small"
+                onClick={() => setActiveCategory(null)}
+                aria-label="Volver a categorías"
+                sx={{ display: { xs: 'inline-flex', sm: 'none' } }}
+              >
+                <ArrowBackOutlined fontSize="small" />
+              </IconButton>
+              <Typography variant="subtitle1" color="primary.main" sx={{ fontWeight: 800, flexGrow: 1 }}>
+                {activeCategory.name}
+              </Typography>
+            </Box>
+            <Divider />
+            <List disablePadding sx={{ py: 1 }}>
+              {activeCategory.children.map((category) => {
+                const selected = activeChild?.id === category.id
+                return (
+                  <ListItemButton
+                    key={category.id}
+                    selected={selected}
+                    onClick={() => selectSecondaryCategory(category)}
+                    sx={{
+                      mx: 1,
+                      minHeight: 44,
+                      borderRadius: 1.5,
+                      '&.Mui-selected': {
+                        bgcolor: 'secondary.main',
+                        color: 'primary.main',
+                      },
+                      '&.Mui-selected:hover': { bgcolor: 'secondary.main' },
                     }}
                   >
-                    Ver servicios →
-                  </Button>
-                </Box>
-              </>
-            ) : (
-              <Grid container spacing={2.5}>
-                {CATEGORY_TREE.Productos.map((cat) => (
-                  <Grid item xs={6} sm={4} md={2.4} key={cat.id}>
-                    <Typography
-                      variant="subtitle2"
-                      sx={{
-                        fontWeight: 800,
-                        mb: 0.75,
-                        cursor: 'pointer',
-                        '&:hover': { color: 'primary.main' },
-                      }}
-                      onClick={() => {
-                        setOpenMega(false)
-                        navigate(`/catalogo?categoria=${encodeURIComponent(cat.name)}`)
-                      }}
-                    >
-                      {cat.name}
-                    </Typography>
-                    {(cat.children || []).map((sub) => (
-                      <Typography
-                        key={sub.id}
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{
-                          display: 'block',
-                          py: 0.25,
-                          cursor: 'pointer',
-                          '&:hover': { color: 'primary.main' },
-                        }}
-                        onClick={() => {
-                          setOpenMega(false)
-                          navigate(`/catalogo?categoria=${encodeURIComponent(sub.name)}`)
-                        }}
-                      >
-                        {sub.name}
-                      </Typography>
-                    ))}
-                  </Grid>
-                ))}
-              </Grid>
-            )}
-          </Container>
-        </Paper>
-      </Collapse>
-    </Box>
+                    <ListItemText
+                      primary={category.name}
+                      primaryTypographyProps={{ fontSize: '0.9rem', fontWeight: selected ? 700 : 500 }}
+                    />
+                    {category.children?.length > 0 && <ChevronRightOutlined fontSize="small" color="action" />}
+                  </ListItemButton>
+                )
+              })}
+            </List>
+          </Box>
+        )}
+
+        {activeChild && (
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              flex: { xs: '1 1 100%', sm: `0 0 ${PANEL_WIDTH}px` },
+              minWidth: 0,
+              overflowY: 'auto',
+              bgcolor: 'background.paper',
+              borderLeft: { sm: '1px solid' },
+              borderColor: { sm: 'divider' },
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 2, py: 1.5 }}>
+              <IconButton
+                size="small"
+                onClick={() => setActiveChild(null)}
+                aria-label="Volver a subcategorías"
+                sx={{ display: { xs: 'inline-flex', sm: 'none' } }}
+              >
+                <ArrowBackOutlined fontSize="small" />
+              </IconButton>
+              <Typography variant="subtitle1" color="primary.main" sx={{ fontWeight: 800, flexGrow: 1 }}>
+                {activeChild.name}
+              </Typography>
+            </Box>
+            <Divider />
+            <List disablePadding sx={{ py: 1 }}>
+              {activeChild.children.map((category) => (
+                <ListItemButton
+                  key={category.id}
+                  onClick={() => navigateToCategory(activeSection, category.name)}
+                  sx={{ mx: 1, minHeight: 44, borderRadius: 1.5 }}
+                >
+                  <ListItemText
+                    primary={category.name}
+                    primaryTypographyProps={{ fontSize: '0.9rem', fontWeight: 500 }}
+                  />
+                </ListItemButton>
+              ))}
+            </List>
+          </Box>
+        )}
+      </Box>
+    </Drawer>
   )
 }

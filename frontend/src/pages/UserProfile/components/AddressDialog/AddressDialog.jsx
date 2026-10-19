@@ -8,23 +8,41 @@ import {
   Switch,
   TextField,
 } from '@mui/material'
+import { useState } from 'react'
+
+const requiredFields = [
+  { key: 'name', label: 'Etiqueta', placeholder: 'Casa u oficina' },
+  { key: 'region', label: 'Región' },
+  { key: 'province', label: 'Provincia' },
+  { key: 'commune', label: 'Comuna' },
+  { key: 'street', label: 'Calle' },
+  { key: 'number', label: 'Número' },
+]
 
 export default function AddressDialog({ open, address, editing, onChange, onClose, onSave }) {
+  const [touched, setTouched] = useState({})
+
   const updateField = (field, value) => {
     onChange({ ...address, [field]: value })
   }
 
-  const formComplete = Boolean(
-    address.name &&
-    address.region &&
-    address.province &&
-    address.commune &&
-    address.street &&
-    address.number,
+  const valid = requiredFields.every(({ key }) =>
+    typeof address[key] === 'string' && address[key].trim().length > 0,
   )
 
+  const closeDialog = () => {
+    setTouched({})
+    onClose()
+  }
+
+  const saveDialog = () => {
+    if (!valid) return
+    onSave()
+    setTouched({})
+  }
+
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+    <Dialog open={open} onClose={closeDialog} fullWidth maxWidth="sm">
       <DialogTitle>{editing ? 'Editar dirección' : 'Agregar dirección'}</DialogTitle>
       <DialogContent
         sx={{
@@ -34,23 +52,49 @@ export default function AddressDialog({ open, address, editing, onChange, onClos
           gap: 2,
         }}
       >
-        <TextField label="Etiqueta" placeholder="Casa u oficina" value={address.name} onChange={(event) => updateField('name', event.target.value)} required />
-        <TextField label="Región" value={address.region} onChange={(event) => updateField('region', event.target.value)} required />
-        <TextField label="Provincia" value={address.province} onChange={(event) => updateField('province', event.target.value)} required />
-        <TextField label="Comuna" value={address.commune} onChange={(event) => updateField('commune', event.target.value)} required />
-        <TextField label="Calle" value={address.street} onChange={(event) => updateField('street', event.target.value)} required />
-        <TextField label="Número" value={address.number} onChange={(event) => updateField('number', event.target.value)} required />
-        <TextField label="Departamento (opcional)" value={address.department} onChange={(event) => updateField('department', event.target.value)} />
-        <TextField label="Referencia" value={address.reference} onChange={(event) => updateField('reference', event.target.value)} />
+        {requiredFields.map(({ key, label, placeholder }) => {
+          const invalid = Boolean(touched[key]) && !String(address[key] ?? '').trim()
+          return (
+            <TextField
+              key={key}
+              label={label}
+              placeholder={placeholder}
+              value={address[key] ?? ''}
+              onChange={(event) => updateField(key, event.target.value)}
+              onBlur={() => setTouched((current) => ({ ...current, [key]: true }))}
+              required
+              error={invalid}
+              helperText={invalid ? `El campo ${label.toLowerCase()} es obligatorio.` : undefined}
+              fullWidth
+            />
+          )
+        })}
+        <TextField
+          label="Departamento (opcional)"
+          value={address.department ?? ''}
+          onChange={(event) => updateField('department', event.target.value)}
+          fullWidth
+        />
+        <TextField
+          label="Referencia (opcional)"
+          value={address.reference ?? ''}
+          onChange={(event) => updateField('reference', event.target.value)}
+          fullWidth
+        />
         <FormControlLabel
-          control={<Switch checked={address.primary} onChange={(event) => updateField('primary', event.target.checked)} />}
+          control={
+            <Switch
+              checked={Boolean(address.primary)}
+              onChange={(event) => updateField('primary', event.target.checked)}
+            />
+          }
           label="Usar como dirección principal"
           sx={{ gridColumn: { sm: '1 / -1' } }}
         />
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2.5 }}>
-        <Button onClick={onClose}>Cancelar</Button>
-        <Button variant="contained" onClick={onSave} disabled={!formComplete}>
+        <Button onClick={closeDialog}>Cancelar</Button>
+        <Button variant="contained" onClick={saveDialog} disabled={!valid}>
           Guardar dirección
         </Button>
       </DialogActions>
