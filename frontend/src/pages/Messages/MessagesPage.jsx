@@ -14,7 +14,6 @@ import {
   Card,
   Chip,
   Divider,
-  Grid,
   IconButton,
   InputAdornment,
   MenuItem,
@@ -82,7 +81,7 @@ export default function MessagesPage() {
   }
 
   return (
-    <Box sx={{ maxWidth: 1320, mx: 'auto' }}>
+    <Box sx={{ width: '100%', minWidth: 0, maxWidth: 1320, mx: 'auto' }}>
       <Typography variant="h4" sx={{ mb: 0.5 }}>
         Mensajes
       </Typography>
@@ -90,10 +89,28 @@ export default function MessagesPage() {
         Conversaciones de demostración sobre pedidos, productos y cotizaciones (RF19). Los mensajes no se envían al backend.
       </Typography>
 
-      <Card sx={{ p: 0, overflow: 'hidden' }}>
-        <Grid container sx={{ minHeight: 620 }}>
+      <Card sx={{ p: 0, overflow: 'hidden', borderRadius: 2.5 }}>
+        {/* Usamos CSS Grid: MUI 9 ya no interpreta `item`, `xs` ni `md` del Grid antiguo. */}
+        <Box sx={{
+          display: 'grid',
+          gridTemplateColumns: {
+            xs: 'minmax(0, 1fr)',
+            md: 'minmax(215px, 32%) minmax(0, 1fr)',
+            lg: 'minmax(235px, 26%) minmax(0, 1fr) minmax(225px, 24%)',
+          },
+          alignItems: 'stretch',
+          minWidth: 0,
+        }}>
           {/* Columna 1: Lista de Conversaciones (P12) */}
-          <Grid item xs={12} md={3.5} sx={{ borderRight: '1px solid', borderColor: 'divider', p: 2 }}>
+          <Box sx={{
+            minWidth: 0,
+            p: 1.75,
+            borderRight: { md: '1px solid' },
+            borderBottom: { xs: '1px solid', md: 'none' },
+            borderColor: 'divider',
+            gridColumn: { xs: '1', md: '1' },
+            gridRow: { xs: 'auto', md: '1' },
+          }}>
             <TextField
               fullWidth
               size="small"
@@ -139,7 +156,7 @@ export default function MessagesPage() {
                       textAlign: 'left',
                       border: 'none',
                       font: 'inherit',
-                      p: 1.5,
+                      p: 1.25,
                       cursor: 'pointer',
                       borderRadius: 2.5,
                       bgcolor: selected ? 'secondary.main' : 'transparent',
@@ -148,18 +165,18 @@ export default function MessagesPage() {
                       gap: 1.5,
                     }}
                   >
-                    <Avatar sx={{ bgcolor: 'text.primary', fontWeight: 800 }}>{c.initials}</Avatar>
+                    <Avatar sx={{ bgcolor: selected ? 'primary.main' : 'secondary.main', color: selected ? 'primary.contrastText' : 'primary.main', fontWeight: 700, width: 36, height: 36, fontSize: 12, flexShrink: 0 }}>{c.initials}</Avatar>
                     <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                      <Stack direction="row" justifyContent="space-between">
+                      <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={0.5}>
                         <Typography variant="subtitle2" sx={{ fontWeight: 800 }} noWrap>
                           {c.name}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, fontSize: '0.67rem' }}>
                           {c.time}
                         </Typography>
                       </Stack>
                       <Stack direction="row" justifyContent="space-between" alignItems="center">
-                        <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 160 }}>
+                        <Typography variant="caption" color="text.secondary" noWrap sx={{ flex: 1, minWidth: 0, maxWidth: 160 }}>
                           {c.lastMsg}
                         </Typography>
                         {c.unread > 0 && <Chip label={c.unread} size="small" color="primary" />}
@@ -170,10 +187,20 @@ export default function MessagesPage() {
               })}
               {visibleConversations.length === 0 && <Typography variant="body2" color="text.secondary">Sin conversaciones que coincidan con el filtro.</Typography>}
             </Stack>
-          </Grid>
+          </Box>
 
           {/* Columna 2: Ventana de Chat Activa (P12) */}
-          <Grid item xs={12} md={5.5} sx={{ display: 'flex', flexDirection: 'column', borderRight: '1px solid', borderColor: 'divider' }}>
+          <Box sx={{
+            minWidth: 0,
+            minHeight: 0,
+            height: { xs: 660, md: 720, lg: 690 },
+            display: 'flex',
+            flexDirection: 'column',
+            borderRight: { lg: '1px solid' },
+            borderColor: 'divider',
+            gridColumn: { xs: '1', md: '2' },
+            gridRow: { xs: 'auto', md: '1' },
+          }}>
             <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <Avatar sx={{ bgcolor: 'text.primary', fontWeight: 800 }}>{currentConversation?.initials}</Avatar>
               <Box>
@@ -184,8 +211,13 @@ export default function MessagesPage() {
               </Box>
             </Box>
 
-            <Box sx={{ p: 2.5, flexGrow: 1, bgcolor: '#fbfaff', overflowY: 'auto' }}>
-              <Stack spacing={2}>
+            <Box sx={{ p: { xs: 1.5, sm: 2 }, flexGrow: 1, minHeight: 0, bgcolor: '#fbfaff', overflowY: 'auto' }}>
+              <Stack spacing={1.5}>
+                {activeConv === 'tienda-sur' && (
+                  <Typography variant="caption" color="text.disabled" sx={{ textAlign: 'center', mb: 0.25 }}>
+                    Hoy, 14 de agosto · Conversación de ejemplo
+                  </Typography>
+                )}
                 {messages.length === 0 && (
                   <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
                     No hay mensajes de ejemplo en esta conversación. Puedes escribir un mensaje simulado.
@@ -283,10 +315,17 @@ export default function MessagesPage() {
                 </IconButton>
               </Stack>
             </Box>
-          </Grid>
+          </Box>
 
           {/* Columna 3: Información de la tienda y Producto en conversación (P12) */}
-          <Grid item xs={12} md={3} sx={{ p: 2.5 }}>
+          <Box sx={{
+            minWidth: 0,
+            p: 2,
+            gridColumn: { xs: '1', md: '1 / -1', lg: '3' },
+            gridRow: { xs: 'auto', md: '2', lg: '1' },
+            borderTop: { xs: '1px solid', lg: 'none' },
+            borderColor: 'divider',
+          }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 2 }}>
               Información de la tienda
             </Typography>
@@ -319,6 +358,12 @@ export default function MessagesPage() {
               )}
             </Stack>
 
+            {activeConv === 'tienda-sur' && (
+              <Button variant="outlined" fullWidth size="small" onClick={() => navigate('/producto/1')}>
+                Ver producto
+              </Button>
+            )}
+
             <Divider sx={{ my: 2 }} />
 
             <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.5 }}>
@@ -326,7 +371,7 @@ export default function MessagesPage() {
             </Typography>
             {activeConv === 'tienda-sur' ? (
             <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2.5, mb: 2 }}>
-              <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1.5 }}>
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
                 <Box component="img" src={shoeImage} alt="" sx={{ width: 52, height: 52, borderRadius: 2, objectFit: 'cover' }} />
                 <Box>
                   <Typography variant="caption" sx={{ fontWeight: 800, display: 'block' }}>
@@ -335,10 +380,10 @@ export default function MessagesPage() {
                   <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>$29.990</Typography>
                 </Box>
               </Stack>
-              <Select fullWidth size="small" value="42" sx={{ mb: 1 }}>
+              <Select fullWidth size="small" value="42" sx={{ mb: 1 }} readOnly>
                 <MenuItem value="42">Talla: 42</MenuItem>
               </Select>
-              <Select fullWidth size="small" value="Gris" sx={{ mb: 1.5 }}>
+              <Select fullWidth size="small" value="Gris" sx={{ mb: 1.5 }} readOnly>
                 <MenuItem value="Gris">Color: Gris</MenuItem>
               </Select>
               <Button variant="outlined" fullWidth size="small" onClick={() => navigate('/producto/1')}>
@@ -346,8 +391,24 @@ export default function MessagesPage() {
               </Button>
             </Paper>
             ) : <Typography variant="caption" color="text.secondary">Sin producto vinculado a esta conversación de ejemplo.</Typography>}
-          </Grid>
-        </Grid>
+
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>
+              Ayuda
+            </Typography>
+            <Stack spacing={0.5}>
+              <Button size="small" color="inherit" sx={{ justifyContent: 'flex-start', textTransform: 'none' }} onClick={() => setNotice('Las políticas de cada tienda estarán disponibles al conectar el backend')}>
+                Ver políticas de la tienda
+              </Button>
+              <Button size="small" color="inherit" sx={{ justifyContent: 'flex-start', textTransform: 'none' }} onClick={() => setNotice('El reporte de problemas todavía no está conectado al servidor')}>
+                Reportar un problema
+              </Button>
+              <Button size="small" color="inherit" sx={{ justifyContent: 'flex-start', textTransform: 'none' }} onClick={() => setNotice('El bloqueo de tiendas necesita integración con el servidor')}>
+                Bloquear tienda
+              </Button>
+            </Stack>
+          </Box>
+        </Box>
       </Card>
       <Snackbar open={Boolean(notice)} message={notice} autoHideDuration={3500} onClose={() => setNotice('')} />
     </Box>
