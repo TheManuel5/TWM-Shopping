@@ -4,6 +4,7 @@ import {
   FavoriteBorderOutlined,
   InfoOutlined,
   LocalShippingOutlined,
+  ProductionQuantityLimitsOutlined,
   RadioButtonCheckedOutlined,
   RadioButtonUncheckedOutlined,
   StorefrontOutlined,
@@ -73,14 +74,66 @@ export default function CartPage() {
 
   const handleRemoveItem = (vendorId, itemId) => {
     setGroups((prev) =>
-      prev.map((g) =>
-        g.vendorId !== vendorId ? g : { ...g, items: g.items.filter((it) => it.id !== itemId) },
-      ),
+      prev
+        .map((g) =>
+          g.vendorId !== vendorId ? g : { ...g, items: g.items.filter((it) => it.id !== itemId) },
+        )
+        .filter((g) => g.items.length > 0),
     )
   }
 
+  const totalItemsCount = groups.reduce((acc, g) => acc + g.items.length, 0)
   const activeGroup = groups.find((g) => g.vendorId === selectedVendor) || groups[0]
-  const subtotal = activeGroup.items.reduce((acc, it) => acc + it.price * it.qty, 0)
+  const subtotal = activeGroup ? activeGroup.items.reduce((acc, it) => acc + it.price * it.qty, 0) : 0
+
+  if (totalItemsCount === 0) {
+    return (
+      <Box sx={{ maxWidth: 680, mx: 'auto', py: { xs: 6, md: 8 }, px: 2, textAlign: 'center' }}>
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 4, sm: 6 },
+            borderRadius: 3,
+            border: '1px solid #e5e7f0',
+            bgcolor: 'background.paper',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+          }}
+        >
+          <Box
+            sx={{
+              width: 88,
+              height: 88,
+              borderRadius: '50%',
+              bgcolor: 'rgba(96, 47, 247, 0.08)',
+              color: 'primary.main',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              mb: 3,
+            }}
+          >
+            <ProductionQuantityLimitsOutlined sx={{ fontSize: 48 }} />
+          </Box>
+          <Typography variant="h4" sx={{ fontWeight: 800, mb: 1.5 }}>
+            Tu carrito está vacío
+          </Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 440, mb: 4, lineHeight: 1.6 }}>
+            Parece que aún no tienes productos seleccionados. Explora las publicaciones de nuestros emprendedores y agrega lo que más te guste.
+          </Typography>
+          <Button
+            variant="contained"
+            size="large"
+            onClick={() => navigate('/catalogo')}
+            sx={{ px: 4, py: 1.5, borderRadius: 2.5, fontWeight: 700 }}
+          >
+            Explorar catálogo
+          </Button>
+        </Paper>
+      </Box>
+    )
+  }
 
   return (
     <Box sx={{ maxWidth: 1320, mx: 'auto' }}>
