@@ -108,6 +108,7 @@ export default function Orders() {
   const [notice, setNotice] = useState('');
   const [page, setPage] = useState(1);
   const [formErrors, setFormErrors] = useState({});
+  const [dispatchErrors, setDispatchErrors] = useState({});
   const ordersPerPage = 5;
 
   const visibleOrders = useMemo(() => orders.filter((order) => {
@@ -115,7 +116,10 @@ export default function Orders() {
     const matchesSearch = !query || [order.id, order.customer, order.store, ...order.products.map((product) => product.name)].join(' ').toLowerCase().includes(query);
     const matchesStore = appliedFilters.store === 'Todas' || order.store === appliedFilters.store;
     const matchesStatus = appliedFilters.status === 'Todos' || order.status === appliedFilters.status;
-    return matchesSearch && matchesStore && matchesStatus;
+    const orderDate = order.date.split('\n')[0].split('-').reverse().join('-');
+    const matchesFrom = !appliedFilters.from || orderDate >= appliedFilters.from;
+    const matchesTo = !appliedFilters.to || orderDate <= appliedFilters.to;
+    return matchesSearch && matchesStore && matchesStatus && matchesFrom && matchesTo;
   }), [orders, appliedFilters]);
 
   const paginatedOrders = visibleOrders.slice((page - 1) * ordersPerPage, page * ordersPerPage);
@@ -146,13 +150,12 @@ export default function Orders() {
     if (!formData.email.trim()) errors.email = 'Ingresa el correo electrónico';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) errors.email = 'Ingresa un correo válido';
     if (!formData.total.trim()) errors.total = 'Ingresa el total del pedido';
+    else if (Number(formData.total) <= 0) errors.total = 'El total debe ser mayor que cero';
     if (!formData.address.trim()) errors.address = 'Ingresa la dirección de envío';
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
       return;
     }
-    const orderData = { ...formData, capturedAt: new Date().toISOString() };
-    console.log(editingOrder ? 'Actualizar pedido:' : 'Crear pedido:', orderData);
     if (editingOrder) {
       const updatedOrder = { ...editingOrder, ...formData, address: formData.address.replaceAll(', ', '\n') };
       setOrders((current) => current.map((order) => (order.id === editingOrder.id ? updatedOrder : order)));
@@ -170,11 +173,31 @@ export default function Orders() {
 
   const confirmDelete = () => {
     if (!deletingOrder) return;
-    console.log('Eliminar pedido:', deletingOrder);
     setOrders((current) => current.filter((order) => order.id !== deletingOrder.id));
     setDeleteOpen(false);
     setDeletingOrder(null);
     setNotice(`Pedido #${deletingOrder.id} eliminado`);
+  };
+
+  const updateOrderStatus = (event) => {
+    event.preventDefault();
+    if (!selectedOrder) return;
+    setOrders((current) => current.map((order) => (
+      order.id === selectedOrder.id ? { ...order, status: selectedOrder.status } : order
+    )));
+    setNotice(`Estado del pedido #${selectedOrder.id} actualizado`);
+  };
+
+  const saveDispatch = (event) => {
+    event.preventDefault();
+    const errors = {};
+    if (!dispatchData.carrier.trim()) errors.carrier = 'Ingresa la empresa de despacho';
+    if (!/^[A-Za-z0-9-]{6,30}$/.test(dispatchData.tracking.trim())) {
+      errors.tracking = 'Usa entre 6 y 30 caracteres alfanuméricos';
+    }
+    setDispatchErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+    setNotice(`Despacho del pedido #${selectedOrder.id} guardado`);
   };
 
   return (
@@ -221,8 +244,8 @@ export default function Orders() {
           <Stack spacing={1}>{selectedOrder.products.map((product) => <Box className="detail-product" key={product.name}><span className="detail-product-emoji">{product.emoji}</span><Box><strong>{product.name}</strong><span>{product.detail}</span></Box><strong>{product.price}</strong></Box>)}</Stack>
           <Box className="detail-totals"><span>Subtotal (neto)<strong>{selectedOrder.total}</strong></span><span>IVA (19%)<strong>$8.170</strong></span><strong>Total<strong>{selectedOrder.total}</strong></strong></Box>
           <Box className="detail-grid payment-grid"><DetailField icon={<ReceiptLongOutlinedIcon />} label="Método de pago"><span>Visa terminada en 4242</span></DetailField><DetailField icon={<LocalShippingOutlinedIcon />} label="Envío"><span>Chilexpress</span></DetailField></Box>
-          <Box component="form" onSubmit={(event) => { event.preventDefault(); console.log('Actualizar estado del pedido:', { id: selectedOrder.id, status: selectedOrder.status }); setNotice('Estado actualizado'); }} className="status-form"><Typography className="detail-section-title">Estado del pedido</Typography><TextField size="small" select fullWidth value={selectedOrder.status} onChange={(event) => setSelectedOrder({ ...selectedOrder, status: event.target.value })}>{['En preparación', 'Entregado', 'Enviado', 'Recibido', 'Cancelado'].map((status) => <MenuItem key={status} value={status}>{status}</MenuItem>)}</TextField><Button type="submit" variant="contained">Actualizar estado</Button></Box>
-          <Box component="form" onSubmit={(event) => { event.preventDefault(); console.log('Guardar información de despacho:', { orderId: selectedOrder.id, ...dispatchData }); setNotice('Información de despacho guardada'); }} className="dispatch-form"><Typography className="detail-section-title"><LocalShippingOutlinedIcon /> Información de despacho</Typography><TextField size="small" label="Empresa de despacho" value={dispatchData.carrier} onChange={(event) => setDispatchData({ ...dispatchData, carrier: event.target.value })} /><TextField size="small" label="Número de seguimiento" value={dispatchData.tracking} onChange={(event) => setDispatchData({ ...dispatchData, tracking: event.target.value })} /><Button type="submit" variant="contained">Guardar despacho</Button></Box>
+          <Box component="form" onSubmit={updateOrderStatus} className="status-form"><Typography className="detail-section-title">Estado del pedido</Typography><TextField size="small" select fullWidth value={selectedOrder.status} onChange={(event) => setSelectedOrder({ ...selectedOrder, status: event.target.value })}>{['En preparación', 'Entregado', 'Enviado', 'Recibido', 'Cancelado'].map((status) => <MenuItem key={status} value={status}>{status}</MenuItem>)}</TextField><Button type="submit" variant="contained">Actualizar estado</Button></Box>
+          <Box component="form" onSubmit={saveDispatch} className="dispatch-form"><Typography className="detail-section-title"><LocalShippingOutlinedIcon /> Información de despacho</Typography><TextField size="small" label="Empresa de despacho" value={dispatchData.carrier} error={Boolean(dispatchErrors.carrier)} helperText={dispatchErrors.carrier} onChange={(event) => { setDispatchData({ ...dispatchData, carrier: event.target.value }); setDispatchErrors({ ...dispatchErrors, carrier: '' }); }} /><TextField size="small" label="Número de seguimiento" value={dispatchData.tracking} error={Boolean(dispatchErrors.tracking)} helperText={dispatchErrors.tracking} onChange={(event) => { setDispatchData({ ...dispatchData, tracking: event.target.value }); setDispatchErrors({ ...dispatchErrors, tracking: '' }); }} /><Button type="submit" variant="contained">Guardar despacho</Button></Box>
           <Box className="transaction-history"><Typography className="detail-section-title"><HistoryOutlinedIcon /> Historial de transacciones</Typography><Box className="history-item"><span>28-04-2024 16:24</span><span>Pedido creado</span></Box><Box className="history-item"><span>28-04-2024 16:27</span><span>Pago confirmado</span></Box><Box className="history-item"><span>29-04-2024 10:12</span><span>Estado cambiado a En preparación</span></Box></Box>
           <Box className="detail-actions"><Button variant="outlined" startIcon={<ReceiptLongOutlinedIcon />} onClick={() => setReceiptOpen(true)}>Ver comprobante</Button><Button variant="outlined" color="error" onClick={() => { setDeletingOrder(selectedOrder); setSelectedOrder(null); setDeleteOpen(true); }}>Eliminar pedido</Button></Box>
         </>

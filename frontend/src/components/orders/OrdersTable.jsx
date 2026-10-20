@@ -20,6 +20,7 @@ const statusColors = {
   Recibido: { background: '#eadbff', color: '#7138b6' },
   Cancelado: { background: '#ffdbe4', color: '#b32351' },
 };
+const defaultStatusColor = { background: '#eef1f7', color: '#526078' };
 
 export default function OrdersTable({ orders, selectedId, onSelect, onEdit, onDelete }) {
   return (
@@ -38,7 +39,13 @@ export default function OrdersTable({ orders, selectedId, onSelect, onEdit, onDe
           </TableRow>
         </TableHead>
         <TableBody>
-          {orders.map((order) => (
+          {orders.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={8} align="center" sx={{ py: 5, color: '#667089' }}>
+                No hay pedidos que coincidan con los filtros seleccionados.
+              </TableCell>
+            </TableRow>
+          ) : orders.map((order) => (
             <TableRow
               hover
               key={order.id}
@@ -68,8 +75,8 @@ export default function OrdersTable({ orders, selectedId, onSelect, onEdit, onDe
                   label={order.status}
                   size="small"
                   sx={{
-                    backgroundColor: statusColors[order.status].background,
-                    color: statusColors[order.status].color,
+                  backgroundColor: (statusColors[order.status] || defaultStatusColor).background,
+                  color: (statusColors[order.status] || defaultStatusColor).color,
                     fontWeight: 700,
                   }}
                 />

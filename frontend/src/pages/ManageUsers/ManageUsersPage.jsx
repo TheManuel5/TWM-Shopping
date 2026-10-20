@@ -1,29 +1,29 @@
 import {
   AddOutlined,
-  CloseOutlined,
   DeleteOutlined,
   EditOutlined,
-  LocationOnOutlined,
+  FilterListOutlined,
+  GroupOutlined,
   PhoneOutlined,
   SearchOutlined,
 } from '@mui/icons-material'
 import {
-  Avatar,
+  Alert,
   Box,
   Button,
-  Card,
-  Checkbox,
   Chip,
-  Divider,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControlLabel,
-  Grid,
   IconButton,
   InputAdornment,
   MenuItem,
   Paper,
   Select,
+  Snackbar,
   Stack,
-  Switch,
   Tab,
   Table,
   TableBody,
@@ -32,10 +32,13 @@ import {
   TableRow,
   Tabs,
   TextField,
+  Tooltip,
   Typography,
+  Checkbox,
 } from '@mui/material'
 import { useState } from 'react'
 import StatusChip from '../../components/atoms/StatusChip/StatusChip'
+import '../../components/orders/Orders.css'
 
 const INITIAL_USERS = [
   {
@@ -95,45 +98,68 @@ const INITIAL_USERS = [
   },
 ]
 
+const USER_TEMPLATE = {
+  name: '',
+  rut: '',
+  email: '',
+  phones: [''],
+  birthDate: '',
+  address: '',
+  roles: ['Cliente'],
+  status: 'Activo',
+}
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const RUT_REGEX = /^\d{1,2}\.\d{3}\.\d{3}-[\dkK]$/
+
+const buildDraft = (user) => ({
+  ...USER_TEMPLATE,
+  ...user,
+  phones: user?.phones?.length ? [...user.phones] : [''],
+  roles: user?.roles?.length ? [...user.roles] : ['Cliente'],
+})
+
+function getValidationErrors(userDraft) {
+  const errors = {}
+
+  if (!userDraft.name.trim()) errors.name = 'El nombre es obligatorio'
+  if (!userDraft.rut.trim()) errors.rut = 'El RUT es obligatorio'
+  else if (!RUT_REGEX.test(userDraft.rut)) errors.rut = 'Ingresa un RUT válido'
+
+  if (!userDraft.email.trim()) errors.email = 'El email es obligatorio'
+  else if (!EMAIL_REGEX.test(userDraft.email)) errors.email = 'Ingresa un correo válido'
+
+  if (!userDraft.address.trim()) errors.address = 'La dirección es obligatoria'
+
+  const phoneErrors = userDraft.phones.map((phone) => {
+    if (!phone.trim()) return 'El teléfono es obligatorio'
+    if (phone.replace(/\D/g, '').length < 8) return 'Debe tener al menos 8 dígitos'
+    return ''
+  })
+
+  if (phoneErrors.some(Boolean)) errors.phones = phoneErrors
+  if (!userDraft.roles.length) errors.roles = 'Selecciona al menos un rol'
+
+  return errors
+}
+
 export default function ManageUsersPage() {
   const [users, setUsers] = useState(INITIAL_USERS)
   const [tab, setTab] = useState('Todos')
   const [roleFilter, setRoleFilter] = useState('Todos')
   const [statusFilter, setStatusFilter] = useState('Todos')
   const [search, setSearch] = useState('')
-  const [selectedId, setSelectedId] = useState(1)
+  const [selectedId, setSelectedId] = useState(INITIAL_USERS[0].id)
+  const [notice, setNotice] = useState('')
+  const [editOpen, setEditOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [editingUserId, setEditingUserId] = useState(null)
+  const [deletingUser, setDeletingUser] = useState(null)
+  const [draftUser, setDraftUser] = useState(buildDraft(INITIAL_USERS[0]))
+  const [formErrors, setFormErrors] = useState({})
 
   const activeUser = users.find((u) => u.id === selectedId) || users[0]
 
-  const handleUpdateUser = (field, value) => {
-    setUsers((prev) =>
-      prev.map((u) => (u.id === activeUser.id ? { ...u, [field]: value } : u)),
-    )
-  }
-
-  const handleToggleRole = (roleName) => {
-    const hasRole = activeUser.roles.includes(roleName)
-    const nextRoles = hasRole
-      ? activeUser.roles.filter((r) => r !== roleName)
-      : [...activeUser.roles, roleName]
-    if (nextRoles.length > 0) {
-      handleUpdateUser('roles', nextRoles)
-    }
-  }
-
-  const handleAddPhone = () => {
-    handleUpdateUser('phones', [...activeUser.phones, '+56 9 5544 3322'])
-  }
-
-  const handleRemovePhone = (idx) => {
-    if (activeUser.phones.length <= 1) return
-    handleUpdateUser(
-      'phones',
-      activeUser.phones.filter((_, i) => i !== idx),
-    )
-  }
-
-  // Filtro corregido (Pendiente P19): "Ambos" muestra únicamente usuarios con rol dual real
   const filteredUsers = users.filter((u) => {
     const matchTab =
       tab === 'Todos' ||
@@ -147,335 +173,419 @@ export default function ManageUsersPage() {
       (roleFilter === 'Emprendedor' && u.roles.includes('Emprendedor'))
 
     const matchStatus = statusFilter === 'Todos' || u.status === statusFilter
-
+    const needle = search.toLowerCase()
     const matchSearch =
-      u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.rut.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase())
+      u.name.toLowerCase().includes(needle) ||
+      u.rut.toLowerCase().includes(needle) ||
+      u.email.toLowerCase().includes(needle)
 
     return matchTab && matchRole && matchStatus && matchSearch
   })
 
+  const openEditModal = (user) => {
+    setSelectedId(user.id)
+    setEditingUserId(user.id)
+    setDraftUser(buildDraft(user))
+    setFormErrors({})
+    setEditOpen(true)
+  }
+
+  const closeEditModal = () => {
+    setEditOpen(false)
+    setEditingUserId(null)
+    setFormErrors({})
+  }
+
+  const updateDraft = (field, value) => {
+    setDraftUser((prev) => ({ ...prev, [field]: value }))
+    setFormErrors((prev) => ({ ...prev, [field]: '' }))
+  }
+
+  const updateDraftPhone = (idx, value) => {
+    setDraftUser((prev) => {
+      const nextPhones = [...prev.phones]
+      nextPhones[idx] = value
+      return { ...prev, phones: nextPhones }
+    })
+    setFormErrors((prev) => {
+      if (!prev.phones) return prev
+      const next = [...prev.phones]
+      next[idx] = ''
+      return { ...prev, phones: next }
+    })
+  }
+
+  const addDraftPhone = () => {
+    setDraftUser((prev) => ({ ...prev, phones: [...prev.phones, ''] }))
+  }
+
+  const removeDraftPhone = (idx) => {
+    setDraftUser((prev) => {
+      if (prev.phones.length <= 1) return prev
+      return { ...prev, phones: prev.phones.filter((_, index) => index !== idx) }
+    })
+  }
+
+  const toggleDraftRole = (role) => {
+    setDraftUser((prev) => {
+      const hasRole = prev.roles.includes(role)
+      const nextRoles = hasRole ? prev.roles.filter((r) => r !== role) : [...prev.roles, role]
+      return { ...prev, roles: nextRoles }
+    })
+    setFormErrors((prev) => ({ ...prev, roles: '' }))
+  }
+
+  const saveEditedUser = (event) => {
+    event.preventDefault()
+    const errors = getValidationErrors(draftUser)
+    setFormErrors(errors)
+
+    if (Object.keys(errors).length) return
+
+    setUsers((prev) =>
+      prev.map((u) => (u.id === editingUserId ? { ...u, ...draftUser, phones: [...draftUser.phones], roles: [...draftUser.roles] } : u)),
+    )
+    setNotice('Usuario actualizado correctamente')
+    closeEditModal()
+  }
+
+  const confirmDeleteUser = () => {
+    if (!deletingUser) return
+    if (users.length <= 1) {
+      setNotice('No puedes eliminar el último usuario')
+      setDeleteOpen(false)
+      setDeletingUser(null)
+      return
+    }
+
+    const nextUsers = users.filter((u) => u.id !== deletingUser.id)
+    setUsers(nextUsers)
+
+    if (selectedId === deletingUser.id) {
+      setSelectedId(nextUsers[0]?.id || 0)
+    }
+
+    setNotice('Usuario eliminado correctamente')
+    setDeleteOpen(false)
+    setDeletingUser(null)
+  }
+
+  const handleAddUser = () => {
+    const newId = Date.now()
+    const newUser = {
+      id: newId,
+      name: 'Nuevo Usuario',
+      rut: '18.765.432-1',
+      email: 'nuevo@ulagos.cl',
+      phones: ['+56 9 8877 6655'],
+      birthDate: '2001-04-10',
+      address: 'Osorno, Los Lagos',
+      roles: ['Cliente'],
+      status: 'Activo',
+    }
+
+    setUsers((prev) => [...prev, newUser])
+    openEditModal(newUser)
+  }
+
   return (
-    <Box sx={{ maxWidth: 1400, mx: 'auto' }}>
-      <Typography variant="h4" sx={{ mb: 0.5 }}>
-        Gestión de usuarios
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
-        Administra los usuarios de la plataforma, sus roles duales (RF06), teléfonos únicos (RF31) y permisos CRUD.
-      </Typography>
+    <Box className="orders-page">
+      <Box className="orders-main">
+        {/* Breadcrumb */}
+        <Box className="orders-breadcrumb">Panel de control <span>/</span> Gestión de usuarios</Box>
 
-      <Grid container spacing={2.5}>
-        {/* Tabla Principal Izquierda (P19) */}
-        <Grid item xs={12} lg={8}>
-          <Card sx={{ p: 2.5 }}>
-            <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-              <Tab value="Todos" label={`Todos (${users.length})`} />
-              <Tab value="Clientes" label={`Clientes (${users.filter((u) => u.roles.includes('Cliente')).length})`} />
-              <Tab value="Emprendedores" label={`Emprendedores (${users.filter((u) => u.roles.includes('Emprendedor')).length})`} />
-            </Tabs>
+        {/* Encabezado estilo Gestión de pedidos */}
+        <Box className="orders-heading">
+          <Box className="orders-title-group">
+            <GroupOutlined color="primary" fontSize="large" />
+            <Box>
+              <Typography variant="h4" component="h1" fontWeight={700}>Gestión de usuarios</Typography>
+              <Typography color="text.secondary">
+                Administra usuarios, roles, estados y credenciales de contacto.
+              </Typography>
+            </Box>
+            <Chip label={`${users.length} total`} size="small" color="primary" variant="outlined" />
+          </Box>
+          <Button variant="contained" startIcon={<AddOutlined />} onClick={handleAddUser}>
+            Agregar usuario
+          </Button>
+        </Box>
 
-            <Grid container spacing={1.5} alignItems="center" sx={{ mb: 2.5 }}>
-              <Grid item xs={12} md={5}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar por nombre, email o RUT..."
-                  slotProps={{
-                    input: {
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <SearchOutlined fontSize="small" />
-                        </InputAdornment>
-                      ),
-                    },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={6} md={2.5}>
-                <Select fullWidth size="small" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
-                  <MenuItem value="Todos">Rol: Todos</MenuItem>
-                  <MenuItem value="Ambos">Rol: Ambos (Dual)</MenuItem>
-                  <MenuItem value="Cliente">Solo Cliente</MenuItem>
-                  <MenuItem value="Emprendedor">Solo Emprendedor</MenuItem>
-                </Select>
-              </Grid>
-              <Grid item xs={6} md={2}>
-                <Select fullWidth size="small" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                  <MenuItem value="Todos">Estado: Todos</MenuItem>
-                  <MenuItem value="Activo">Activo</MenuItem>
-                  <MenuItem value="Inactivo">Inactivo</MenuItem>
-                </Select>
-              </Grid>
-              <Grid item xs={12} md={2.5}>
-                <Button
-                  fullWidth
-                  variant="contained"
-                  startIcon={<AddOutlined />}
-                  onClick={() => {
-                    const newId = Date.now()
-                    setUsers((prev) => [
-                      ...prev,
-                      {
-                        id: newId,
-                        name: 'Nuevo Usuario',
-                        rut: '18.765.432-1',
-                        email: 'nuevo@ulagos.cl',
-                        phones: ['+56 9 8877 6655'],
-                        birthDate: '2001-04-10',
-                        address: 'Osorno, Los Lagos',
-                        roles: ['Cliente'],
-                        status: 'Activo',
-                      },
-                    ])
-                    setSelectedId(newId)
-                  }}
-                >
-                  Agregar
-                </Button>
-              </Grid>
-            </Grid>
+        {/* Barra de filtros horizontal estilo Orders */}
+        <Box className="orders-filters">
+          <TextField
+            className="orders-search"
+            size="small"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Buscar por nombre, email o RUT..."
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchOutlined fontSize="small" />
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+          <Select size="small" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)} displayEmpty>
+            <MenuItem value="Todos">Rol: Todos</MenuItem>
+            <MenuItem value="Ambos">Rol: Ambos (Dual)</MenuItem>
+            <MenuItem value="Cliente">Solo Cliente</MenuItem>
+            <MenuItem value="Emprendedor">Solo Emprendedor</MenuItem>
+          </Select>
+          <Select size="small" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} displayEmpty>
+            <MenuItem value="Todos">Todos los estados</MenuItem>
+            <MenuItem value="Activo">Activo</MenuItem>
+            <MenuItem value="Inactivo">Inactivo</MenuItem>
+          </Select>
+          <Button variant="contained" startIcon={<FilterListOutlined />}>
+            Aplicar filtros
+          </Button>
+        </Box>
 
-            <Table size="small">
-              <TableHead sx={{ bgcolor: '#f7f6ff' }}>
+        {/* Tabs de categoría */}
+        <Tabs value={tab} onChange={(_, value) => setTab(value)} sx={{ mb: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+          <Tab value="Todos" label={`Todos (${users.length})`} />
+          <Tab value="Clientes" label={`Clientes (${users.filter((u) => u.roles.includes('Cliente')).length})`} />
+          <Tab value="Emprendedores" label={`Emprendedores (${users.filter((u) => u.roles.includes('Emprendedor')).length})`} />
+        </Tabs>
+
+        <Paper className="orders-table-paper">
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Usuario</TableCell>
+                <TableCell align="center">RUT</TableCell>
+                <TableCell align="center">Email</TableCell>
+                <TableCell align="center">Teléfono principal</TableCell>
+                <TableCell align="center">Roles</TableCell>
+                <TableCell align="center">Estado</TableCell>
+                <TableCell align="right">Acciones</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredUsers.length === 0 ? (
                 <TableRow>
-                  <TableCell>Usuario</TableCell>
-                  <TableCell>RUT</TableCell>
-                  <TableCell>Email</TableCell>
-                  <TableCell>Teléfono principal</TableCell>
-                  <TableCell>Roles (RF06)</TableCell>
-                  <TableCell>Estado</TableCell>
-                  <TableCell align="right">Acciones</TableCell>
+                  <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                    No hay usuarios que coincidan con los filtros.
+                  </TableCell>
                 </TableRow>
-              </TableHead>
-              <TableBody>
-                {filteredUsers.map((u) => {
-                  const selected = u.id === activeUser.id
-                  return (
-                    <TableRow
-                      key={u.id}
-                      hover
-                      selected={selected}
-                      onClick={() => setSelectedId(u.id)}
-                      sx={{ cursor: 'pointer' }}
-                    >
-                      <TableCell>
-                        <Stack direction="row" spacing={1.25} alignItems="center">
-                          <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main', color: 'primary.main', fontSize: '0.8rem', fontWeight: 800 }}>
-                            {u.name.split(' ').map((n) => n[0]).join('')}
-                          </Avatar>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>{u.name}</Typography>
-                        </Stack>
-                      </TableCell>
-                      <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.78rem' }}>{u.rut}</TableCell>
-                      <TableCell sx={{ fontSize: '0.78rem' }}>{u.email}</TableCell>
-                      <TableCell sx={{ fontSize: '0.78rem' }}>{u.phones[0]}</TableCell>
-                      <TableCell>
-                        <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                          {u.roles.map((r) => (
-                            <Chip
-                              key={r}
-                              label={r}
-                              size="small"
-                              sx={{
-                                bgcolor: r === 'Emprendedor' ? '#dbeafe' : 'secondary.main',
-                                color: r === 'Emprendedor' ? '#1d4ed8' : 'primary.main',
-                                fontSize: '0.7rem',
-                              }}
-                            />
-                          ))}
-                        </Stack>
-                      </TableCell>
-                      <TableCell><StatusChip status={u.status} /></TableCell>
-                      <TableCell align="right">
-                        <IconButton size="small" onClick={() => setSelectedId(u.id)}>
+              ) : (
+                filteredUsers.map((u) => (
+                  <TableRow
+                    key={u.id}
+                    hover
+                    selected={u.id === activeUser?.id}
+                    onClick={() => setSelectedId(u.id)}
+                    sx={{ cursor: 'pointer' }}
+                  >
+                    <TableCell sx={{ fontWeight: 800 }}>{u.name}</TableCell>
+                    <TableCell align="center" sx={{ fontFamily: 'monospace', fontSize: '0.82rem' }}>{u.rut}</TableCell>
+                    <TableCell align="center">{u.email}</TableCell>
+                    <TableCell align="center">{u.phones[0]}</TableCell>
+                    <TableCell align="center">
+                      <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap justifyContent="center">
+                        {u.roles.map((role) => (
+                          <Chip key={role} label={role} size="small" sx={{ fontSize: '0.7rem' }} />
+                        ))}
+                      </Stack>
+                    </TableCell>
+                    <TableCell align="center">
+                      <StatusChip status={u.status} />
+                    </TableCell>
+                    <TableCell align="right" className="order-actions">
+                      <Tooltip title="Editar usuario">
+                        <IconButton
+                          size="small"
+                          aria-label={`Editar usuario ${u.name}`}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            openEditModal(u)
+                          }}
+                        >
                           <EditOutlined fontSize="small" />
                         </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Eliminar usuario">
                         <IconButton
                           size="small"
                           color="error"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setUsers((prev) => prev.filter((item) => item.id !== u.id))
+                          aria-label={`Eliminar usuario ${u.name}`}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            setDeletingUser(u)
+                            setDeleteOpen(true)
                           }}
                         >
                           <DeleteOutlined fontSize="small" />
                         </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </Card>
-        </Grid>
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </Paper>
+      </Box>
 
-        {/* Panel Derecho: Editar Usuario Seleccionado (P19) */}
-        <Grid item xs={12} lg={4}>
-          <Card sx={{ p: 3 }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-              <Typography variant="h6">Editar usuario</Typography>
-              <IconButton size="small"><CloseOutlined fontSize="small" /></IconButton>
-            </Stack>
+      <Dialog open={editOpen} onClose={closeEditModal} fullWidth maxWidth="sm">
+        <Box component="form" onSubmit={saveEditedUser}>
+          <DialogTitle sx={{ fontWeight: 700, color: '#000' }}>
+            Actualizar datos de usuario
+          </DialogTitle>
+          <DialogContent>
+            <Box className="order-form-grid">
+              <TextField
+                required
+                label="Nombre completo"
+                value={draftUser.name}
+                onChange={(event) => updateDraft('name', event.target.value)}
+                error={Boolean(formErrors.name)}
+                helperText={formErrors.name}
+                InputLabelProps={{ shrink: true }}
+              />
+              <TextField
+                required
+                label="RUT"
+                value={draftUser.rut}
+                onChange={(event) => updateDraft('rut', event.target.value)}
+                error={Boolean(formErrors.rut)}
+                helperText={formErrors.rut}
+                InputLabelProps={{ shrink: true }}
+              />
+              <TextField
+                required
+                type="email"
+                label="Correo electrónico"
+                value={draftUser.email}
+                onChange={(event) => updateDraft('email', event.target.value)}
+                error={Boolean(formErrors.email)}
+                helperText={formErrors.email}
+                InputLabelProps={{ shrink: true }}
+              />
+              <TextField
+                required
+                type="date"
+                label="Fecha de nacimiento"
+                value={draftUser.birthDate}
+                onChange={(event) => updateDraft('birthDate', event.target.value)}
+                InputLabelProps={{ shrink: true }}
+              />
+              <TextField
+                required
+                label="Dirección"
+                value={draftUser.address}
+                onChange={(event) => updateDraft('address', event.target.value)}
+                error={Boolean(formErrors.address)}
+                helperText={formErrors.address}
+                InputLabelProps={{ shrink: true }}
+              />
+              <Select
+                value={draftUser.status}
+                onChange={(event) => updateDraft('status', event.target.value)}
+                displayEmpty
+                size="small"
+              >
+                <MenuItem value="Activo">Activo</MenuItem>
+                <MenuItem value="Inactivo">Inactivo</MenuItem>
+              </Select>
+            </Box>
 
-            <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2.5 }}>
-              <Avatar sx={{ width: 56, height: 56, bgcolor: 'primary.main', fontWeight: 800 }}>
-                {activeUser.name.split(' ').map((n) => n[0]).join('')}
-              </Avatar>
-              <Box>
-                <Typography variant="h6">{activeUser.name}</Typography>
-                <Typography variant="caption" color="success.main" sx={{ fontWeight: 700, display: 'block' }}>
-                  ● Usuario {activeUser.status.toLowerCase()}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Registrado en Shopping Osorno
-                </Typography>
-              </Box>
-            </Stack>
-
-            <Stack spacing={1.75}>
-              <Box>
-                <Typography variant="caption" sx={{ fontWeight: 700 }}>Nombre completo</Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  value={activeUser.name}
-                  onChange={(e) => handleUpdateUser('name', e.target.value)}
-                  sx={{ mt: 0.5 }}
-                />
-              </Box>
-
-              <Box>
-                <Typography variant="caption" sx={{ fontWeight: 700 }}>RUT (Validado con Módulo 11 - Trigger 14)</Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  value={activeUser.rut}
-                  onChange={(e) => handleUpdateUser('rut', e.target.value)}
-                  sx={{ mt: 0.5 }}
-                />
-              </Box>
-
-              <Box>
-                <Typography variant="caption" sx={{ fontWeight: 700 }}>Email (Único por persona - RF31)</Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  value={activeUser.email}
-                  onChange={(e) => handleUpdateUser('email', e.target.value)}
-                  sx={{ mt: 0.5 }}
-                />
-              </Box>
-
-              {/* Múltiples teléfonos por usuario (RF18) */}
-              <Box>
-                <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 0.5 }}>
-                  Teléfonos (RF18 / Check 8: mín. 8 dígitos)
-                </Typography>
-                <Stack spacing={1}>
-                  {activeUser.phones.map((ph, idx) => (
-                    <Stack key={idx} direction="row" spacing={1} alignItems="center">
-                      <TextField
-                        fullWidth
-                        size="small"
-                        value={ph}
-                        onChange={(e) => {
-                          const next = [...activeUser.phones]
-                          next[idx] = e.target.value
-                          handleUpdateUser('phones', next)
-                        }}
-                        slotProps={{
-                          input: {
-                            startAdornment: (
-                              <InputAdornment position="start">
-                                <PhoneOutlined fontSize="small" />
-                              </InputAdornment>
-                            ),
-                          },
-                        }}
-                      />
-                      <IconButton size="small" color="error" onClick={() => handleRemovePhone(idx)}>
-                        <DeleteOutlined fontSize="small" />
-                      </IconButton>
-                    </Stack>
-                  ))}
-                  <Button variant="outlined" size="small" startIcon={<AddOutlined />} onClick={handleAddPhone}>
-                    Agregar teléfono
-                  </Button>
-                </Stack>
-              </Box>
-
-              <Box>
-                <Typography variant="caption" sx={{ fontWeight: 700 }}>Fecha de nacimiento (RF02 / Check 5)</Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  value={activeUser.birthDate}
-                  onChange={(e) => handleUpdateUser('birthDate', e.target.value)}
-                  sx={{ mt: 0.5 }}
-                />
-              </Box>
-
-              <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <LocationOnOutlined color="primary" fontSize="small" />
-                    <Box>
-                      <Typography variant="caption" sx={{ fontWeight: 800, display: 'block' }}>Dirección principal</Typography>
-                      <Typography variant="caption" color="text.secondary">{activeUser.address}</Typography>
-                    </Box>
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 0.75 }}>
+                Teléfonos
+              </Typography>
+              <Stack spacing={1}>
+                {draftUser.phones.map((phone, idx) => (
+                  <Stack key={`${editingUserId}-phone-${idx}`} direction="row" spacing={1} alignItems="flex-start">
+                    <TextField
+                      fullWidth
+                      size="small"
+                      value={phone}
+                      onChange={(event) => updateDraftPhone(idx, event.target.value)}
+                      error={Boolean(formErrors.phones?.[idx])}
+                      helperText={formErrors.phones?.[idx]}
+                      slotProps={{
+                        input: {
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <PhoneOutlined fontSize="small" />
+                            </InputAdornment>
+                          ),
+                        },
+                      }}
+                    />
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => removeDraftPhone(idx)}
+                      disabled={draftUser.phones.length <= 1}
+                    >
+                      <DeleteOutlined fontSize="small" />
+                    </IconButton>
                   </Stack>
-                </Stack>
-              </Paper>
+                ))}
+              </Stack>
+              <Button variant="outlined" size="small" startIcon={<AddOutlined />} onClick={addDraftPhone} sx={{ mt: 1.25 }}>
+                Agregar teléfono
+              </Button>
+            </Box>
 
-              <Box>
-                <Typography variant="caption" sx={{ fontWeight: 700, display: 'block' }}>Roles asignados (RF06)</Typography>
-                <Stack direction="row" spacing={2}>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={activeUser.roles.includes('Cliente')}
-                        onChange={() => handleToggleRole('Cliente')}
-                      />
-                    }
-                    label={<Typography variant="body2">Cliente</Typography>}
-                  />
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={activeUser.roles.includes('Emprendedor')}
-                        onChange={() => handleToggleRole('Emprendedor')}
-                      />
-                    }
-                    label={<Typography variant="body2">Emprendedor</Typography>}
-                  />
-                </Stack>
-              </Box>
-
-              <Divider />
-
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Estado de la cuenta</Typography>
-                  <Typography variant="caption" color="text.secondary">Habilita o suspende el acceso</Typography>
-                </Box>
-                <Switch
-                  checked={activeUser.status === 'Activo'}
-                  onChange={(e) => handleUpdateUser('status', e.target.checked ? 'Activo' : 'Inactivo')}
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 0.5 }}>
+                Roles
+              </Typography>
+              <Stack direction="row" spacing={1}>
+                <FormControlLabel
+                  control={<Checkbox checked={draftUser.roles.includes('Cliente')} onChange={() => toggleDraftRole('Cliente')} />}
+                  label="Cliente"
+                />
+                <FormControlLabel
+                  control={<Checkbox checked={draftUser.roles.includes('Emprendedor')} onChange={() => toggleDraftRole('Emprendedor')} />}
+                  label="Emprendedor"
                 />
               </Stack>
+              {formErrors.roles ? (
+                <Typography variant="caption" color="error">
+                  {formErrors.roles}
+                </Typography>
+              ) : null}
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={closeEditModal}>Cancelar</Button>
+            <Button type="submit" variant="contained">
+              Guardar cambios
+            </Button>
+          </DialogActions>
+        </Box>
+      </Dialog>
 
-              <Stack direction="row" spacing={1.5} pt={1}>
-                <Button variant="outlined" fullWidth>Cancelar</Button>
-                <Button variant="contained" fullWidth>Guardar cambios</Button>
-              </Stack>
-            </Stack>
-          </Card>
-        </Grid>
-      </Grid>
+      <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ fontWeight: 700 }}>
+          ¿Eliminar usuario?
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            Esta acción eliminará a <strong>{deletingUser?.name}</strong> de la gestión de usuarios.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setDeleteOpen(false)}>Cancelar</Button>
+          <Button variant="contained" color="error" onClick={confirmDeleteUser}>
+            Eliminar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar open={Boolean(notice)} autoHideDuration={2600} onClose={() => setNotice('')}>
+        <Alert severity="success" onClose={() => setNotice('')}>
+          {notice}
+        </Alert>
+      </Snackbar>
     </Box>
   )
 }

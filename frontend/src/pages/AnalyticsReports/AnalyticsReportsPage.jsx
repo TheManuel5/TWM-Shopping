@@ -8,6 +8,7 @@ import {
 } from '@mui/icons-material'
 import {
   Box,
+  Alert,
   Button,
   Card,
   Chip,
@@ -18,6 +19,7 @@ import {
   Paper,
   Select,
   Stack,
+  Snackbar,
   Tab,
   Table,
   TableBody,
@@ -70,6 +72,8 @@ export default function AnalyticsReportsPage() {
   // Estados para la carga desde la BD
   const [isExecuting, setIsExecuting] = useState(false)
   const [dbResults, setDbResults] = useState([])
+  const [queryError, setQueryError] = useState('')
+  const [notice, setNotice] = useState('')
 
   const [newSubcatName, setNewSubcatName] = useState('')
   const [parentCat, setParentCat] = useState('1.2 Servicios domésticos')
@@ -80,24 +84,37 @@ export default function AnalyticsReportsPage() {
   const activeQuery = ANALYTICAL_QUERIES.find((q) => q.id === selectedQueryId) || ANALYTICAL_QUERIES[0]
 
   const handleAddSubcategory = () => {
-    if (!newSubcatName.trim()) return
+    if (!newSubcatName.trim()) {
+      setQueryError('Ingresa un nombre para la subcategoría')
+      return
+    }
+    if (newSubcatName.trim().length < 3) {
+      setQueryError('El nombre debe tener al menos 3 caracteres')
+      return
+    }
     setCustomSubcats((prev) => [
       ...prev,
       { parent: parentCat, code: `2.1.${prev.length + 6}`, name: newSubcatName.trim() },
     ])
     setNewSubcatName('')
+    setQueryError('')
+    setNotice('Subcategoría agregada al árbol')
   }
 
   // Función para ejecutar la consulta real en PostgreSQL
   const executeQuery = async () => {
+    if (!dateFrom || !dateTo || dateFrom > dateTo) {
+      setQueryError('El rango de fechas no es válido')
+      return
+    }
     setIsExecuting(true)
     setDbResults([])
+    setQueryError('')
     try {
       const results = await apiService.runReport(selectedQueryId)
-      setDbResults(results)
+      setDbResults(Array.isArray(results) ? results : [])
     } catch (error) {
-      console.error("Error ejecutando consulta:", error)
-      alert("Error al conectar con la base de datos.")
+      setQueryError(error instanceof Error ? error.message : 'No fue posible ejecutar el reporte')
     } finally {
       setIsExecuting(false)
     }
@@ -184,6 +201,7 @@ export default function AnalyticsReportsPage() {
               {isExecuting ? 'Consultando BD...' : 'Ejecutar en PostgreSQL (Raspberry Pi)'}
             </Button>
           </Stack>
+          {queryError && <Alert severity="error" sx={{ mb: 2 }}>{queryError}</Alert>}
 
           <Paper variant="outlined" sx={{ p: 2, bgcolor: '#f7f6ff', borderRadius: 2, mb: 2.5, fontFamily: 'monospace', fontSize: '0.85rem' }}>
             {activeQuery.sql}
@@ -203,7 +221,7 @@ export default function AnalyticsReportsPage() {
               {dbResults.length === 0 && !isExecuting ? (
                 <TableRow>
                   <TableCell colSpan={5} align="center" sx={{ py: 3, color: 'text.secondary' }}>
-                    Haz clic en "Ejecutar en PostgreSQL" para cargar los datos en vivo.
+                    {queryError ? 'No se pudieron cargar los resultados.' : 'Haz clic en "Ejecutar en PostgreSQL" para cargar los datos en vivo.'}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -298,6 +316,8 @@ export default function AnalyticsReportsPage() {
                 size="small"
                 value={newSubcatName}
                 onChange={(e) => setNewSubcatName(e.target.value)}
+                error={Boolean(queryError && tab === 'categorias')}
+                helperText={queryError && tab === 'categorias' ? queryError : ''}
                 placeholder="Ej: Reparación de consolas"
                 sx={{ mt: 0.5, mb: 2 }}
               />
@@ -390,6 +410,7 @@ export default function AnalyticsReportsPage() {
           </Grid>
         </Grid>
       )}
+      <Snackbar open={Boolean(notice)} autoHideDuration={2500} onClose={() => setNotice('')}><Alert severity="success">{notice}</Alert></Snackbar>
     </Box>
   )
 }
