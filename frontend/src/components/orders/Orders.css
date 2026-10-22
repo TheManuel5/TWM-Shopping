@@ -16,6 +16,7 @@
 .orders-filters > button { white-space: nowrap; font-size: 14px; height: 52px; }
 .orders-table-paper { border: 1px solid #e1e5ef; border-radius: 8px; overflow-x: auto; }
 .orders-table-paper table { width: 100%; min-width: 1040px; }
+.orders-table-paper--fixed table { min-width: unset !important; }
 .orders-page:not(.orders-page--with-detail) .orders-table-paper table { min-width: 1040px; }
 .orders-table-paper th { color: #13234d; background: #fff; font-size: 14px; font-weight: 800; padding: 12px 10px; white-space: nowrap; }
 .orders-table-paper td { color: #263452; font-size: 14px; padding: 11px 10px; white-space: pre-line; }
@@ -28,6 +29,8 @@
 .product-more { background: #eee9ff; color: #5c33ce; font-size: 12px; font-weight: 800; }
 .order-actions { min-width: 92px; white-space: nowrap !important; }
 .order-actions .MuiIconButton { color: #6c7486; }
+.orders-table-paper th:last-child, .orders-table-paper td:last-child { padding-right: 20px !important; }
+.orders-table-paper th:first-child, .orders-table-paper td:first-child { padding-left: 16px !important; }
 .row-chevron { color: #263452; margin-left: 3px; vertical-align: middle; }
 .orders-count { margin-top: 12px; }
 .orders-pagination { display: flex; justify-content: center; padding: 18px 0 4px; }

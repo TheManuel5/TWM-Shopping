@@ -1,13 +1,14 @@
-﻿import {
+import {
   AddOutlined,
   BusinessOutlined,
+  ClearOutlined,
   DeleteOutlined,
   EditOutlined,
   FilterListOutlined,
+  PersonOutlined,
   PhoneOutlined,
   SearchOutlined,
-  PersonOutlined,
-} from "@mui/icons-material"
+} from '@mui/icons-material'
 import {
   Alert,
   Avatar,
@@ -18,7 +19,6 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControlLabel,
   Grid,
   IconButton,
   InputAdornment,
@@ -27,7 +27,6 @@ import {
   Select,
   Snackbar,
   Stack,
-  Switch,
   Tab,
   Table,
   TableBody,
@@ -38,219 +37,213 @@ import {
   TextField,
   Tooltip,
   Typography,
-} from "@mui/material"
-import { useState } from "react"
-import StatusChip from "../../components/atoms/StatusChip/StatusChip"
-import "../../components/orders/Orders.css"
+} from '@mui/material'
+import { useState } from 'react'
+import '../../components/orders/Orders.css'
 
+/* ─── Datos iniciales alineados al esquema de DB ─────────────────────────────
+   Empresa  : RUT VARCHAR(11) PK, Nombre VARCHAR(30), Giro VARCHAR(30)
+   Telefono : Telefono INT PK, Empresa_id VARCHAR(11)
+   Correo   : Correo VARCHAR(255) PK, Empresa_id VARCHAR(11)
+   Direccion: CodPostal INT PK, Calle VARCHAR(40), Numero INT, Pasaje VARCHAR(30),
+              Sector VARCHAR(30), Comuna_id INT FK
+   TieneDirEmpresa: Empresa_ID, Direccion_id
+   Emprendedor: RUN PK, Nombre, Apellido — linked via Empresa_id FK
+──────────────────────────────────────────────────────────────────────────── */
 const INITIAL_COMPANIES = [
   {
-    id: 1,
-    name: "Tienda Sur",
-    rut: "76.123.456-7",
-    category: "Hogar y Cocina",
-    comuna: "Osorno",
-    status: "Activa",
-    email: "contacto@tiendasur.cl",
-    website: "https://www.tiendasur.cl",
-    phones: ["+56 9 9876 5432"],
-    hasPhysicalStore: true,
-    address: "Av. Manuel Rodriguez 1234",
-    tags: ["Hogar y Cocina", "Ropa y moda", "Tecnologia"],
-    owner: {
-      name: "Camila Torres Mancilla",
-      run: "15.432.876-5",
-      phone: "+56 9 9876 5432",
-      email: "camila.torres@tiendasur.cl",
-      address: "Pasaje Los Notros 450, Osorno",
-    },
+    rut: '76123456-7',
+    nombre: 'Tienda Sur',
+    giro: 'Comercial',
+    correos: ['contacto@tiendasur.cl'],
+    telefonos: ['998765432'],
+    direccion: { calle: 'Av. Manuel Rodríguez', numero: '1234', pasaje: '', sector: 'Centro', comunaId: 10301 },
+    emprendedor: { run: '20100001-K', nombre: 'Camila', apellido: 'Torres' },
   },
   {
-    id: 2,
-    name: "TecnoPatagonia",
-    rut: "77.987.654-3",
-    category: "Tecnologia",
-    comuna: "Puerto Montt",
-    status: "Activa",
-    email: "ventas@tecnopatagonia.cl",
-    website: "",
-    phones: ["+56 9 7766 5544"],
-    hasPhysicalStore: true,
-    address: "Urmeneta 540, Puerto Montt",
-    tags: ["Computacion", "Celulares", "Electronica"],
-    owner: {
-      name: "Carlos Moya Soto",
-      run: "13.876.543-2",
-      phone: "+56 9 7766 5544",
-      email: "cmoya@tecnopatagonia.cl",
-      address: "Av. Austral 1200, Puerto Montt",
-    },
+    rut: '77987654-3',
+    nombre: 'TecnoPatagonia',
+    giro: 'Tecnologia',
+    correos: ['ventas@tecnopatagonia.cl'],
+    telefonos: ['977665544'],
+    direccion: { calle: 'Urmeneta', numero: '540', pasaje: '', sector: '', comunaId: 10301 },
+    emprendedor: { run: '20100002-K', nombre: 'Carlos', apellido: 'Moya' },
   },
   {
-    id: 3,
-    name: "Casa Estilo",
-    rut: "78.666.111-9",
-    category: "Hogar y Cocina",
-    comuna: "Valdivia",
-    status: "En revision",
-    email: "hola@casayestilo.cl",
-    website: "https://casayestilo.cl",
-    phones: ["+56 9 6655 4433"],
-    hasPhysicalStore: false,
-    address: "Sin tienda fisica",
-    tags: ["Hogar y Cocina", "Servicios domesticos"],
-    owner: {
-      name: "Fernanda Lagos",
-      run: "16.543.210-K",
-      phone: "+56 9 6655 4433",
-      email: "fernanda@casayestilo.cl",
-      address: "Av. Alemania 890, Valdivia",
-    },
+    rut: '78666111-9',
+    nombre: 'Casa Estilo',
+    giro: 'Hogar',
+    correos: ['hola@casaestilo.cl'],
+    telefonos: ['966554433'],
+    direccion: { calle: 'Av. Alemania', numero: '890', pasaje: '', sector: '', comunaId: 10301 },
+    emprendedor: { run: '20100003-K', nombre: 'Fernanda', apellido: 'Lagos' },
   },
   {
-    id: 4,
-    name: "Libreria Austral",
-    rut: "76.778.990-5",
-    category: "Utiles y libreria",
-    comuna: "Osorno",
-    status: "Suspendida",
-    email: "info@libreriaaustral.cl",
-    website: "",
-    phones: ["+56 64 221 9988"],
-    hasPhysicalStore: true,
-    address: "Ramirez 950, Osorno",
-    tags: ["Utiles y libreria", "Libros"],
-    owner: {
-      name: "Roberto Gomez",
-      run: "10.222.333-4",
-      phone: "+56 9 4433 2211",
-      email: "rgomez@libreriaaustral.cl",
-      address: "O Higgins 640, Osorno",
-    },
+    rut: '76778990-5',
+    nombre: 'Libreria Austral',
+    giro: 'Educacion',
+    correos: ['info@libreriaaustral.cl'],
+    telefonos: ['644219988'],
+    direccion: { calle: 'Ramirez', numero: '950', pasaje: '', sector: '', comunaId: 10301 },
+    emprendedor: { run: '20100004-K', nombre: 'Roberto', apellido: 'Gomez' },
   },
 ]
 
 const COMPANY_TEMPLATE = {
-  name: "",
-  rut: "",
-  category: "Hogar y Cocina",
-  comuna: "Osorno",
-  status: "Activa",
-  email: "",
-  website: "",
-  phones: [""],
-  hasPhysicalStore: false,
-  address: "",
-  tags: [],
-  owner: { name: "", run: "", phone: "", email: "", address: "" },
+  rut: '',
+  nombre: '',
+  giro: '',
+  correos: [''],
+  telefonos: [''],
+  direccion: { calle: '', numero: '', pasaje: '', sector: '', comunaId: 10301 },
+  emprendedor: { run: '', nombre: '', apellido: '' },
 }
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const RUT_REGEX = /^\d{1,2}\.\d{3}\.\d{3}-[\dkK]$/
+const RUT_RX = /^\d{2}\d{3}\d{3}-[\dkK]$|^\d{7,8}-[\dkK]$/
 
-function getCompanyErrors(d) {
+function getErrors(d) {
   const e = {}
-  if (!d.name.trim()) e.name = "El nombre es obligatorio"
-  if (!d.rut.trim()) e.rut = "El RUT es obligatorio"
-  else if (!RUT_REGEX.test(d.rut)) e.rut = "Ingresa un RUT valido (ej: 76.123.456-7)"
-  if (!d.email.trim()) e.email = "El email es obligatorio"
-  else if (!EMAIL_REGEX.test(d.email)) e.email = "Ingresa un correo valido"
-  if (!d.owner.name.trim()) e.ownerName = "El nombre del emprendedor es obligatorio"
-  if (!d.owner.run.trim()) e.ownerRun = "El RUN es obligatorio"
-  if (!d.owner.email.trim()) e.ownerEmail = "El correo del emprendedor es obligatorio"
-  else if (!EMAIL_REGEX.test(d.owner.email)) e.ownerEmail = "Ingresa un correo valido"
-  if (d.hasPhysicalStore && !d.address.trim()) e.address = "La direccion es obligatoria"
+  // RUT
+  if (!d.rut.trim()) e.rut = 'El RUT es obligatorio'
+  else if (d.rut.trim().length < 9) e.rut = 'RUT muy corto (ej: 76123456-7)'
+  // Nombre / Giro
+  if (!d.nombre.trim()) e.nombre = 'El nombre es obligatorio'
+  else if (d.nombre.trim().length > 30) e.nombre = 'Máximo 30 caracteres'
+  if (!d.giro.trim()) e.giro = 'El giro es obligatorio'
+  else if (d.giro.trim().length > 30) e.giro = 'Máximo 30 caracteres'
+  // Correo
+  if (!d.correos[0]?.trim()) e.correo = 'El correo es obligatorio'
+  else if (!EMAIL_REGEX.test(d.correos[0])) e.correo = 'Correo inválido'
+  // Teléfono — DB: INT, solo dígitos
+  if (!d.telefonos[0]?.trim()) e.telefono = 'El teléfono es obligatorio'
+  else if (!/^\d{7,15}$/.test(d.telefonos[0].replace(/\s+/g, ''))) e.telefono = 'Solo dígitos, mínimo 7'
+  // Dirección
+  if (!d.direccion.calle.trim()) e.calle = 'La calle es obligatoria'
+  if (!d.direccion.numero.toString().trim()) e.numero = 'El número es obligatorio'
+  else if (isNaN(Number(d.direccion.numero)) || Number(d.direccion.numero) <= 0) e.numero = 'Debe ser un número positivo'
+  // Emprendedor
+  if (!d.emprendedor.run.trim()) e.empRun = 'El RUN del emprendedor es obligatorio'
+  else if (d.emprendedor.run.trim().length < 9) e.empRun = 'RUN muy corto (ej: 20100001-K)'
+  if (!d.emprendedor.nombre.trim()) e.empNombre = 'El nombre del emprendedor es obligatorio'
+  if (!d.emprendedor.apellido.trim()) e.empApellido = 'El apellido del emprendedor es obligatorio'
   return e
+}
+
+const CANCEL_SX = {
+  textTransform: 'none', color: '#4b5563', backgroundColor: '#e5e7eb',
+  '&:hover': { backgroundColor: '#d1d5db' }, boxShadow: 'none', fontWeight: 700,
+}
+const CONFIRM_SX = {
+  textTransform: 'none', backgroundColor: '#6430df',
+  '&:hover': { backgroundColor: '#5324c4' }, boxShadow: 'none', fontWeight: 700,
+}
+const SECTION_LABEL_SX = {
+  fontWeight: 700, display: 'block', mb: 1, mt: 2,
+  color: '#6430df', textTransform: 'uppercase', letterSpacing: 0.5, fontSize: '0.7rem',
 }
 
 export default function ManageCompaniesPage() {
   const [companies, setCompanies] = useState(INITIAL_COMPANIES)
-  const [statusFilter, setStatusFilter] = useState("Todas")
-  const [search, setSearch] = useState("")
-  const [notice, setNotice] = useState("")
+  const [search, setSearch] = useState('')
+  const [giroFilter, setGiroFilter] = useState('Todos')
+  const [appliedSearch, setAppliedSearch] = useState('')
+  const [appliedGiro, setAppliedGiro] = useState('Todos')
+  const [notice, setNotice] = useState('')
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deletingCompany, setDeletingCompany] = useState(null)
-  const [editingId, setEditingId] = useState(null)
+  const [editingRut, setEditingRut] = useState(null)
   const [draft, setDraft] = useState(COMPANY_TEMPLATE)
-  const [detailTab, setDetailTab] = useState("empresa")
+  const [detailTab, setDetailTab] = useState('empresa')
   const [formErrors, setFormErrors] = useState({})
 
-  const visibleCompanies = companies.filter((c) => {
-    const matchStatus = statusFilter === "Todas" || c.status === statusFilter
-    const q = search.toLowerCase()
-    const matchSearch =
-      c.name.toLowerCase().includes(q) ||
+  const GIROS = [...new Set(companies.map((c) => c.giro))].sort()
+
+  const applyFilters = () => { setAppliedSearch(search); setAppliedGiro(giroFilter) }
+  const clearFilters = () => { setSearch(''); setGiroFilter('Todos'); setAppliedSearch(''); setAppliedGiro('Todos') }
+
+  const visible = companies.filter((c) => {
+    const q = appliedSearch.toLowerCase()
+    const matchSearch = !q || (
       c.rut.toLowerCase().includes(q) ||
-      c.owner.name.toLowerCase().includes(q)
-    return matchStatus && matchSearch
+      c.nombre.toLowerCase().includes(q) ||
+      c.giro.toLowerCase().includes(q) ||
+      c.emprendedor.nombre.toLowerCase().includes(q) ||
+      c.emprendedor.apellido.toLowerCase().includes(q)
+    )
+    const matchGiro = appliedGiro === 'Todos' || c.giro === appliedGiro
+    return matchSearch && matchGiro
   })
 
   const openEdit = (company) => {
-    setEditingId(company.id)
+    setEditingRut(company.rut)
     setDraft({
       ...company,
-      phones: company.phones.length ? [...company.phones] : [""],
-      owner: { ...company.owner },
+      correos: [...company.correos],
+      telefonos: [...company.telefonos],
+      direccion: { ...company.direccion },
+      emprendedor: { ...company.emprendedor },
     })
     setFormErrors({})
-    setDetailTab("empresa")
+    setDetailTab('empresa')
     setEditOpen(true)
   }
 
   const openCreate = () => {
-    setEditingId(null)
-    setDraft({ ...COMPANY_TEMPLATE, phones: [""], owner: { ...COMPANY_TEMPLATE.owner } })
+    setEditingRut(null)
+    setDraft({ ...COMPANY_TEMPLATE, correos: [''], telefonos: [''], direccion: { calle: '', numero: '', pasaje: '', sector: '', comunaId: 10301 }, emprendedor: { run: '', nombre: '', apellido: '' } })
     setFormErrors({})
-    setDetailTab("empresa")
+    setDetailTab('empresa')
     setEditOpen(true)
   }
 
-  const closeEdit = () => {
-    setEditOpen(false)
-    setEditingId(null)
-    setFormErrors({})
-  }
+  const closeEdit = () => { setEditOpen(false); setEditingRut(null); setFormErrors({}) }
 
-  const updateDraft = (field, value) => {
+  const update = (field, value) => {
     setDraft((prev) => ({ ...prev, [field]: value }))
-    setFormErrors((prev) => ({ ...prev, [field]: "" }))
+    setFormErrors((prev) => ({ ...prev, [field]: '' }))
   }
 
-  const updateOwner = (field, value) => {
-    setDraft((prev) => ({ ...prev, owner: { ...prev.owner, [field]: value } }))
-    const key = "owner" + field.charAt(0).toUpperCase() + field.slice(1)
-    setFormErrors((prev) => ({ ...prev, [key]: "" }))
+  const updateDireccion = (field, value) => {
+    setDraft((prev) => ({ ...prev, direccion: { ...prev.direccion, [field]: value } }))
+    setFormErrors((prev) => ({ ...prev, [field]: '' }))
   }
 
-  const updatePhone = (idx, value) => {
-    setDraft((prev) => {
-      const next = [...prev.phones]
-      next[idx] = value
-      return { ...prev, phones: next }
-    })
+  const updateEmprendedor = (field, value) => {
+    setDraft((prev) => ({ ...prev, emprendedor: { ...prev.emprendedor, [field]: value } }))
+    const key = 'emp' + field.charAt(0).toUpperCase() + field.slice(1)
+    setFormErrors((prev) => ({ ...prev, [key]: '' }))
+  }
+
+  const updateCorreo = (idx, value) => {
+    setDraft((prev) => { const next = [...prev.correos]; next[idx] = value; return { ...prev, correos: next } })
+    if (idx === 0) setFormErrors((prev) => ({ ...prev, correo: '' }))
+  }
+
+  const updateTelefono = (idx, value) => {
+    setDraft((prev) => { const next = [...prev.telefonos]; next[idx] = value; return { ...prev, telefonos: next } })
+    if (idx === 0) setFormErrors((prev) => ({ ...prev, telefono: '' }))
   }
 
   const saveCompany = () => {
-    const errors = getCompanyErrors(draft)
+    const errors = getErrors(draft)
     setFormErrors(errors)
     if (Object.keys(errors).length) return
-
-    if (editingId) {
-      setCompanies((prev) => prev.map((c) => (c.id === editingId ? { ...draft, id: editingId } : c)))
-      setNotice("Empresa actualizada correctamente")
+    if (editingRut) {
+      setCompanies((prev) => prev.map((c) => c.rut === editingRut ? { ...draft } : c))
+      setNotice('Empresa actualizada correctamente')
     } else {
-      const newId = Date.now()
-      setCompanies((prev) => [...prev, { ...draft, id: newId }])
-      setNotice("Empresa creada correctamente")
+      setCompanies((prev) => [...prev, { ...draft }])
+      setNotice('Empresa creada correctamente')
     }
     closeEdit()
   }
 
   const confirmDelete = () => {
     if (!deletingCompany) return
-    setCompanies((prev) => prev.filter((c) => c.id !== deletingCompany.id))
-    setNotice("Empresa eliminada correctamente")
+    setCompanies((prev) => prev.filter((c) => c.rut !== deletingCompany.rut))
+    setNotice('Empresa eliminada correctamente')
     setDeleteOpen(false)
     setDeletingCompany(null)
   }
@@ -258,15 +251,17 @@ export default function ManageCompaniesPage() {
   return (
     <Box className="orders-page">
       <Box className="orders-main">
+        {/* Breadcrumb */}
         <Box className="orders-breadcrumb">Panel de control <span>/</span> Empresas y emprendedores</Box>
 
+        {/* Encabezado */}
         <Box className="orders-heading">
           <Box className="orders-title-group">
             <BusinessOutlined color="primary" fontSize="large" />
             <Box>
               <Typography variant="h4" component="h1" fontWeight={700}>Empresas y emprendedores</Typography>
               <Typography color="text.secondary">
-                Gestiona las tiendas, marcas y datos del emprendedor dueno que venden en Shopping.
+                Gestiona las empresas, su giro comercial, contactos y dirección.
               </Typography>
             </Box>
             <Chip label={`${companies.length} total`} size="small" color="primary" variant="outlined" />
@@ -276,72 +271,75 @@ export default function ManageCompaniesPage() {
           </Button>
         </Box>
 
+        {/* Filtros */}
         <Box className="orders-filters">
           <TextField
             className="orders-search"
             size="small"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar empresa, emprendedor o RUT..."
+            placeholder="Buscar por RUT, nombre, giro o emprendedor..."
             slotProps={{
               input: {
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchOutlined fontSize="small" />
+                startAdornment: <InputAdornment position="start"><SearchOutlined fontSize="small" /></InputAdornment>,
+                endAdornment: search ? (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => setSearch('')} edge="end" sx={{ color: 'text.secondary' }}>
+                      <ClearOutlined fontSize="small" />
+                    </IconButton>
                   </InputAdornment>
-                ),
+                ) : null,
               },
             }}
           />
-          <Select size="small" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} displayEmpty>
-            <MenuItem value="Todas">Todas las empresas</MenuItem>
-            <MenuItem value="Activa">Activa</MenuItem>
-            <MenuItem value="En revision">En revision</MenuItem>
-            <MenuItem value="Suspendida">Suspendida</MenuItem>
+          <Select size="small" value={giroFilter} onChange={(e) => setGiroFilter(e.target.value)} displayEmpty>
+            <MenuItem value="Todos">Giro: Todos</MenuItem>
+            {GIROS.map((g) => <MenuItem key={g} value={g}>{g}</MenuItem>)}
           </Select>
-          <Button variant="contained" startIcon={<FilterListOutlined />}>
-            Aplicar filtros
-          </Button>
+          <Button variant="contained" startIcon={<FilterListOutlined />} onClick={applyFilters}>Aplicar filtros</Button>
         </Box>
 
-        <Paper className="orders-table-paper">
-          <Table size="small">
+        {/* Tabla */}
+        <Paper className="orders-table-paper orders-table-paper--fixed">
+          <Table size="small" sx={{ tableLayout: 'fixed', width: '100%' }}>
             <TableHead>
               <TableRow>
-                <TableCell>Nombre</TableCell>
-                <TableCell align="center">RUT Empresa</TableCell>
-                <TableCell align="center">Categoria</TableCell>
-                <TableCell align="center">Comuna</TableCell>
-                <TableCell align="center">Estado</TableCell>
-                <TableCell align="right">Acciones</TableCell>
+                <TableCell sx={{ width: '28%' }}>Empresa</TableCell>
+                <TableCell align="center" sx={{ width: '14%' }}>RUT</TableCell>
+                <TableCell align="center" sx={{ width: '13%' }}>Giro</TableCell>
+                <TableCell align="center" sx={{ width: '21%' }}>Correo</TableCell>
+                <TableCell align="center" sx={{ width: '13%' }}>Teléfono</TableCell>
+                <TableCell align="center" sx={{ width: '11%', px: 2 }}>Acciones</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {visibleCompanies.length === 0 ? (
+              {visible.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 4, color: "text.secondary" }}>
-                    No hay empresas que coincidan con los filtros.
+                  <TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                    No hay empresas que coincidan con la búsqueda.
                   </TableCell>
                 </TableRow>
               ) : (
-                visibleCompanies.map((c) => (
-                  <TableRow key={c.id} hover sx={{ cursor: "default" }}>
+                visible.map((c) => (
+                  <TableRow key={c.rut} hover sx={{ cursor: 'default' }}>
                     <TableCell>
                       <Stack direction="row" spacing={1.25} alignItems="center">
-                        <Avatar sx={{ width: 32, height: 32, bgcolor: "primary.main", fontSize: "0.78rem", fontWeight: 800 }}>
-                          {c.name.slice(0, 2).toUpperCase()}
+                        <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main', fontSize: '0.75rem', fontWeight: 800 }}>
+                          {c.nombre.slice(0, 2).toUpperCase()}
                         </Avatar>
                         <Box>
-                          <Typography sx={{ fontWeight: 800, fontSize: 14, lineHeight: 1.2 }}>{c.name}</Typography>
-                          <Typography sx={{ fontSize: 12, color: "text.secondary" }}>{c.owner.name}</Typography>
+                          <Typography sx={{ fontWeight: 800, fontSize: 13, lineHeight: 1.2 }}>{c.nombre}</Typography>
+                          <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>
+                            {c.emprendedor.nombre} {c.emprendedor.apellido}
+                          </Typography>
                         </Box>
                       </Stack>
                     </TableCell>
-                    <TableCell align="center" sx={{ fontFamily: "monospace", fontSize: 13 }}>{c.rut}</TableCell>
-                    <TableCell align="center" sx={{ fontSize: 14 }}>{c.category}</TableCell>
-                    <TableCell align="center" sx={{ fontSize: 14 }}>{c.comuna}</TableCell>
-                    <TableCell align="center"><StatusChip status={c.status} /></TableCell>
-                    <TableCell align="right" className="order-actions">
+                    <TableCell align="center" sx={{ fontFamily: 'monospace', fontSize: 12 }}>{c.rut}</TableCell>
+                    <TableCell align="center" sx={{ fontSize: 13 }}>{c.giro}</TableCell>
+                    <TableCell align="center" sx={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.correos[0]}</TableCell>
+                    <TableCell align="center" sx={{ fontSize: 12 }}>{c.telefonos[0]}</TableCell>
+                    <TableCell align="center" sx={{ px: 2 }}>
                       <Tooltip title="Editar empresa">
                         <IconButton size="small" onClick={() => openEdit(c)}>
                           <EditOutlined fontSize="small" />
@@ -361,281 +359,184 @@ export default function ManageCompaniesPage() {
         </Paper>
       </Box>
 
-      {/* ====== MODAL EDITAR / CREAR ====== */}
+      {/* ══════════════════════ DIALOG EDITAR / CREAR ══════════════════════ */}
       <Dialog open={editOpen} onClose={closeEdit} fullWidth maxWidth="md" scroll="paper">
-        <DialogTitle sx={{ fontWeight: 700, fontSize: 18, borderBottom: "1px solid", borderColor: "divider", pb: 1.5 }}>
-          {editingId ? "Editar empresa" : "Nueva empresa"}
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 18, borderBottom: '1px solid', borderColor: 'divider', pb: 1.5 }}>
+          {editingRut ? 'Editar empresa' : 'Nueva empresa'}
         </DialogTitle>
 
-        <Tabs value={detailTab} onChange={(_, v) => setDetailTab(v)} sx={{ px: 3, borderBottom: "1px solid", borderColor: "divider", minHeight: 44 }}>
-          <Tab value="empresa" icon={<BusinessOutlined fontSize="small" />} iconPosition="start" label="Datos de la empresa" sx={{ minHeight: 44, textTransform: "none", fontWeight: 600 }} />
-          <Tab value="dueno" icon={<PersonOutlined fontSize="small" />} iconPosition="start" label="Emprendedor / Dueno" sx={{ minHeight: 44, textTransform: "none", fontWeight: 600 }} />
+        <Tabs value={detailTab} onChange={(_, v) => setDetailTab(v)} sx={{ px: 3, borderBottom: '1px solid', borderColor: 'divider', minHeight: 44 }}>
+          <Tab value="empresa" icon={<BusinessOutlined fontSize="small" />} iconPosition="start" label="Datos de la empresa" sx={{ minHeight: 44, textTransform: 'none', fontWeight: 600 }} />
+          <Tab value="emprendedor" icon={<PersonOutlined fontSize="small" />} iconPosition="start" label="Emprendedor responsable" sx={{ minHeight: 44, textTransform: 'none', fontWeight: 600 }} />
         </Tabs>
 
-        <DialogContent sx={{ pt: 3 }}>
-          {detailTab === "empresa" ? (
-            <Grid container spacing={2.5}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Nombre de la empresa *"
-                  size="small"
-                  value={draft.name}
-                  onChange={(e) => updateDraft("name", e.target.value)}
-                  error={Boolean(formErrors.name)}
-                  helperText={formErrors.name}
-                  InputLabelProps={{ shrink: true }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="RUT de la empresa *"
-                  size="small"
-                  placeholder="76.123.456-7"
-                  value={draft.rut}
-                  onChange={(e) => updateDraft("rut", e.target.value)}
-                  error={Boolean(formErrors.rut)}
-                  helperText={formErrors.rut}
-                  InputLabelProps={{ shrink: true }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Email de contacto *"
-                  size="small"
-                  value={draft.email}
-                  onChange={(e) => updateDraft("email", e.target.value)}
-                  error={Boolean(formErrors.email)}
-                  helperText={formErrors.email}
-                  InputLabelProps={{ shrink: true }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Sitio web (opcional)"
-                  size="small"
-                  placeholder="https://..."
-                  value={draft.website}
-                  onChange={(e) => updateDraft("website", e.target.value)}
-                  InputLabelProps={{ shrink: true }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  select
-                  label="Categoria principal"
-                  size="small"
-                  value={draft.category}
-                  onChange={(e) => updateDraft("category", e.target.value)}
-                  InputLabelProps={{ shrink: true }}
-                >
-                  {["Hogar y Cocina","Tecnologia","Ropa y moda","Alimentacion","Utiles y libreria","Servicios","Electronica"].map((c) => (
-                    <MenuItem key={c} value={c}>{c}</MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  select
-                  label="Estado"
-                  size="small"
-                  value={draft.status}
-                  onChange={(e) => updateDraft("status", e.target.value)}
-                  InputLabelProps={{ shrink: true }}
-                >
-                  <MenuItem value="Activa">Activa</MenuItem>
-                  <MenuItem value="En revision">En revision</MenuItem>
-                  <MenuItem value="Suspendida">Suspendida</MenuItem>
-                </TextField>
+        <DialogContent sx={{ pt: 2 }}>
+          {detailTab === 'empresa' ? (
+            <>
+              {/* ── Empresa principal ── */}
+              <Typography sx={SECTION_LABEL_SX}>Tabla Empresa</Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField fullWidth required label="RUT" size="small" value={draft.rut}
+                    onChange={(e) => update('rut', e.target.value)}
+                    error={Boolean(formErrors.rut)} helperText={formErrors.rut}
+                    InputLabelProps={{ shrink: true }} placeholder="76123456-7" />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField fullWidth required label="Nombre" size="small" value={draft.nombre}
+                    onChange={(e) => update('nombre', e.target.value)}
+                    error={Boolean(formErrors.nombre)} helperText={formErrors.nombre}
+                    InputLabelProps={{ shrink: true }} />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField fullWidth required label="Giro" size="small" value={draft.giro}
+                    onChange={(e) => update('giro', e.target.value)}
+                    error={Boolean(formErrors.giro)} helperText={formErrors.giro}
+                    InputLabelProps={{ shrink: true }} placeholder="Comercial, Tecnologia..." />
+                </Grid>
               </Grid>
 
-              <Grid item xs={12}>
-                <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>Telefonos de contacto</Typography>
-                <Stack spacing={1}>
-                  {draft.phones.map((p, i) => (
-                    <Stack key={i} direction="row" spacing={1} alignItems="center">
-                      <TextField
-                        fullWidth
-                        size="small"
-                        value={p}
-                        onChange={(e) => updatePhone(i, e.target.value)}
-                        placeholder="+56 9 ..."
-                        slotProps={{
-                          input: {
-                            startAdornment: (
-                              <InputAdornment position="start">
-                                <PhoneOutlined fontSize="small" />
-                              </InputAdornment>
-                            ),
-                          },
-                        }}
-                      />
-                      <IconButton size="small" color="error" disabled={draft.phones.length <= 1}
-                        onClick={() => setDraft((prev) => ({ ...prev, phones: prev.phones.filter((_, idx) => idx !== i) }))}>
-                        <DeleteOutlined fontSize="small" />
-                      </IconButton>
-                    </Stack>
-                  ))}
-                </Stack>
-                <Button size="small" startIcon={<AddOutlined />} sx={{ mt: 1 }}
-                  onClick={() => setDraft((prev) => ({ ...prev, phones: [...prev.phones, ""] }))}>
-                  Agregar telefono
+              {/* ── Correos (tabla Correo) ── */}
+              <Typography sx={{ ...SECTION_LABEL_SX, mt: 2.5 }}>Correos — tabla Correo</Typography>
+              <Stack spacing={1}>
+                {draft.correos.map((correo, idx) => (
+                  <Stack key={idx} direction="row" spacing={1} alignItems="flex-start">
+                    <TextField fullWidth size="small" type="email" value={correo}
+                      onChange={(e) => updateCorreo(idx, e.target.value)}
+                      error={idx === 0 && Boolean(formErrors.correo)} helperText={idx === 0 ? formErrors.correo : ''}
+                      placeholder="empresa@ejemplo.cl" />
+                    <IconButton size="small" color="error" disabled={draft.correos.length <= 1}
+                      onClick={() => setDraft((prev) => ({ ...prev, correos: prev.correos.filter((_, i) => i !== idx) }))}>
+                      <DeleteOutlined fontSize="small" />
+                    </IconButton>
+                  </Stack>
+                ))}
+                <Button size="small" variant="outlined" startIcon={<AddOutlined />} sx={{ alignSelf: 'flex-start' }}
+                  onClick={() => setDraft((prev) => ({ ...prev, correos: [...prev.correos, ''] }))}>
+                  Agregar correo
                 </Button>
-              </Grid>
+              </Stack>
 
-              <Grid item xs={12}>
-                <Paper elevation={0} sx={{ p: 2, bgcolor: "#f7f6ff", borderRadius: 2 }}>
-                  <FormControlLabel
-                    control={<Switch checked={draft.hasPhysicalStore} onChange={(e) => updateDraft("hasPhysicalStore", e.target.checked)} />}
-                    label={<Typography fontWeight={700} fontSize={14}>Tiene tienda fisica</Typography>}
-                  />
-                  {draft.hasPhysicalStore && (
-                    <Grid container spacing={2} sx={{ mt: 0.5 }}>
-                      <Grid item xs={12} sm={4}>
-                        <TextField fullWidth select label="Region" size="small" value="Los Lagos" InputLabelProps={{ shrink: true }}>
-                          <MenuItem value="Los Lagos">Los Lagos</MenuItem>
-                        </TextField>
-                      </Grid>
-                      <Grid item xs={12} sm={4}>
-                        <TextField
-                          fullWidth select label="Comuna" size="small"
-                          value={draft.comuna}
-                          onChange={(e) => updateDraft("comuna", e.target.value)}
-                          InputLabelProps={{ shrink: true }}
-                        >
-                          <MenuItem value="Osorno">Osorno</MenuItem>
-                          <MenuItem value="Puerto Montt">Puerto Montt</MenuItem>
-                          <MenuItem value="Valdivia">Valdivia</MenuItem>
-                        </TextField>
-                      </Grid>
-                      <Grid item xs={12} sm={4}>
-                        <TextField
-                          fullWidth
-                          label="Direccion del local *"
-                          size="small"
-                          value={draft.address}
-                          onChange={(e) => updateDraft("address", e.target.value)}
-                          error={Boolean(formErrors.address)}
-                          helperText={formErrors.address}
-                          InputLabelProps={{ shrink: true }}
-                        />
-                      </Grid>
-                    </Grid>
-                  )}
-                </Paper>
+              {/* ── Teléfonos (tabla Telefono) ── */}
+              <Typography sx={{ ...SECTION_LABEL_SX, mt: 2.5 }}>Teléfonos — tabla Telefono</Typography>
+              <Stack spacing={1}>
+                {draft.telefonos.map((tel, idx) => (
+                  <Stack key={idx} direction="row" spacing={1} alignItems="flex-start">
+                    <TextField fullWidth size="small" value={tel}
+                      onChange={(e) => updateTelefono(idx, e.target.value)}
+                      error={idx === 0 && Boolean(formErrors.telefono)} helperText={idx === 0 ? formErrors.telefono : ''}
+                      slotProps={{ input: { startAdornment: <InputAdornment position="start"><PhoneOutlined fontSize="small" /></InputAdornment> } }}
+                      placeholder="912345678" />
+                    <IconButton size="small" color="error" disabled={draft.telefonos.length <= 1}
+                      onClick={() => setDraft((prev) => ({ ...prev, telefonos: prev.telefonos.filter((_, i) => i !== idx) }))}>
+                      <DeleteOutlined fontSize="small" />
+                    </IconButton>
+                  </Stack>
+                ))}
+                <Button size="small" variant="outlined" startIcon={<AddOutlined />} sx={{ alignSelf: 'flex-start' }}
+                  onClick={() => setDraft((prev) => ({ ...prev, telefonos: [...prev.telefonos, ''] }))}>
+                  Agregar teléfono
+                </Button>
+              </Stack>
+
+              {/* ── Dirección (tabla Direccion + TieneDirEmpresa) ── */}
+              <Typography sx={{ ...SECTION_LABEL_SX, mt: 2.5 }}>Dirección — tabla Direccion / TieneDirEmpresa</Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={8}>
+                  <TextField fullWidth required label="Calle" size="small" value={draft.direccion.calle}
+                    onChange={(e) => updateDireccion('calle', e.target.value)}
+                    error={Boolean(formErrors.calle)} helperText={formErrors.calle}
+                    InputLabelProps={{ shrink: true }} />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField fullWidth required label="Número" size="small" value={draft.direccion.numero}
+                    onChange={(e) => updateDireccion('numero', e.target.value)}
+                    error={Boolean(formErrors.numero)} helperText={formErrors.numero}
+                    InputLabelProps={{ shrink: true }} />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField fullWidth label="Pasaje" size="small" value={draft.direccion.pasaje}
+                    onChange={(e) => updateDireccion('pasaje', e.target.value)}
+                    InputLabelProps={{ shrink: true }} />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField fullWidth label="Sector" size="small" value={draft.direccion.sector}
+                    onChange={(e) => updateDireccion('sector', e.target.value)}
+                    InputLabelProps={{ shrink: true }} />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField fullWidth select label="Comuna_id" size="small" value={draft.direccion.comunaId}
+                    onChange={(e) => updateDireccion('comunaId', Number(e.target.value))}
+                    InputLabelProps={{ shrink: true }}>
+                    <MenuItem value={10301}>10301 — Osorno</MenuItem>
+                  </TextField>
+                </Grid>
               </Grid>
-            </Grid>
+            </>
           ) : (
-            <Grid container spacing={2.5}>
-              <Grid item xs={12}>
-                <Alert severity="info" sx={{ mb: 1 }}>Datos personales del dueno / emprendedor responsable de esta empresa.</Alert>
+            <>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Emprendedor responsable de esta empresa. Corresponde a un registro de la tabla <strong>Emprendedor</strong> cuyo campo <code>Empresa_id</code> apunta al RUT de esta empresa.
+              </Alert>
+              <Typography sx={SECTION_LABEL_SX}>Tabla Emprendedor</Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={4}>
+                  <TextField fullWidth required label="RUN" size="small" value={draft.emprendedor.run}
+                    onChange={(e) => updateEmprendedor('run', e.target.value)}
+                    error={Boolean(formErrors.empRun)} helperText={formErrors.empRun}
+                    InputLabelProps={{ shrink: true }} placeholder="20100001-K" />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField fullWidth required label="Nombre" size="small" value={draft.emprendedor.nombre}
+                    onChange={(e) => updateEmprendedor('nombre', e.target.value)}
+                    error={Boolean(formErrors.empNombre)} helperText={formErrors.empNombre}
+                    InputLabelProps={{ shrink: true }} />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField fullWidth required label="Apellido" size="small" value={draft.emprendedor.apellido}
+                    onChange={(e) => updateEmprendedor('apellido', e.target.value)}
+                    error={Boolean(formErrors.empApellido)} helperText={formErrors.empApellido}
+                    InputLabelProps={{ shrink: true }} />
+                </Grid>
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Nombre del emprendedor *"
-                  size="small"
-                  value={draft.owner.name}
-                  onChange={(e) => updateOwner("name", e.target.value)}
-                  error={Boolean(formErrors.ownerName)}
-                  helperText={formErrors.ownerName}
-                  InputLabelProps={{ shrink: true }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="RUN del emprendedor *"
-                  size="small"
-                  placeholder="15.432.876-5"
-                  value={draft.owner.run}
-                  onChange={(e) => updateOwner("run", e.target.value)}
-                  error={Boolean(formErrors.ownerRun)}
-                  helperText={formErrors.ownerRun}
-                  InputLabelProps={{ shrink: true }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Telefono personal *"
-                  size="small"
-                  value={draft.owner.phone}
-                  onChange={(e) => updateOwner("phone", e.target.value)}
-                  InputLabelProps={{ shrink: true }}
-                  slotProps={{
-                    input: {
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <PhoneOutlined fontSize="small" />
-                        </InputAdornment>
-                      ),
-                    },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Correo personal *"
-                  size="small"
-                  value={draft.owner.email}
-                  onChange={(e) => updateOwner("email", e.target.value)}
-                  error={Boolean(formErrors.ownerEmail)}
-                  helperText={formErrors.ownerEmail}
-                  InputLabelProps={{ shrink: true }}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Direccion particular *"
-                  size="small"
-                  value={draft.owner.address}
-                  onChange={(e) => updateOwner("address", e.target.value)}
-                  InputLabelProps={{ shrink: true }}
-                />
-              </Grid>
-            </Grid>
+            </>
           )}
 
-          {/* Resumen de errores */}
           {Object.keys(formErrors).length > 0 && (
             <Alert severity="error" sx={{ mt: 2.5 }}>
-              Hay campos obligatorios sin completar. Revisa ambas pestanas antes de guardar.
+              Hay campos obligatorios sin completar. Revisa ambas pestañas.
             </Alert>
           )}
         </DialogContent>
 
-        <DialogActions sx={{ px: 3, py: 2, borderTop: "1px solid", borderColor: "divider" }}>
-          <Button onClick={closeEdit}>Cancelar</Button>
-          <Button variant="contained" onClick={saveCompany}>
-            {editingId ? "Guardar cambios" : "Crear empresa"}
+        <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+          <Button onClick={closeEdit} variant="contained" sx={CANCEL_SX}>Cancelar</Button>
+          <Button variant="contained" onClick={saveCompany} sx={CONFIRM_SX}>
+            {editingRut ? 'Guardar cambios' : 'Crear empresa'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* ====== MODAL ELIMINAR ====== */}
+      {/* ══════════════════════ DIALOG ELIMINAR ══════════════════════ */}
       <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle sx={{ fontWeight: 700 }}>Eliminar empresa</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary">
-            Esta accion eliminara a <strong>{deletingCompany?.name}</strong> de la plataforma. Esta accion no se puede deshacer.
+            Esta acción eliminará <strong>{deletingCompany?.nombre}</strong>{' '}
+            (RUT: <code>{deletingCompany?.rut}</code>) de la plataforma. Esta acción no se puede deshacer.
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setDeleteOpen(false)}>Cancelar</Button>
-          <Button variant="contained" color="error" onClick={confirmDelete}>Eliminar</Button>
+          <Button onClick={() => setDeleteOpen(false)} variant="contained" sx={CANCEL_SX}>Cancelar</Button>
+          <Button variant="contained" color="error" onClick={confirmDelete}
+            sx={{ textTransform: 'none', fontWeight: 700, boxShadow: 'none' }}>
+            Eliminar
+          </Button>
         </DialogActions>
       </Dialog>
 
-      <Snackbar open={Boolean(notice)} autoHideDuration={2600} onClose={() => setNotice("")}>
-        <Alert severity="success" onClose={() => setNotice("")}>{notice}</Alert>
+      <Snackbar open={Boolean(notice)} autoHideDuration={2600} onClose={() => setNotice('')}>
+        <Alert severity="success" onClose={() => setNotice('')}>{notice}</Alert>
       </Snackbar>
     </Box>
   )
