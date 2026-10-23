@@ -100,33 +100,72 @@ const COMPANY_TEMPLATE = {
 }
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const RUT_RX = /^\d{2}\d{3}\d{3}-[\dkK]$|^\d{7,8}-[\dkK]$/
+
+/**
+ * Sanitiza la entrada de un RUN/RUT chileno mientras el usuario escribe.
+ * Formato válido final: NNNNNNN-D  o  NNNNNNNN-D  (sin puntos)
+ */
+function sanitizeRUN(raw) {
+  const s = raw.replace(/[^\dkK-]/g, '').toUpperCase()
+  const hyphenIdx = s.indexOf('-')
+  if (hyphenIdx !== -1) {
+    const body = s.slice(0, hyphenIdx).replace(/\D/g, '').slice(0, 8)
+    const dv = s.slice(hyphenIdx + 1).replace(/[^0-9K]/g, '').slice(0, 1)
+    return body.length >= 1 ? body + '-' + dv : body
+  }
+  return s.replace(/[^0-9]/g, '').slice(0, 8)
+}
+
+/**
+ * Algoritmo oficial de verificación de RUN/RUT chileno (módulo 11).
+ */
+function validarRUT(input) {
+  if (!input || typeof input !== 'string') return false
+  const clean = input.replace(/[.\s]/g, '').toUpperCase()
+  if (!/^\d{7,9}-[0-9K]$/.test(clean)) return false
+  const dash = clean.lastIndexOf('-')
+  const body = clean.slice(0, dash)
+  const dv = clean.slice(dash + 1)
+  let sum = 0, mul = 2
+  for (let i = body.length - 1; i >= 0; i--) {
+    sum += parseInt(body[i], 10) * mul
+    mul = mul === 7 ? 2 : mul + 1
+  }
+  const result = 11 - (sum % 11)
+  const expected = result === 11 ? '0' : result === 10 ? 'K' : String(result)
+  return dv === expected
+}
 
 function getErrors(d) {
   const e = {}
   // RUT
   if (!d.rut.trim()) e.rut = 'El RUT es obligatorio'
-  else if (d.rut.trim().length < 9) e.rut = 'RUT muy corto (ej: 76123456-7)'
+  else if (!/^\d{7,8}-[0-9kK]$/.test(d.rut.trim())) e.rut = 'Formato inválido (ej: 76123456-7)'
+  else if (!validarRUT(d.rut)) e.rut = 'RUT inválido — dígito verificador incorrecto'
   // Nombre / Giro
   if (!d.nombre.trim()) e.nombre = 'El nombre es obligatorio'
   else if (d.nombre.trim().length > 30) e.nombre = 'Máximo 30 caracteres'
   if (!d.giro.trim()) e.giro = 'El giro es obligatorio'
   else if (d.giro.trim().length > 30) e.giro = 'Máximo 30 caracteres'
-  // Correo
+  // Correo — VARCHAR(255)
   if (!d.correos[0]?.trim()) e.correo = 'El correo es obligatorio'
   else if (!EMAIL_REGEX.test(d.correos[0])) e.correo = 'Correo inválido'
-  // Teléfono — DB: INT, solo dígitos
+  else if (d.correos[0].length > 255) e.correo = 'Máximo 255 caracteres'
+  // Teléfono — DB: INT (máx 9 dígitos), solo dígitos
   if (!d.telefonos[0]?.trim()) e.telefono = 'El teléfono es obligatorio'
-  else if (!/^\d{7,15}$/.test(d.telefonos[0].replace(/\s+/g, ''))) e.telefono = 'Solo dígitos, mínimo 7'
+  else if (!/^\d{7,9}$/.test(d.telefonos[0].replace(/\s+/g, ''))) e.telefono = 'Teléfono chileno: 7-9 dígitos'
   // Dirección
   if (!d.direccion.calle.trim()) e.calle = 'La calle es obligatoria'
   if (!d.direccion.numero.toString().trim()) e.numero = 'El número es obligatorio'
   else if (isNaN(Number(d.direccion.numero)) || Number(d.direccion.numero) <= 0) e.numero = 'Debe ser un número positivo'
   // Emprendedor
   if (!d.emprendedor.run.trim()) e.empRun = 'El RUN del emprendedor es obligatorio'
-  else if (d.emprendedor.run.trim().length < 9) e.empRun = 'RUN muy corto (ej: 20100001-K)'
+  else if (!/^\d{7,8}-[0-9kK]$/.test(d.emprendedor.run.trim())) e.empRun = 'Formato inválido (ej: 20100001-K)'
+  else if (!validarRUT(d.emprendedor.run)) e.empRun = 'RUN inválido — dígito verificador incorrecto'
   if (!d.emprendedor.nombre.trim()) e.empNombre = 'El nombre del emprendedor es obligatorio'
+  else if (d.emprendedor.nombre.trim().length > 30) e.empNombre = 'Máximo 30 caracteres'
   if (!d.emprendedor.apellido.trim()) e.empApellido = 'El apellido del emprendedor es obligatorio'
+  else if (d.emprendedor.apellido.trim().length > 30) e.empApellido = 'Máximo 30 caracteres'
   return e
 }
 
@@ -200,28 +239,52 @@ export default function ManageCompaniesPage() {
 
   const closeEdit = () => { setEditOpen(false); setEditingRut(null); setFormErrors({}) }
 
-  const update = (field, value) => {
+  const update = (field, rawValue) => {
+    let value = rawValue
+    if (field === 'rut') {
+      value = sanitizeRUN(rawValue)
+    } else if (field === 'nombre' || field === 'giro') {
+      value = rawValue.slice(0, 30)
+    }
     setDraft((prev) => ({ ...prev, [field]: value }))
     setFormErrors((prev) => ({ ...prev, [field]: '' }))
   }
 
-  const updateDireccion = (field, value) => {
+  const updateDireccion = (field, rawValue) => {
+    let value = rawValue
+    if (field === 'numero') {
+      value = rawValue.replace(/\D/g, '').slice(0, 6)
+    } else if (field === 'calle') {
+      value = rawValue.slice(0, 40)
+    } else if (field === 'pasaje' || field === 'sector') {
+      value = rawValue.slice(0, 30)
+    }
     setDraft((prev) => ({ ...prev, direccion: { ...prev.direccion, [field]: value } }))
     setFormErrors((prev) => ({ ...prev, [field]: '' }))
   }
 
-  const updateEmprendedor = (field, value) => {
+  const updateEmprendedor = (field, rawValue) => {
+    let value = rawValue
+    if (field === 'run') {
+      value = sanitizeRUN(rawValue)
+    } else if (field === 'nombre' || field === 'apellido') {
+      value = rawValue.slice(0, 30)
+    }
     setDraft((prev) => ({ ...prev, emprendedor: { ...prev.emprendedor, [field]: value } }))
     const key = 'emp' + field.charAt(0).toUpperCase() + field.slice(1)
     setFormErrors((prev) => ({ ...prev, [key]: '' }))
   }
 
-  const updateCorreo = (idx, value) => {
+  const updateCorreo = (idx, rawValue) => {
+    // Correo VARCHAR(255)
+    const value = rawValue.slice(0, 255)
     setDraft((prev) => { const next = [...prev.correos]; next[idx] = value; return { ...prev, correos: next } })
     if (idx === 0) setFormErrors((prev) => ({ ...prev, correo: '' }))
   }
 
-  const updateTelefono = (idx, value) => {
+  const updateTelefono = (idx, rawValue) => {
+    // Telefono DB: INT — solo dígitos, máx 9 (número chileno)
+    const value = rawValue.replace(/\D/g, '').slice(0, 9)
     setDraft((prev) => { const next = [...prev.telefonos]; next[idx] = value; return { ...prev, telefonos: next } })
     if (idx === 0) setFormErrors((prev) => ({ ...prev, telefono: '' }))
   }
@@ -379,19 +442,19 @@ export default function ManageCompaniesPage() {
                 <Grid item xs={12} sm={6}>
                   <TextField fullWidth required label="RUT" size="small" value={draft.rut}
                     onChange={(e) => update('rut', e.target.value)}
-                    error={Boolean(formErrors.rut)} helperText={formErrors.rut}
+                    error={Boolean(formErrors.rut)} helperText={formErrors.rut || 'Ej: 76123456-7 (sin puntos)'}
                     InputLabelProps={{ shrink: true }} placeholder="76123456-7" />
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <TextField fullWidth required label="Nombre" size="small" value={draft.nombre}
                     onChange={(e) => update('nombre', e.target.value)}
-                    error={Boolean(formErrors.nombre)} helperText={formErrors.nombre}
+                    error={Boolean(formErrors.nombre)} helperText={formErrors.nombre || `${draft.nombre.length}/30`}
                     InputLabelProps={{ shrink: true }} />
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <TextField fullWidth required label="Giro" size="small" value={draft.giro}
                     onChange={(e) => update('giro', e.target.value)}
-                    error={Boolean(formErrors.giro)} helperText={formErrors.giro}
+                    error={Boolean(formErrors.giro)} helperText={formErrors.giro || `${draft.giro.length}/30`}
                     InputLabelProps={{ shrink: true }} placeholder="Comercial, Tecnologia..." />
                 </Grid>
               </Grid>
@@ -424,8 +487,9 @@ export default function ManageCompaniesPage() {
                   <Stack key={idx} direction="row" spacing={1} alignItems="flex-start">
                     <TextField fullWidth size="small" value={tel}
                       onChange={(e) => updateTelefono(idx, e.target.value)}
-                      error={idx === 0 && Boolean(formErrors.telefono)} helperText={idx === 0 ? formErrors.telefono : ''}
-                      slotProps={{ input: { startAdornment: <InputAdornment position="start"><PhoneOutlined fontSize="small" /></InputAdornment> } }}
+                      error={idx === 0 && Boolean(formErrors.telefono)}
+                      helperText={idx === 0 ? (formErrors.telefono || `${tel.length}/9 dígitos`) : `${tel.length}/9`}
+                      slotProps={{ input: { startAdornment: <InputAdornment position="start"><PhoneOutlined fontSize="small" /></InputAdornment>, inputMode: 'numeric' } }}
                       placeholder="912345678" />
                     <IconButton size="small" color="error" disabled={draft.telefonos.length <= 1}
                       onClick={() => setDraft((prev) => ({ ...prev, telefonos: prev.telefonos.filter((_, i) => i !== idx) }))}>
@@ -451,7 +515,8 @@ export default function ManageCompaniesPage() {
                 <Grid item xs={12} sm={4}>
                   <TextField fullWidth required label="Número" size="small" value={draft.direccion.numero}
                     onChange={(e) => updateDireccion('numero', e.target.value)}
-                    error={Boolean(formErrors.numero)} helperText={formErrors.numero}
+                    error={Boolean(formErrors.numero)} helperText={formErrors.numero || 'Solo números positivos'}
+                    slotProps={{ htmlInput: { inputMode: 'numeric' } }}
                     InputLabelProps={{ shrink: true }} />
                 </Grid>
                 <Grid item xs={12} sm={4}>
@@ -483,7 +548,7 @@ export default function ManageCompaniesPage() {
                 <Grid item xs={12} sm={4}>
                   <TextField fullWidth required label="RUN" size="small" value={draft.emprendedor.run}
                     onChange={(e) => updateEmprendedor('run', e.target.value)}
-                    error={Boolean(formErrors.empRun)} helperText={formErrors.empRun}
+                    error={Boolean(formErrors.empRun)} helperText={formErrors.empRun || 'Ej: 20100001-K (sin puntos)'}
                     InputLabelProps={{ shrink: true }} placeholder="20100001-K" />
                 </Grid>
                 <Grid item xs={12} sm={4}>

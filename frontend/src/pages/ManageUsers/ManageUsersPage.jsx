@@ -135,6 +135,31 @@ const TODAY = new Date().toISOString().split('T')[0]
 const MIN_DATE = '1940-01-01'
 
 /**
+ * Sanitiza la entrada de un RUN/RUT chileno mientras el usuario escribe.
+ * Formato válido final: NNNNNNN-D  o  NNNNNNNN-D  (sin puntos)
+ * Reglas:
+ *   - Solo dígitos antes del guión (máx 8 dígitos)
+ *   - Un solo guión que solo aparece si ya hay al menos 1 dígito
+ *   - Exactamente 1 carácter después del guión (dígito ó K)
+ *   - Se ignoran puntos, espacios y cualquier otro carácter
+ */
+function sanitizeRUN(raw) {
+  // Quitar todo lo que no sea dígito, k/K o guión
+  const s = raw.replace(/[^\dkK-]/g, '').toUpperCase()
+  const hyphenIdx = s.indexOf('-')
+  if (hyphenIdx !== -1) {
+    // Extraer la parte del cuerpo (solo dígitos, máx 8) y el DV (1 char: dígito o K)
+    const body = s.slice(0, hyphenIdx).replace(/\D/g, '').slice(0, 8)
+    const dvRaw = s.slice(hyphenIdx + 1).replace(/[^0-9K]/g, '')
+    const dv = dvRaw.slice(0, 1)
+    // Solo mostrar el guión si hay al menos 1 dígito en el cuerpo
+    return body.length >= 1 ? body + '-' + dv : body
+  }
+  // Sin guión: solo dígitos, máx 8
+  return s.replace(/[^0-9]/g, '').slice(0, 8)
+}
+
+/**
  * Algoritmo oficial de verificación de RUN/RUT chileno (módulo 11).
  * Acepta formato: 12345678-5 | 1234567-K | 76543210-3
  * (sin puntos, con guión obligatorio)
@@ -162,7 +187,7 @@ function getValidationErrors(d) {
   if (!d.run.trim()) e.run = 'El RUN es obligatorio'
   else if (!/^\d{7,8}-[0-9kK]$/.test(d.run.trim())) e.run = 'Formato inválido (ej: 12345678-5 o 1234567-K)'
   else if (!validarRUT(d.run)) e.run = 'RUN inválido — dígito verificador incorrecto'
-  // Nombre / Apellido
+  // Nombre / Apellido — VARCHAR(30)
   if (!d.nombre.trim()) e.nombre = 'El nombre es obligatorio'
   else if (d.nombre.trim().length > 30) e.nombre = 'Máximo 30 caracteres'
   if (!d.apellido.trim()) e.apellido = 'El apellido es obligatorio'
@@ -171,17 +196,21 @@ function getValidationErrors(d) {
   if (!d.fechaNac) e.fechaNac = 'La fecha de nacimiento es obligatoria'
   else if (d.fechaNac < MIN_DATE) e.fechaNac = 'La fecha debe ser posterior a 1940'
   else if (d.fechaNac > TODAY) e.fechaNac = 'La fecha no puede ser futura'
-  // Passwd
+  // Passwd — mín 6, máx 50
   if (!d.passwd.trim()) e.passwd = 'La contraseña es obligatoria'
   else if (d.passwd.trim().length < 6) e.passwd = 'Mínimo 6 caracteres'
-  // Correo
+  else if (d.passwd.trim().length > 50) e.passwd = 'Máximo 50 caracteres'
+  // Correo — VARCHAR(255)
   if (!d.correos[0]?.trim()) e.correo = 'El correo es obligatorio'
   else if (!EMAIL_REGEX.test(d.correos[0])) e.correo = 'Correo inválido'
-  // Teléfono — DB: INT, solo dígitos
+  else if (d.correos[0].length > 255) e.correo = 'Máximo 255 caracteres'
+  // Teléfono — DB: INT (max 9 dígitos), solo dígitos
   if (!d.telefonos[0]?.trim()) e.telefono = 'El teléfono es obligatorio'
-  else if (!/^\d{7,15}$/.test(d.telefonos[0].replace(/\s+/g, ''))) e.telefono = 'Solo dígitos, mínimo 7'
+  else if (!/^\d{7,9}$/.test(d.telefonos[0].replace(/\s+/g, ''))) e.telefono = 'Teléfono chileno: 7-9 dígitos'
   // Roles
   if (!d.roles.length) e.roles = 'Selecciona al menos un rol'
+  // Web — opcional, pero si rellena debe ser URL válida
+  if (d.web.trim() && !/^https?:\/\/.+\..+/.test(d.web.trim())) e.web = 'URL inválida (ej: https://mi-tienda.cl)'
   // Empresa_id: si está relleno, validar con módulo 11
   if (d.roles.includes('Emprendedor') && d.empresaId.trim()) {
     if (!/^\d{7,9}-[0-9kK]$/.test(d.empresaId.trim())) e.empresaId = 'Formato RUT inválido (ej: 77987654-3)'
@@ -280,22 +309,43 @@ export default function ManageUsersPage() {
 
   const closeEditModal = () => { setEditOpen(false); setEditingRun(null); setFormErrors({}) }
 
-  const updateDraft = (field, value) => {
+  const updateDraft = (field, rawValue) => {
+    let value = rawValue
+    if (field === 'run' || field === 'empresaId') {
+      value = sanitizeRUN(rawValue)
+    } else if (field === 'nombre' || field === 'apellido') {
+      value = rawValue.slice(0, 30)
+    } else if (field === 'passwd') {
+      value = rawValue.slice(0, 50)
+    }
     setDraft((prev) => ({ ...prev, [field]: value }))
     setFormErrors((prev) => ({ ...prev, [field]: '' }))
   }
 
-  const updateDireccion = (field, value) => {
+  const updateDireccion = (field, rawValue) => {
+    let value = rawValue
+    if (field === 'numero') {
+      // Solo dígitos positivos
+      value = rawValue.replace(/\D/g, '').slice(0, 6)
+    } else if (field === 'calle') {
+      value = rawValue.slice(0, 40)
+    } else if (field === 'pasaje' || field === 'sector') {
+      value = rawValue.slice(0, 30)
+    }
     setDraft((prev) => ({ ...prev, direccion: { ...prev.direccion, [field]: value } }))
     setFormErrors((prev) => ({ ...prev, [field]: '' }))
   }
 
-  const updateCorreo = (idx, value) => {
+  const updateCorreo = (idx, rawValue) => {
+    // Correo VARCHAR(255)
+    const value = rawValue.slice(0, 255)
     setDraft((prev) => { const next = [...prev.correos]; next[idx] = value; return { ...prev, correos: next } })
     if (idx === 0) setFormErrors((prev) => ({ ...prev, correo: '' }))
   }
 
-  const updateTelefono = (idx, value) => {
+  const updateTelefono = (idx, rawValue) => {
+    // Telefono DB: INT — solo dígitos, máx 9 (número chileno)
+    const value = rawValue.replace(/\D/g, '').slice(0, 9)
     setDraft((prev) => { const next = [...prev.telefonos]; next[idx] = value; return { ...prev, telefonos: next } })
     if (idx === 0) setFormErrors((prev) => ({ ...prev, telefono: '' }))
   }
@@ -460,15 +510,15 @@ export default function ManageUsersPage() {
             <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 2 }}>
               <TextField required label="RUN" size="small" value={draft.run}
                 onChange={(e) => updateDraft('run', e.target.value)}
-                error={Boolean(formErrors.run)} helperText={formErrors.run}
+                error={Boolean(formErrors.run)} helperText={formErrors.run || 'Ej: 12345678-K (sin puntos)'}
                 InputLabelProps={{ shrink: true }} placeholder="12345678-K" />
               <TextField required label="Nombre" size="small" value={draft.nombre}
                 onChange={(e) => updateDraft('nombre', e.target.value)}
-                error={Boolean(formErrors.nombre)} helperText={formErrors.nombre}
+                error={Boolean(formErrors.nombre)} helperText={formErrors.nombre || `${draft.nombre.length}/30`}
                 InputLabelProps={{ shrink: true }} />
               <TextField required label="Apellido" size="small" value={draft.apellido}
                 onChange={(e) => updateDraft('apellido', e.target.value)}
-                error={Boolean(formErrors.apellido)} helperText={formErrors.apellido}
+                error={Boolean(formErrors.apellido)} helperText={formErrors.apellido || `${draft.apellido.length}/30`}
                 InputLabelProps={{ shrink: true }} />
               <TextField required type="date" label="Fecha de nacimiento" size="small" value={draft.fechaNac}
                 onChange={(e) => updateDraft('fechaNac', e.target.value)}
@@ -476,7 +526,7 @@ export default function ManageUsersPage() {
                 slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: MIN_DATE, max: TODAY } }} />
               <TextField required type="password" label="Passwd" size="small" value={draft.passwd}
                 onChange={(e) => updateDraft('passwd', e.target.value)}
-                error={Boolean(formErrors.passwd)} helperText={formErrors.passwd}
+                error={Boolean(formErrors.passwd)} helperText={formErrors.passwd || 'Mínimo 6 caracteres'}
                 InputLabelProps={{ shrink: true }} />
             </Box>
 
@@ -499,9 +549,11 @@ export default function ManageUsersPage() {
                 <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
                   <TextField label="Web" size="small" value={draft.web}
                     onChange={(e) => updateDraft('web', e.target.value)}
+                    error={Boolean(formErrors.web)} helperText={formErrors.web || 'Opcional: https://mi-tienda.cl'}
                     InputLabelProps={{ shrink: true }} placeholder="https://..." />
                   <TextField label="Empresa_id (RUT empresa)" size="small" value={draft.empresaId}
                     onChange={(e) => updateDraft('empresaId', e.target.value)}
+                    error={Boolean(formErrors.empresaId)} helperText={formErrors.empresaId || 'Ej: 77987654-3'}
                     InputLabelProps={{ shrink: true }} placeholder="00000001-K" />
                 </Box>
               </>
@@ -535,8 +587,9 @@ export default function ManageUsersPage() {
                 <Stack key={idx} direction="row" spacing={1} alignItems="flex-start">
                   <TextField fullWidth size="small" value={tel}
                     onChange={(e) => updateTelefono(idx, e.target.value)}
-                    error={idx === 0 && Boolean(formErrors.telefono)} helperText={idx === 0 ? formErrors.telefono : ''}
-                    slotProps={{ input: { startAdornment: <InputAdornment position="start"><PhoneOutlined fontSize="small" /></InputAdornment> } }}
+                    error={idx === 0 && Boolean(formErrors.telefono)}
+                    helperText={idx === 0 ? (formErrors.telefono || `${tel.length}/9 dígitos`) : `${tel.length}/9`}
+                    slotProps={{ input: { startAdornment: <InputAdornment position="start"><PhoneOutlined fontSize="small" /></InputAdornment>, inputMode: 'numeric' } }}
                     placeholder="912345678" />
                   <IconButton size="small" color="error" disabled={draft.telefonos.length <= 1}
                     onClick={() => setDraft((prev) => ({ ...prev, telefonos: prev.telefonos.filter((_, i) => i !== idx) }))}>
@@ -559,7 +612,8 @@ export default function ManageUsersPage() {
                 InputLabelProps={{ shrink: true }} sx={{ gridColumn: 'span 2' }} />
               <TextField required label="Número" size="small" value={draft.direccion.numero}
                 onChange={(e) => updateDireccion('numero', e.target.value)}
-                error={Boolean(formErrors.numero)} helperText={formErrors.numero}
+                error={Boolean(formErrors.numero)} helperText={formErrors.numero || 'Solo números positivos'}
+                slotProps={{ htmlInput: { inputMode: 'numeric' } }}
                 InputLabelProps={{ shrink: true }} />
               <TextField label="Pasaje" size="small" value={draft.direccion.pasaje}
                 onChange={(e) => updateDireccion('pasaje', e.target.value)}

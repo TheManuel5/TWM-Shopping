@@ -134,6 +134,41 @@ const emptyForm = {
 const IVA = 19.00;
 const fmt = (n) => `$${Number(n).toLocaleString('es-CL')}`;
 
+/**
+ * Sanitiza la entrada de un RUN/RUT chileno mientras el usuario escribe.
+ * Formato válido final: NNNNNNN-D  o  NNNNNNNN-D  (sin puntos)
+ */
+function sanitizeRUN(raw) {
+  const s = raw.replace(/[^\dkK-]/g, '').toUpperCase()
+  const hyphenIdx = s.indexOf('-')
+  if (hyphenIdx !== -1) {
+    const body = s.slice(0, hyphenIdx).replace(/\D/g, '').slice(0, 8)
+    const dv = s.slice(hyphenIdx + 1).replace(/[^0-9K]/g, '').slice(0, 1)
+    return body.length >= 1 ? body + '-' + dv : body
+  }
+  return s.replace(/[^0-9]/g, '').slice(0, 8)
+}
+
+/**
+ * Algoritmo oficial de verificación de RUN/RUT chileno (módulo 11).
+ */
+function validarRUT(input) {
+  if (!input || typeof input !== 'string') return false
+  const clean = input.replace(/[.\s]/g, '').toUpperCase()
+  if (!/^\d{7,9}-[0-9K]$/.test(clean)) return false
+  const dash = clean.lastIndexOf('-')
+  const body = clean.slice(0, dash)
+  const dv = clean.slice(dash + 1)
+  let sum = 0, mul = 2
+  for (let i = body.length - 1; i >= 0; i--) {
+    sum += parseInt(body[i], 10) * mul
+    mul = mul === 7 ? 2 : mul + 1
+  }
+  const result = 11 - (sum % 11)
+  const expected = result === 11 ? '0' : result === 10 ? 'K' : String(result)
+  return dv === expected
+}
+
 function DetailField({ icon, label, children }) {
   return (
     <Box className="detail-field">
@@ -222,7 +257,23 @@ export default function Orders() {
   };
 
   const updateForm = (e) => {
-    const { name, value } = e.target;
+    let { name, value } = e.target;
+    if (name === 'clienteRun') {
+      value = sanitizeRUN(value)
+    } else if (name === 'clienteNombre' || name === 'clienteApellido') {
+      value = value.slice(0, 30)
+    } else if (name === 'medioPagoDigitos') {
+      value = value.replace(/\D/g, '').slice(0, 4)
+    } else if (['valorBruto', 'descuento', 'envioValor', 'envioPeso', 'envioAltura', 'envioAncho', 'envioFondo'].includes(name)) {
+      const num = Number(value)
+      if (name === 'valorBruto') {
+        // No permitir 0 ni negativos — se borra para que el usuario reescriba
+        if (value !== '' && num <= 0) value = ''
+      } else {
+        // Resto de campos numéricos: no negativos
+        if (value !== '' && num < 0) value = '0'
+      }
+    }
     setFormData((cur) => ({ ...cur, [name]: value }));
     setFormErrors((cur) => ({ ...cur, [name]: '' }));
   };
@@ -268,6 +319,7 @@ export default function Orders() {
     const runRx = /^\d{7,8}-[\dkK]$/;
     if (!formData.clienteRun.trim()) errors.clienteRun = 'El RUN del cliente es obligatorio';
     else if (!runRx.test(formData.clienteRun.trim())) errors.clienteRun = 'Formato inválido (ej: 12345678-K)';
+    else if (!validarRUT(formData.clienteRun)) errors.clienteRun = 'RUN inválido — dígito verificador incorrecto';
     if (!formData.clienteNombre.trim()) errors.clienteNombre = 'El nombre es obligatorio';
     if (!formData.clienteApellido.trim()) errors.clienteApellido = 'El apellido es obligatorio';
     // Venta
@@ -563,13 +615,13 @@ export default function Orders() {
             <Typography sx={SECTION_SX}>Cliente (tabla Cliente)</Typography>
             <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 2 }}>
               <TextField required name="clienteRun" label="RUN" size="small" value={formData.clienteRun} onChange={updateForm}
-                error={Boolean(formErrors.clienteRun)} helperText={formErrors.clienteRun}
+                error={Boolean(formErrors.clienteRun)} helperText={formErrors.clienteRun || 'Ej: 12345678-K (sin puntos)'}
                 slotProps={{ inputLabel: { shrink: true } }} placeholder="12345678-K" />
               <TextField required name="clienteNombre" label="Nombre" size="small" value={formData.clienteNombre} onChange={updateForm}
-                error={Boolean(formErrors.clienteNombre)} helperText={formErrors.clienteNombre}
+                error={Boolean(formErrors.clienteNombre)} helperText={formErrors.clienteNombre || `${formData.clienteNombre.length}/30`}
                 slotProps={{ inputLabel: { shrink: true } }} />
               <TextField required name="clienteApellido" label="Apellido" size="small" value={formData.clienteApellido} onChange={updateForm}
-                error={Boolean(formErrors.clienteApellido)} helperText={formErrors.clienteApellido}
+                error={Boolean(formErrors.clienteApellido)} helperText={formErrors.clienteApellido || `${formData.clienteApellido.length}/30`}
                 slotProps={{ inputLabel: { shrink: true } }} />
             </Box>
 
@@ -577,8 +629,8 @@ export default function Orders() {
             <Typography sx={SECTION_SX}>Venta</Typography>
             <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 2 }}>
               <TextField required name="valorBruto" label="ValorBruto ($)" type="number" size="small" value={formData.valorBruto} onChange={updateForm}
-                error={Boolean(formErrors.valorBruto)} helperText={formErrors.valorBruto}
-                slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: 1 } }} />
+                error={Boolean(formErrors.valorBruto)} helperText={formErrors.valorBruto || 'Debe ser mayor que $0'}
+                slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: 1, step: 1 } }} />
               <TextField name="iva" label="IVA (%)" size="small" value="19.00"
                 slotProps={{ inputLabel: { shrink: true }, input: { readOnly: true } }} />
               <TextField name="descuento" label="Descuento ($)" type="number" size="small" value={formData.descuento} onChange={updateForm}
@@ -608,9 +660,9 @@ export default function Orders() {
               </TextField>
               <TextField name="medioPagoMarca" label="Marca" size="small" value={formData.medioPagoMarca} onChange={updateForm}
                 slotProps={{ inputLabel: { shrink: true } }} />
-              <TextField required name="medioPagoDigitos" label="Dígitos (4)" type="number" size="small" value={formData.medioPagoDigitos} onChange={updateForm}
-                error={Boolean(formErrors.medioPagoDigitos)} helperText={formErrors.medioPagoDigitos}
-                slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: 1000, max: 9999 } }} />
+              <TextField required name="medioPagoDigitos" label="Dígitos (4)" size="small" value={formData.medioPagoDigitos} onChange={updateForm}
+                error={Boolean(formErrors.medioPagoDigitos)} helperText={formErrors.medioPagoDigitos || '4 dígitos exactos (ej: 4242)'}
+                slotProps={{ inputLabel: { shrink: true }, htmlInput: { inputMode: 'numeric', maxLength: 4 } }} />
             </Box>
 
             {/* ── Envio ── */}
