@@ -5,6 +5,8 @@ import {
   LocationOnOutlined,
   LockOutlined,
   SaveOutlined,
+  ShoppingCartOutlined,
+  StorefrontOutlined,
 } from '@mui/icons-material'
 import {
   Alert,
@@ -31,50 +33,32 @@ import {
   Typography,
 } from '@mui/material'
 import { useState } from 'react'
+import useAuth from '../../contexts/AuthContext/useAuth'
 import AddressCard from './components/AddressCard/AddressCard'
 import AddressDialog from './components/AddressDialog/AddressDialog'
 import PasswordDialog from './components/PasswordDialog/PasswordDialog'
 import '../../components/orders/Orders.css'
 
-const initialProfile = {
-  fullName: 'Juan Ramirez',
-  rut: '12.345.678-9',
-  email: 'juan.ramirez@shopping.cl',
-  birthDay: '14',
-  birthMonth: 'Marzo',
-  birthYear: '1998',
-  phones: [
-    { id: 1, number: '+56 9 8765 4321', label: 'Principal' },
-    { id: 2, number: '+56 9 1234 5678', label: 'Secundario' },
-  ],
-}
+// Usa exclusivamente los datos disponibles en la sesión. No inventa información de un cliente.
+function buildProfileFromSession(user) {
+  // Compatible con respuestas que incluyan { user: {...} } y con datos directos.
+  const sessionUser = user?.user ?? user ?? {}
+  const fullName =
+    sessionUser.nombreCompleto ??
+    sessionUser.fullName ??
+    [sessionUser.nombre, sessionUser.apellido].filter(Boolean).join(' ')
+  const primaryPhone = sessionUser.telefono ?? sessionUser.phone ?? ''
 
-const initialAddresses = [
-  {
-    id: 1,
-    name: 'Casa',
-    region: 'Los Lagos',
-    province: 'Osorno',
-    commune: 'Osorno',
-    street: 'Av. Manuel Rodríguez',
-    number: '1234',
-    department: 'Depto. 101',
-    reference: 'A una cuadra de la Plaza de Armas.',
-    primary: true,
-  },
-  {
-    id: 2,
-    name: 'Oficina',
-    region: 'Los Lagos',
-    province: 'Osorno',
-    commune: 'Osorno',
-    street: 'Calle Bilbao',
-    number: '567',
-    department: 'Oficina 302',
-    reference: 'Edificio Torres del Sur, piso 3.',
-    primary: false,
-  },
-]
+  return {
+    fullName: String(fullName ?? ''),
+    rut: String(sessionUser.run ?? sessionUser.rut ?? ''),
+    email: String(sessionUser.correoElectronico ?? sessionUser.correo ?? sessionUser.email ?? ''),
+    birthDay: '',
+    birthMonth: '',
+    birthYear: '',
+    phones: [{ id: 1, number: String(primaryPhone), label: 'Principal' }],
+  }
+}
 
 const emptyAddress = {
   name: '',
@@ -123,15 +107,28 @@ function SectionHeading({ icon, title, description, sx }) {
 }
 
 export default function UserProfile() {
-  const [profile, setProfile] = useState(initialProfile)
-  const [addresses, setAddresses] = useState(initialAddresses)
-  const [activeRole, setActiveRole] = useState('comprar')
+  const { user } = useAuth()
+  const sessionUser = user?.user ?? user ?? {}
+  const accountKey = String(sessionUser.run ?? sessionUser.rut ?? sessionUser.id ?? sessionUser.email ?? 'sin-sesion')
+
+  // Al cambiar de cuenta, el formulario se reinicia con los datos de la nueva sesión.
+  return <UserProfileContent key={accountKey} user={user} />
+}
+
+function UserProfileContent({ user }) {
+  const [profile, setProfile] = useState(() => buildProfileFromSession(user))
+  // Sin endpoint confirmado, las direcciones se manejan localmente y comienzan vacías.
+  const [addresses, setAddresses] = useState([])
+  const role = String((user?.user ?? user)?.rol ?? (user?.user ?? user)?.role ?? '').toLowerCase()
+  const selectedRole = ['cliente', 'comprador', 'comprar'].includes(role)
+    ? 'comprar'
+    : ['vendedor', 'emprendedor', 'vender'].includes(role) ? 'vender' : null
   const [addressDialogOpen, setAddressDialogOpen] = useState(false)
   const [addressDraft, setAddressDraft] = useState(emptyAddress)
   const [editingAddressId, setEditingAddressId] = useState(null)
   const [addressToDelete, setAddressToDelete] = useState(null)
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false)
-  const [notificationOpen, setNotificationOpen] = useState(false)
+  const [notification, setNotification] = useState('')
 
   const updateProfileField = (field, value) => {
     setProfile((currentProfile) => ({ ...currentProfile, [field]: value }))
@@ -189,7 +186,7 @@ export default function UserProfile() {
     const savedAddress = {
       ...addressDraft,
       id: editingAddressId ?? Date.now(),
-      primary: mustRemainPrimary ? true : addressDraft.primary,
+      primary: addresses.length === 0 || mustRemainPrimary ? true : addressDraft.primary,
     }
 
     setAddresses((currentAddresses) => {
@@ -244,11 +241,10 @@ export default function UserProfile() {
 
   const handleSaveProfile = (event) => {
     event.preventDefault()
-    console.log('Información personal actualizada:', {
+    console.log('Actualización de perfil simulada (no enviada al backend):', {
       ...profile,
-      activeRole,
     })
-    setNotificationOpen(true)
+    setNotification('Cambios simulados: todavía no se guardan en el servidor')
   }
 
   return (
@@ -294,22 +290,28 @@ export default function UserProfile() {
             }}
           >
             <ToggleButtonGroup
-              value={activeRole}
+              value={selectedRole}
               exclusive
-              onChange={(_, nextRole) => nextRole && setActiveRole(nextRole)}
               size="small"
               color="primary"
-              aria-label="rol activo"
+              aria-label="rol de la cuenta"
+              onChange={(_, nextRole) => {
+                if (nextRole && nextRole !== selectedRole) {
+                  setNotification('El cambio de rol debe habilitarlo el equipo de autenticación.')
+                }
+              }}
             >
-              <ToggleButton value="comprar">Comprar</ToggleButton>
-              <ToggleButton value="vender">Vender</ToggleButton>
+              <ToggleButton value="comprar">
+                <ShoppingCartOutlined sx={{ fontSize: 17, mr: 0.75 }} />
+                Comprar
+              </ToggleButton>
+              <ToggleButton value="vender">
+                <StorefrontOutlined sx={{ fontSize: 17, mr: 0.75 }} />
+                Vender
+              </ToggleButton>
             </ToggleButtonGroup>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ mt: 0.75, display: 'block' }}
-            >
-              Puedes cambiar de rol en cualquier momento.
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.75, display: 'block' }}>
+              {selectedRole ? 'El rol depende de tu sesión activa.' : 'El rol de esta cuenta lo gestiona el sistema.'}
             </Typography>
           </Box>
         </Box>
@@ -500,6 +502,11 @@ export default function UserProfile() {
           </Box>
 
           <Stack spacing={1.5}>
+            {addresses.length === 0 && (
+              <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                Aún no hay direcciones registradas. Puedes agregar una con el botón de arriba.
+              </Typography>
+            )}
             {addresses.map((address) => (
               <AddressCard
                 key={address.id}
@@ -513,7 +520,7 @@ export default function UserProfile() {
           </Stack>
 
           <Alert severity="info" sx={{ mt: 2 }}>
-            Debes mantener al menos una dirección de despacho.
+            Las direcciones se gestionan temporalmente aquí; aún no se guardan en el servidor.
           </Alert>
         </Paper>
       </Box>
@@ -590,10 +597,10 @@ export default function UserProfile() {
       </Dialog>
 
       <Snackbar
-        open={notificationOpen}
+        open={Boolean(notification)}
         autoHideDuration={3500}
-        onClose={() => setNotificationOpen(false)}
-        message="Los cambios del perfil fueron guardados"
+        onClose={() => setNotification('')}
+        message={notification}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       />
       </Box>

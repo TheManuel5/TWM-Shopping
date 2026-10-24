@@ -16,13 +16,13 @@ import {
   MenuItem,
   Paper,
   Select,
+  Snackbar,
   Stack,
   Tab,
   Tabs,
   Typography,
 } from '@mui/material'
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import applianceImage from '../../assets/products/appliance.jpg'
 import chairImage from '../../assets/products/chair.jpg'
 import fashionImage from '../../assets/products/fashion.jpg'
@@ -33,20 +33,22 @@ import StatusChip from '../../components/atoms/StatusChip/StatusChip'
 import { formatCLP } from '../../utils/taxonomyData'
 
 const INITIAL_WISHLIST = [
-  { id: 1, type: 'producto', name: 'Cafetera Espresso Oster PrimaLatte', seller: 'HogarPlus', rating: '4,8', reviews: 1234, price: 129990, oldPrice: 159990, status: 'Oferta', offerNote: 'Oferta válida hasta el 30 de oct. 2026', stock: 5, image: applianceImage },
-  { id: 2, type: 'producto', name: 'Freidora de aire Ursus Trotter 5,5 L', seller: 'HogarPlus', rating: '4,7', reviews: 856, price: 79990, oldPrice: 99990, status: 'Oferta', offerNote: 'Oferta válida hasta el 30 de oct. 2026', stock: 9, image: chairImage },
-  { id: 3, type: 'producto', name: 'Consola Nintendo Switch OLED', seller: 'TecnoStore', rating: '4,9', reviews: 2341, price: 349990, oldPrice: null, status: null, offerNote: null, stock: 4, image: phoneImage },
-  { id: 4, type: 'producto', name: 'Notebook Lenovo IdeaPad 3 15,6"', seller: 'TecnoStore', rating: '4,6', reviews: 892, price: 499990, oldPrice: null, status: 'Sin stock', offerNote: null, stock: 0, image: laptopImage },
-  { id: 5, type: 'producto', name: 'Audífonos Sony WH-CH520', seller: 'TecnoStore', rating: '4,8', reviews: 1567, price: 39990, oldPrice: null, status: 'Oferta finalizada', offerNote: 'La oferta terminó el 15 de sep. 2026 (Precio oficial restaurado)', stock: 7, image: fashionImage },
-  { id: 6, type: 'producto', name: 'Zapatillas Adidas Grand Court', seller: 'ModaChile', rating: '4,7', reviews: 1123, price: 59990, oldPrice: 69990, status: 'Oferta', offerNote: 'Oferta válida hasta el 30 de oct. 2026', stock: 11, image: shoeImage },
+  { category: 'Hogar', id: 1, type: 'producto', name: 'Cafetera Espresso Oster PrimaLatte', seller: 'HogarPlus', rating: '4,8', reviews: 1234, price: 129990, oldPrice: 159990, status: 'Oferta', offerNote: 'Oferta válida hasta el 30 de oct. 2026', stock: 5, image: applianceImage },
+  { category: 'Hogar', id: 2, type: 'producto', name: 'Freidora de aire Ursus Trotter 5,5 L', seller: 'HogarPlus', rating: '4,7', reviews: 856, price: 79990, oldPrice: 99990, status: 'Oferta', offerNote: 'Oferta válida hasta el 30 de oct. 2026', stock: 9, image: chairImage },
+  { category: 'Tecnología', id: 3, type: 'producto', name: 'Consola Nintendo Switch OLED', seller: 'TecnoStore', rating: '4,9', reviews: 2341, price: 349990, oldPrice: null, status: null, offerNote: null, stock: 4, image: phoneImage },
+  { category: 'Tecnología', id: 4, type: 'producto', name: 'Notebook Lenovo IdeaPad 3 15,6"', seller: 'TecnoStore', rating: '4,6', reviews: 892, price: 499990, oldPrice: null, status: 'Sin stock', offerNote: null, stock: 0, image: laptopImage },
+  { category: 'Tecnología', id: 5, type: 'producto', name: 'Audífonos Sony WH-CH520', seller: 'TecnoStore', rating: '4,8', reviews: 1567, price: 39990, oldPrice: null, status: 'Oferta finalizada', offerNote: 'La oferta terminó el 15 de sep. 2026 (Precio oficial restaurado)', stock: 7, image: fashionImage },
+  { category: 'Moda', id: 6, type: 'producto', name: 'Zapatillas Adidas Grand Court', seller: 'ModaChile', rating: '4,7', reviews: 1123, price: 59990, oldPrice: 69990, status: 'Oferta', offerNote: 'Oferta válida hasta el 30 de oct. 2026', stock: 11, image: shoeImage },
 ]
 
 export default function WishlistPage() {
-  const navigate = useNavigate()
   const [tab, setTab] = useState('producto')
   const [items, setItems] = useState(INITIAL_WISHLIST)
   const [selectedIds, setSelectedIds] = useState([1, 2])
   const [sellerFilter, setSellerFilter] = useState('Todos')
+  const [categoryFilter, setCategoryFilter] = useState('Todas')
+  const [sortOrder, setSortOrder] = useState('recientes')
+  const [notice, setNotice] = useState('')
 
   const handleToggleSelect = (id) => {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]))
@@ -54,13 +56,40 @@ export default function WishlistPage() {
 
   // Permiso Eliminar en Wishlist (Tabla 2.3 Etapa 11)
   const handleRemoveFavorite = (id) => {
+    console.log('Quitar de favoritos (simulado):', { id })
     setItems((prev) => prev.filter((it) => it.id !== id))
     setSelectedIds((prev) => prev.filter((sel) => sel !== id))
+    setNotice('Favorito quitado de esta vista (cambio local)')
   }
 
-  const visibleItems = items.filter(
-    (it) => sellerFilter === 'Todos' || it.seller === sellerFilter,
-  )
+  const sellers = [...new Set(items.map((item) => item.seller))]
+  const categories = [...new Set(items.map((item) => item.category))]
+  const visibleItems = items
+    .filter((item) => item.type === tab)
+    .filter((item) => sellerFilter === 'Todos' || item.seller === sellerFilter)
+    .filter((item) => categoryFilter === 'Todas' || item.category === categoryFilter)
+    .sort((a, b) => {
+      if (sortOrder === 'precio-asc') return a.price - b.price
+      if (sortOrder === 'precio-desc') return b.price - a.price
+      return b.id - a.id
+    })
+  const selectedItems = items.filter((item) => selectedIds.includes(item.id) && item.stock > 0)
+  const selectedSellers = [...new Set(selectedItems.map((item) => item.seller))]
+  const canRequestQuote = selectedItems.length > 0 && selectedSellers.length === 1 && tab === 'producto'
+
+  const handleRequestQuote = () => {
+    if (!canRequestQuote) return
+    console.log('Solicitud de cotización simulada:', {
+      vendedor: selectedSellers[0],
+      productos: selectedItems.map(({ id, name, price }) => ({ id, name, price })),
+    })
+    setNotice('Solicitud simulada: no fue enviada al vendedor')
+  }
+
+  const handleAddCart = (item) => {
+    console.log('Agregar al carrito (simulado):', { productoId: item.id, cantidad: 1 })
+    setNotice('Acción simulada: el carrito real todavía no se ha actualizado')
+  }
 
   return (
     <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
@@ -71,17 +100,18 @@ export default function WishlistPage() {
         Guarda tus productos y servicios favoritos para encontrarlos o cotizarlos fácilmente (RF25).
       </Typography>
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2.5, borderBottom: '1px solid', borderColor: 'divider' }}>
-        <Tab value="producto" icon={<ShoppingCartOutlined fontSize="small" />} iconPosition="start" label={`Productos (${items.length})`} />
-        <Tab value="servicio" icon={<BuildOutlined fontSize="small" />} iconPosition="start" label="Servicios (3)" />
+      <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto" sx={{ mb: 2.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+        <Tab value="producto" icon={<ShoppingCartOutlined fontSize="small" />} iconPosition="start" label={`Productos (${items.filter((item) => item.type === 'producto').length})`} />
+        <Tab value="servicio" icon={<BuildOutlined fontSize="small" />} iconPosition="start" label={`Servicios (${items.filter((item) => item.type === 'servicio').length})`} />
       </Tabs>
 
       {/* Filtros de Favoritos (P11) */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={4}>
           <Typography variant="caption" color="text.secondary">Categoría</Typography>
-          <Select fullWidth size="small" value="Todas" sx={{ bgcolor: 'background.paper', mt: 0.5 }}>
+          <Select fullWidth size="small" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} sx={{ bgcolor: 'background.paper', mt: 0.5 }}>
             <MenuItem value="Todas">Todas las categorías</MenuItem>
+            {categories.map((category) => <MenuItem key={category} value={category}>{category}</MenuItem>)}
           </Select>
         </Grid>
         <Grid item xs={12} sm={4}>
@@ -94,19 +124,26 @@ export default function WishlistPage() {
             sx={{ bgcolor: 'background.paper', mt: 0.5 }}
           >
             <MenuItem value="Todos">Todos los vendedores</MenuItem>
-            <MenuItem value="HogarPlus">HogarPlus</MenuItem>
-            <MenuItem value="TecnoStore">TecnoStore</MenuItem>
-            <MenuItem value="ModaChile">ModaChile</MenuItem>
+            {sellers.map((seller) => <MenuItem key={seller} value={seller}>{seller}</MenuItem>)}
           </Select>
         </Grid>
         <Grid item xs={12} sm={4}>
           <Typography variant="caption" color="text.secondary">Ordenar por</Typography>
-          <Select fullWidth size="small" value="recientes" sx={{ bgcolor: 'background.paper', mt: 0.5 }}>
+          <Select fullWidth size="small" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} sx={{ bgcolor: 'background.paper', mt: 0.5 }}>
             <MenuItem value="recientes">Más recientes</MenuItem>
+            <MenuItem value="precio-asc">Menor precio</MenuItem>
+            <MenuItem value="precio-desc">Mayor precio</MenuItem>
           </Select>
         </Grid>
       </Grid>
 
+      {visibleItems.length === 0 && (
+        <Paper variant="outlined" sx={{ p: 3, mb: 2, textAlign: 'center' }}>
+          <Typography variant="body2" color="text.secondary">
+            {tab === 'servicio' ? 'Aún no tienes servicios guardados en esta demostración.' : 'No hay favoritos que coincidan con los filtros.'}
+          </Typography>
+        </Paper>
+      )}
       {/* Grilla de Favoritos (P11) */}
       <Grid container spacing={2.5}>
         {visibleItems.map((item) => {
@@ -189,7 +226,7 @@ export default function WishlistPage() {
                   fullWidth
                   disabled={outOfStock}
                   startIcon={<ShoppingCartOutlined />}
-                  onClick={() => navigate('/carrito')}
+                  onClick={() => handleAddCart(item)}
                   sx={{ mt: 'auto' }}
                 >
                   {outOfStock ? 'Sin stock' : 'Agregar al carrito'}
@@ -201,7 +238,7 @@ export default function WishlistPage() {
       </Grid>
 
       {/* Barra Inferior Flotante de Cotización Múltiple (P11) */}
-      {selectedIds.length > 0 && (
+      {tab === 'producto' && selectedItems.length > 0 && (
         <Paper
           elevation={3}
           sx={{
@@ -219,10 +256,10 @@ export default function WishlistPage() {
         >
           <Box>
             <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-              {selectedIds.length} productos seleccionados
+              {selectedItems.length} productos seleccionados
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              Productos de un mismo vendedor (HogarPlus) listos para cotizar
+              {selectedSellers.length === 1 ? `Productos de ${selectedSellers[0]} listos para cotizar` : 'Selecciona productos de un mismo vendedor para cotizar'}
             </Typography>
           </Box>
 
@@ -230,7 +267,8 @@ export default function WishlistPage() {
             <Button
               variant="contained"
               startIcon={<DescriptionOutlined />}
-              onClick={() => navigate('/cotizaciones')}
+              onClick={handleRequestQuote}
+              disabled={!canRequestQuote}
             >
               Solicitar cotización
             </Button>
@@ -240,6 +278,7 @@ export default function WishlistPage() {
           </Stack>
         </Paper>
       )}
+      <Snackbar open={Boolean(notice)} message={notice} autoHideDuration={3500} onClose={() => setNotice('')} />
     </Box>
   )
 }
