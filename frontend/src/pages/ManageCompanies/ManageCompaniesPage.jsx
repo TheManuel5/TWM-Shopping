@@ -116,7 +116,7 @@ function sanitizeRUN(raw) {
   return s.replace(/[^0-9]/g, '').slice(0, 8)
 }
 
-/**
+/** c
  * Algoritmo oficial de verificación de RUN/RUT chileno (módulo 11).
  */
 function validarRUT(input) {
