@@ -9,6 +9,7 @@ import {
   VerifiedUserOutlined,
 } from '@mui/icons-material'
 import {
+  Alert,
   Box,
   Button,
   Card,
@@ -28,18 +29,28 @@ import {
   Typography,
 } from '@mui/material'
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import chairImage from '../../assets/products/chair.jpg'
 import shoeImage from '../../assets/products/shoe.jpg'
-import useAuth from '../../contexts/AuthContext/useAuth' // <-- IMPORTANTE: Importamos el contexto
+import useAuth from '../../contexts/AuthContext/useAuth'
 import { apiService } from '../../services/api'
 import { formatCLP } from '../../utils/taxonomyData'
 
 export default function CheckoutPage() {
   const navigate = useNavigate()
-  
-  // <-- IMPORTANTE: Obtenemos el usuario actual que inició sesión
-  const { user } = useAuth() 
+  const location = useLocation()
+  const { user } = useAuth()
+
+  // Datos provenientes del Carrito o fallback seguro
+  const activeVendor = location.state?.selectedVendor
+  const cartItems = activeVendor?.items?.length
+    ? activeVendor.items
+    : [
+        { id: 1, name: 'Zapatillas New Balance 574', subtitle: 'Talla: 42 · Cant: 1', price: 29990, qty: 1, image: shoeImage },
+        { id: 2, name: 'Mochila urbana Everest', subtitle: 'Negro · Cant: 1', price: 17610, qty: 1, image: chairImage },
+      ]
+
+  const subtotalProducts = location.state?.subtotal ?? cartItems.reduce((acc, it) => acc + it.price * it.qty, 0)
 
   const [deliveryMode, setDeliveryMode] = useState('Despacho')
   const [selectedAddress, setSelectedAddress] = useState('DIR-001')
@@ -47,41 +58,73 @@ export default function CheckoutPage() {
   const [cardLast4, setCardLast4] = useState('4242')
   const [transferCode, setTransferCode] = useState('TRF-20260920-8841')
   const [acceptedTerms, setAcceptedTerms] = useState(true)
-  
-  // Estado para la carga de la transacción en el backend
+
+  // Estado para la carga y retroalimentación de la transacción
   const [isProcessing, setIsProcessing] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+  const [validationErrors, setValidationErrors] = useState({})
 
-  // Cálculos simulados del carrito actual
-  const shippingCost = deliveryMode === 'Despacho' ? 3570 : 0
-  const subtotalProducts = 47600
-  const totalBruto = subtotalProducts + shippingCost     // Total a pagar por el cliente
-  const valorNeto = Math.round(totalBruto / 1.19)        // Valor antes de impuestos
-  const valorIva = totalBruto - valorNeto                // IVA del 19% calculado
+  // Cálculos reales de la compra
+  const shippingCost = deliveryMode === 'Despacho' ? (location.state?.shippingCost ?? 3570) : 0
+  const totalBruto = subtotalProducts + shippingCost
+  const valorNeto = Math.round(totalBruto / 1.19)
+  const valorIva = totalBruto - valorNeto
 
-  // Función que conecta con el VentasController en .NET
+  // Validaciones antes de procesar el pago
+  const validateForm = () => {
+    const errors = {}
+    if (deliveryMode === 'Despacho' && !selectedAddress) {
+      errors.address = 'Debes seleccionar o ingresar una dirección de entrega.'
+    }
+    if (paymentMethod === 'Tarjeta') {
+      if (!cardLast4 || cardLast4.trim().length !== 4 || isNaN(Number(cardLast4))) {
+        errors.card = 'Debes indicar los 4 dígitos finales de tu tarjeta.'
+      }
+    }
+    if (paymentMethod === 'Transferencia') {
+      if (!transferCode || transferCode.trim().length < 5) {
+        errors.transfer = 'Debes ingresar el código de comprobante bancario.'
+      }
+    }
+    if (!acceptedTerms) {
+      errors.terms = 'Es obligatorio aceptar los Términos y Condiciones.'
+    }
+    setValidationErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
+  // Conexión con el endpoint de ventas en .NET (VentasController)
   const handlePayment = async () => {
+    setErrorMessage('')
+    if (!validateForm()) return
+
     setIsProcessing(true)
     try {
-      // Estructura que coincide exactamente con CheckoutDto en C#
+      const productIds = cartItems.map((it) => (typeof it.id === 'number' ? it.id : Number(it.id) || 1))
+
       const orderData = {
-        // <-- MAGIA AQUÍ: Usamos el RUT dinámico, o dejamos uno de respaldo
-        ClienteRun: user?.run || "10000001-K", 
-        ValorBrutoTotal: valorNeto, // Enviamos el neto, el trigger en PostgreSQL sumará el 19% de IVA
-        ProductoIds: [1, 2], // IDs de los productos de prueba en el resumen
+        ClienteRun: user?.run || '10000001-K',
+        ValorBrutoTotal: valorNeto,
+        ProductoIds: productIds.length > 0 ? productIds : [1],
       }
 
-      // 1. Enviamos la petición POST al backend
       const response = await apiService.createOrder(orderData)
 
-      // 2. Si todo sale bien, la BD genera el ID y redirigimos al seguimiento real
+      // Si la compra se procesó con éxito, limpiamos el carrito en localStorage
+      try {
+        window.localStorage.removeItem('shopping-cart')
+      } catch {
+        // Ignorar
+      }
+
       if (response && response.ventaId) {
         navigate(`/pedido/${response.ventaId}`)
       } else {
         navigate('/mis-compras')
       }
     } catch (error) {
-      alert("Motivo del rechazo de la Base de Datos: " + error.message)
-      console.error(error)
+      console.error('Error al procesar la venta:', error)
+      setErrorMessage(error.message || 'No se pudo procesar la transacción. Verifica tu conexión con el servidor.')
     } finally {
       setIsProcessing(false)
     }
@@ -89,38 +132,55 @@ export default function CheckoutPage() {
 
   return (
     <Box sx={{ maxWidth: 1320, mx: 'auto' }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} sx={{ mb: 2 }}>
         <Typography variant="h5" sx={{ fontWeight: 900 }}>
           Shopping &nbsp;/&nbsp; Compra segura
         </Typography>
         <Stack direction="row" spacing={1} alignItems="center" sx={{ color: 'text.secondary' }}>
           <VerifiedUserOutlined color="primary" fontSize="small" />
-          <Typography variant="caption">Tus datos están protegidos con encriptación</Typography>
+          <Typography variant="caption">Transacción encriptada y protegida</Typography>
         </Stack>
       </Stack>
 
+      {/* Stepper del Checkout */}
       <Stepper activeStep={1} sx={{ mb: 3 }}>
         <Step completed>
           <StepLabel>1. Entrega</StepLabel>
         </Step>
-        <Step>
-          <StepLabel>2. Pago</StepLabel>
+        <Step active>
+          <StepLabel>2. Pago y Confirmación</StepLabel>
         </Step>
         <Step>
-          <StepLabel>3. Confirmación</StepLabel>
+          <StepLabel>3. Finalizado</StepLabel>
         </Step>
       </Stepper>
 
+      {errorMessage && (
+        <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }} onClose={() => setErrorMessage('')}>
+          {errorMessage}
+        </Alert>
+      )}
+
       <Grid container spacing={3}>
-        {/* Columna Izquierda: Dirección y Medio de Pago (P07) */}
+        {/* Columna Izquierda: Entrega y Pago (P07) */}
         <Grid item xs={12} lg={7.5}>
           <Stack spacing={2.5}>
+            {/* Aviso de cuenta / comprador */}
+            <Paper elevation={0} sx={{ p: 2, bgcolor: '#f7f6ff', borderRadius: 2.5, border: '1px solid #e5e7f0' }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                Comprador: {user?.nombre ? `${user.nombre} ${user.apellido || ''}` : 'Usuario Invitado / Demo'}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                RUT asociado a la boleta: <strong>{user?.run || '10000001-K'}</strong>
+              </Typography>
+            </Paper>
+
             <Card sx={{ p: 3 }}>
               <Typography variant="h6" sx={{ mb: 2 }}>
-                Dirección de entrega (RF03 / RF04)
+                Modalidad de entrega (RF03 / RF04)
               </Typography>
 
-              <Stack direction="row" spacing={1.5} sx={{ mb: 2.5 }}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: 2.5 }}>
                 <Button
                   fullWidth
                   variant={deliveryMode === 'Despacho' ? 'contained' : 'outlined'}
@@ -135,7 +195,7 @@ export default function CheckoutPage() {
                   startIcon={<StorefrontOutlined />}
                   onClick={() => setDeliveryMode('Retiro')}
                 >
-                  Retiro en tienda (Osorno)
+                  Retiro en local (Osorno)
                 </Button>
               </Stack>
 
@@ -182,24 +242,30 @@ export default function CheckoutPage() {
                     </Paper>
                   ))}
 
+                  {validationErrors.address && (
+                    <Typography variant="caption" color="error.main">
+                      {validationErrors.address}
+                    </Typography>
+                  )}
+
                   <Button
                     variant="outlined"
                     startIcon={<AddOutlined />}
                     onClick={() => navigate('/perfil')}
                     sx={{ borderStyle: 'dashed', py: 1.25 }}
                   >
-                    Agregar nueva dirección
+                    Agregar o gestionar direcciones
                   </Button>
 
-                  <Paper elevation={0} sx={{ p: 2, bgcolor: '#f7f6ff', display: 'flex', justifyContent: 'space-between' }}>
+                  <Paper elevation={0} sx={{ p: 2, bgcolor: '#f7f6ff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Stack direction="row" spacing={1.5} alignItems="center">
                       <LocalShippingOutlined color="primary" />
                       <Box>
                         <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                          Despacho por Tienda Sur (Chilexpress)
+                          Despacho certificado a Los Lagos
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Entrega estimada: 23 de septiembre de 2026
+                          Entrega en 2 a 3 días hábiles
                         </Typography>
                       </Box>
                     </Stack>
@@ -219,8 +285,8 @@ export default function CheckoutPage() {
 
               <Grid container spacing={1.5} sx={{ mb: 2.5 }}>
                 {[
-                  { id: 'Tarjeta', title: 'Tarjeta', sub: 'Crédito o Débito', Icon: CreditCardOutlined },
-                  { id: 'Transferencia', title: 'Transferencia', sub: 'Pago por banco', Icon: AccountBalanceOutlined },
+                  { id: 'Tarjeta', title: 'Tarjeta Bancaria', sub: 'Crédito o Débito', Icon: CreditCardOutlined },
+                  { id: 'Transferencia', title: 'Transferencia', sub: 'Depósito / Banco', Icon: AccountBalanceOutlined },
                 ].map((m) => (
                   <Grid item xs={12} sm={6} key={m.id}>
                     <Paper
@@ -253,16 +319,16 @@ export default function CheckoutPage() {
 
               {paymentMethod === 'Tarjeta' ? (
                 <Paper variant="outlined" sx={{ p: 2 }}>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2}>
                     <Stack direction="row" spacing={1.5} alignItems="center">
                       <Radio checked />
-                      <Chip label="VISA" size="small" color="primary" />
+                      <Chip label="VISA / MASTERCARD" size="small" color="primary" />
                       <Box>
                         <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                          Visa terminada en {cardLast4}
+                          Tarjeta registrada terminada en {cardLast4}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Vence 12/2027 · Últimos 4 dígitos registrados (RF24)
+                          Últimos 4 dígitos registrados en la transacción (RF24)
                         </Typography>
                       </Box>
                     </Stack>
@@ -271,7 +337,9 @@ export default function CheckoutPage() {
                       label="Últimos 4 dígitos"
                       value={cardLast4}
                       onChange={(e) => setCardLast4(e.target.value.slice(0, 4))}
-                      sx={{ width: 140 }}
+                      error={Boolean(validationErrors.card)}
+                      helperText={validationErrors.card}
+                      sx={{ width: { xs: '100%', sm: 160 } }}
                     />
                   </Stack>
                 </Paper>
@@ -281,7 +349,7 @@ export default function CheckoutPage() {
                     Datos de Transferencia Electrónica (RF24)
                   </Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
-                    Banco Estado · Cuenta Corriente N° 82736451 · RUT 76.123.456-7 (Tienda Sur)
+                    Banco Estado · Cuenta Corriente N° 82736451 · RUT 76.123.456-7 (Shopping SpA)
                   </Typography>
                   <TextField
                     fullWidth
@@ -289,6 +357,8 @@ export default function CheckoutPage() {
                     label="Código de comprobante de transferencia *"
                     value={transferCode}
                     onChange={(e) => setTransferCode(e.target.value)}
+                    error={Boolean(validationErrors.transfer)}
+                    helperText={validationErrors.transfer}
                   />
                 </Paper>
               )}
@@ -296,71 +366,78 @@ export default function CheckoutPage() {
           </Stack>
         </Grid>
 
-        {/* Columna Derecha: Resumen con Neto + IVA 19% + Total (P07) */}
+        {/* Columna Derecha: Resumen de Compra (P07) */}
         <Grid item xs={12} lg={4.5}>
           <Card sx={{ p: 3 }}>
             <Typography variant="h6" sx={{ mb: 1.5 }}>
               Resumen de tu compra
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Vendedor: <strong>Tienda Sur</strong>
+              Vendedor:{' '}
+              <strong>{activeVendor?.vendorName || 'Tienda Oficial'}</strong>
             </Typography>
 
             <Stack spacing={2} sx={{ mb: 2.5 }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Stack direction="row" spacing={1.5} alignItems="center">
-                  <Box component="img" src={shoeImage} alt="" sx={{ width: 56, height: 56, borderRadius: 2, objectFit: 'cover' }} />
-                  <Box>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                      Zapatillas New Balance 574
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Talla: 42 · Color: Gris · Cant: 1
-                    </Typography>
-                  </Box>
+              {cartItems.map((item) => (
+                <Stack key={item.id} direction="row" justifyContent="space-between" alignItems="center">
+                  <Stack direction="row" spacing={1.5} alignItems="center">
+                    <Box
+                      component="img"
+                      src={item.image || shoeImage}
+                      alt={item.name}
+                      sx={{ width: 56, height: 56, borderRadius: 2, objectFit: 'cover' }}
+                    />
+                    <Box>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 800 }} noWrap sx={{ maxWidth: 180 }}>
+                        {item.name}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {item.subtitle} · Cant: {item.qty}
+                      </Typography>
+                    </Box>
+                  </Stack>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                    {formatCLP(item.price * item.qty)}
+                  </Typography>
                 </Stack>
-                <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                  $29.990
-                </Typography>
-              </Stack>
-
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Stack direction="row" spacing={1.5} alignItems="center">
-                  <Box component="img" src={chairImage} alt="" sx={{ width: 56, height: 56, borderRadius: 2, objectFit: 'cover' }} />
-                  <Box>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                      Mochila Columbia Trail 25L
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Color: Negro · Cant: 1
-                    </Typography>
-                  </Box>
-                </Stack>
-                <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                  $17.610
-                </Typography>
-              </Stack>
+              ))}
             </Stack>
 
             <Divider sx={{ my: 2 }} />
 
             <Stack spacing={1} sx={{ mb: 2 }}>
               <Stack direction="row" justifyContent="space-between">
-                <Typography variant="body2" color="text.secondary">Subtotal productos</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>{formatCLP(subtotalProducts)}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Subtotal productos
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  {formatCLP(subtotalProducts)}
+                </Typography>
               </Stack>
               <Stack direction="row" justifyContent="space-between">
-                <Typography variant="body2" color="text.secondary">Costo de despacho</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>{formatCLP(shippingCost)}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Costo de despacho
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  {formatCLP(shippingCost)}
+                </Typography>
               </Stack>
               <Divider />
               <Stack direction="row" justifyContent="space-between">
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>Valor Neto (sin IVA)</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 800 }}>{formatCLP(valorNeto)}</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                  Valor Neto (sin IVA)
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 800 }}>
+                  {formatCLP(valorNeto)}
+                </Typography>
               </Stack>
               <Stack direction="row" justifyContent="space-between">
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>IVA (19%)</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 800 }}>{formatCLP(valorIva)}</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                  IVA (19% calculado)
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 800 }}>
+                  {formatCLP(valorIva)}
+                </Typography>
               </Stack>
             </Stack>
 
@@ -376,24 +453,35 @@ export default function CheckoutPage() {
             </Paper>
 
             <FormControlLabel
-              control={<Checkbox checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} />}
+              control={
+                <Checkbox
+                  checked={acceptedTerms}
+                  onChange={(e) => setAcceptedTerms(e.target.checked)}
+                />
+              }
               label={
                 <Typography variant="caption" color="text.secondary">
                   Acepto los Términos y Condiciones y la Política de Privacidad de Shopping.
                 </Typography>
               }
-              sx={{ mb: 2 }}
+              sx={{ mb: 1 }}
             />
+            {validationErrors.terms && (
+              <Typography variant="caption" color="error.main" sx={{ display: 'block', mb: 2 }}>
+                {validationErrors.terms}
+              </Typography>
+            )}
 
             <Button
               variant="contained"
               size="large"
               fullWidth
-              disabled={!acceptedTerms || isProcessing}
+              disabled={isProcessing}
               startIcon={isProcessing ? <CircularProgress size={20} color="inherit" /> : <LockOutlined />}
               onClick={handlePayment}
+              sx={{ py: 1.5, fontWeight: 800 }}
             >
-              {isProcessing ? 'Procesando pago...' : `Pagar ${formatCLP(totalBruto)}`}
+              {isProcessing ? 'Procesando en PostgreSQL...' : `Pagar ${formatCLP(totalBruto)}`}
             </Button>
           </Card>
         </Grid>
