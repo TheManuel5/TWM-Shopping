@@ -93,8 +93,10 @@ export default function ProductsPage() {
     setFormOpen(true)
   }
 
+  // SIMULACIÓN DE ENVÍO DE DATOS AL BACKEND (CREAR/EDITAR)
   const handleSaveProduct = (productoData) => {
     if (productoSeleccionado) {
+      console.log(`Simulando petición PUT a /api/productos/${productoData.id} con datos:`, productoData)
       setProductos((actuales) =>
         actuales.map((producto) =>
           producto.id === productoData.id ? productoData : producto,
@@ -102,6 +104,7 @@ export default function ProductsPage() {
       )
       setSnackbar({ open: true, mensaje: 'Producto actualizado correctamente.' })
     } else {
+      console.log('Simulando petición POST a /api/productos con datos:', productoData)
       setProductos((actuales) => [productoData, ...actuales])
       setPage(1)
       setSnackbar({ open: true, mensaje: 'Producto creado correctamente.' })
@@ -109,10 +112,11 @@ export default function ProductsPage() {
     setProductoSeleccionado(null)
   }
 
+  // SIMULACIÓN DE ELIMINACIÓN AL BACKEND
   const handleDeleteProduct = () => {
     if (!productoAEliminar) return
 
-    console.log('Producto eliminado:', productoAEliminar)
+    console.log(`Simulando petición DELETE a /api/productos/${productoAEliminar.id}`)
     setProductos((actuales) =>
       actuales.filter((producto) => producto.id !== productoAEliminar.id),
     )
@@ -170,7 +174,7 @@ export default function ProductsPage() {
           </Button>
         </Box>
 
-        {/* Filtros — mismo estilo que pedidos */}
+        {/* Filtros */}
         <Box
           className="orders-filters products-filters"
           sx={{
@@ -229,7 +233,7 @@ export default function ProductsPage() {
           </Button>
         </Box>
 
-        {/* Tabla — mismo formato que la de pedidos */}
+        {/* Tabla */}
         <TableContainer component={Paper} className="orders-table-paper" elevation={0}>
           <Table aria-label="Listado de productos" size="small">
             <TableHead>
@@ -334,7 +338,7 @@ export default function ProductsPage() {
           </Table>
         </TableContainer>
 
-        {/* Paginación — mismo estilo que pedidos */}
+        {/* Paginación */}
         <Box className="orders-pagination">
           <Pagination
             count={pageCount}

@@ -79,6 +79,15 @@ export default function ShippingRatesPage() {
     ])
   }
 
+  // NUEVA FUNCIÓN DE ENVÍO
+  const handleSaveConfig = () => {
+    const payload = {
+      metodoCalculo: calcMethod,
+      zonasTarifas: zones,
+    }
+    console.log('Simulando petición PUT a /api/despachos/configuracion con datos:', payload)
+  }
+
   const provinciasList = Object.keys(CHILE_DPA[newRegion] || {})
   const comunasList = CHILE_DPA[newRegion]?.[newProvincia] || []
 
@@ -328,7 +337,8 @@ export default function ShippingRatesPage() {
         </Table>
 
         <Stack direction="row" justifyContent="flex-end" sx={{ mt: 2.5 }}>
-          <Button variant="contained" startIcon={<SaveOutlined />}>
+          {/* BOTÓN ACTUALIZADO PARA EJECUTAR EL ENVÍO */}
+          <Button variant="contained" startIcon={<SaveOutlined />} onClick={handleSaveConfig}>
             Guardar configuración
           </Button>
         </Stack>

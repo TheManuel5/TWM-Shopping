@@ -88,6 +88,41 @@ export default function PublishProductPage() {
     ])
   }
 
+  // NUEVA FUNCIÓN DE ENVÍO
+  const handlePublish = () => {
+    const payload = {
+      nombre: name,
+      categorias: {
+        principal: catMain,
+        secundaria: catSec,
+        especifica: catSpec
+      },
+      atributos: {
+        marca: brand,
+        material: material,
+        pesoGramos: weight,
+        tamanioRango: sizeBase,
+        colorPrincipal: selectedColor,
+        dimensiones: { ancho: widthCm, alto: heightCm, fondo: depthCm }
+      },
+      descripcion: description,
+      precioRegular: regularPrice,
+      ofertaActiva: hasOffer,
+      detalleOferta: hasOffer ? {
+        precioOferta: offerPrice,
+        fechaInicio: offerStart,
+        fechaFin: offerEnd
+      } : null,
+      variantes: variants,
+      productoRelacionado: 'MCH-001' // Extraído del mockup (Mochila Urbana Essential)
+    }
+
+    console.log('Enviando nuevo producto al backend:', payload)
+    
+    // Redirigir al inventario tras la simulación
+    navigate('/vendedor/inventario')
+  }
+
   return (
     <Box sx={{ maxWidth: 1280, mx: 'auto' }}>
       <Breadcrumbs sx={{ mb: 1.5, fontSize: '0.85rem' }}>
@@ -462,7 +497,8 @@ export default function PublishProductPage() {
               <Button variant="outlined" size="large" onClick={() => navigate('/vendedor/inventario')}>
                 Guardar borrador
               </Button>
-              <Button variant="contained" size="large" onClick={() => navigate('/vendedor/inventario')}>
+              {/* BOTÓN ACTUALIZADO */}
+              <Button variant="contained" size="large" onClick={handlePublish}>
                 Publicar producto
               </Button>
             </Stack>

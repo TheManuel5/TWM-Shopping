@@ -70,12 +70,25 @@ export default function InventoryOffersPage() {
     return 'Activo'
   }
 
+  // SIMULACIÓN DE ACTUALIZACIÓN RÁPIDA DE STOCK (INLINE)
   const handleDirectStockChange = (sku, newStock) => {
+    console.log(`Simulando petición PUT a /api/inventario/${sku} con datos:`, { stockTotal: Math.max(0, newStock) })
     setRows((prev) => prev.map((r) => (r.sku === sku ? { ...r, stock: Math.max(0, newStock) } : r)))
   }
 
+  // SIMULACIÓN DE AJUSTE DETALLADO DE STOCK CON MOTIVO
   const handleApplyAdjustment = () => {
-    handleDirectStockChange(activeItem.sku, activeItem.stock + adjustmentDelta)
+    const newStock = activeItem.stock + adjustmentDelta
+    const payload = {
+      sku: activeItem.sku,
+      stockAnterior: activeItem.stock,
+      nuevoStock: newStock,
+      cantidadAjuste: adjustmentDelta,
+      motivo: adjustReason
+    }
+    
+    console.log(`Simulando petición POST a /api/inventario/${activeItem.sku}/ajuste con datos:`, payload)
+    handleDirectStockChange(activeItem.sku, newStock)
   }
 
   const filteredRows = rows.filter((r) => {
