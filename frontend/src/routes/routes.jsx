@@ -57,21 +57,21 @@ export default function AppRoutes() {
           <Route path="/cotizaciones" element={<QuotesPage />} />
           <Route path="/mis-compras" element={<OrdersReturnsPage />} />
 
+          {/* Vistas del Emprendedor / Vendedor (ACCESO DIRECTO) */}
+          <Route path="/vendedor/dashboard" element={<SellerDashboardPage />} />
+          <Route path="/vendedor/publicar-producto" element={<PublishProductPage />} />
+          <Route path="/vendedor/publicar-servicio" element={<PublishServicePage />} />
+          <Route path="/vendedor/inventario" element={<InventoryOffersPage />} />
+          <Route path="/vendedor/despachos" element={<ShippingRatesPage />} />
+          <Route path="/crud-2" element={<ProductsPage />} />
+
           {/* Rutas Protegidas y Paneles de Gestión / Administración (P15 - P22) */}
           <Route element={<ProtectedRoute />}>
             <Route path="/perfil" element={<UserProfile />} />
             <Route path="/configuracion" element={<Settings />} />
 
-            {/* Rutas existentes del equipo (P18 Gestión de Pedidos y CRUD Catálogo) */}
+            {/* Rutas existentes del equipo */}
             <Route path="/crud-1" element={<Orders />} />
-            <Route path="/crud-2" element={<ProductsPage />} />
-
-            {/* Vistas del Emprendedor / Vendedor (P15, P16, P17, P21, P22) */}
-            <Route path="/vendedor/dashboard" element={<SellerDashboardPage />} />
-            <Route path="/vendedor/publicar-producto" element={<PublishProductPage />} />
-            <Route path="/vendedor/publicar-servicio" element={<PublishServicePage />} />
-            <Route path="/vendedor/inventario" element={<InventoryOffersPage />} />
-            <Route path="/vendedor/despachos" element={<ShippingRatesPage />} />
 
             {/* Vistas del Administrador (P19, P20 y Módulo Analítico Etapa 11) */}
             <Route path="/admin/usuarios" element={<ManageUsersPage />} />

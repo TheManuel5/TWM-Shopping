@@ -54,6 +54,33 @@ export default function PublishServicePage() {
     setComunas((prev) => prev.filter((c) => c !== com))
   }
 
+  // NUEVA FUNCIÓN DE ENVÍO
+  const handlePublish = () => {
+    const payload = {
+      nombre: serviceName,
+      categoria: 'Servicios',
+      subCategoria: subCategory,
+      duracion: duration,
+      restriccionEdad: ageRestriction,
+      modalidadAtencion: modality,
+      region: 'Los Lagos',
+      comunasCobertura: comunas,
+      descripcion: description,
+      precioOficial: officialPrice,
+      ofertaActiva: offerActive,
+      detalleOferta: offerActive ? {
+        precioOferta: offerPrice,
+        fechaInicio: offerFrom,
+        fechaFin: offerTo
+      } : null
+    }
+
+    console.log('Enviando nuevo servicio al backend:', payload)
+    
+    // Redirigir a la vista del servicio creado
+    navigate('/servicio/102')
+  }
+
   return (
     <Box sx={{ maxWidth: 1320, mx: 'auto' }}>
       <Breadcrumbs sx={{ mb: 1.5, fontSize: '0.85rem' }}>
@@ -332,7 +359,8 @@ export default function PublishServicePage() {
               <Button variant="outlined" fullWidth onClick={() => navigate('/vendedor/inventario')}>
                 Guardar borrador
               </Button>
-              <Button variant="contained" fullWidth onClick={() => navigate('/servicio/102')}>
+              {/* BOTÓN ACTUALIZADO PARA EJECUTAR EL ENVÍO */}
+              <Button variant="contained" fullWidth onClick={handlePublish}>
                 Publicar servicio
               </Button>
             </Stack>
