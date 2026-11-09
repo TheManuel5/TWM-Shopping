@@ -17,8 +17,9 @@ export default function AuthPageShell({
     <Box
       sx={{
         position: 'relative',
-        height: '100dvh',
-        minHeight: 0,
+        minHeight: '100dvh',
+        maxWidth: 1600, mx: 'auto',
+
         display: 'grid',
         gridTemplateColumns: gridTemplateColumns ?? { xs: '1fr', md: '1.08fr 0.92fr' },
         bgcolor: 'background.default',
@@ -75,7 +76,7 @@ export default function AuthPageShell({
           right: 0,
           bottom: 0,
           width: '100%',
-          height: { xs: 58, md: 86 },
+          height: { xs: 58, md: 180 },
           zIndex: 0,
         }}
       >
@@ -160,7 +161,7 @@ export default function AuthPageShell({
           alt="Productos y servicios disponibles en Shopping"
           sx={{
             width: 'min(42vw, 540px)',
-            maxHeight: '45vh',
+            maxHeight: '42vh',
             mt: 1.5,
             alignSelf: 'center',
             objectFit: 'contain',
@@ -175,7 +176,7 @@ export default function AuthPageShell({
           display: 'grid',
           placeItems: 'center',
           p: { xs: 2, sm: 3, md: 4 },
-          overflowY: { xs: 'auto', md: 'hidden' },
+          overflowY: 'auto',
           zIndex: 1,
           ...formAreaSx,
         }}

@@ -1,3 +1,4 @@
+import { notify } from '../../utils/feedback'
 import {
   AccountCircleOutlined,
   ExpandMoreOutlined,
@@ -23,7 +24,7 @@ export default function UserMenu() {
   const navigate = useNavigate()
   const { user, isAuthenticated, logout } = useAuth()
   const menuOpen = Boolean(anchorElement)
-  
+
   const closeMenu = () => setAnchorElement(null)
 
   const navigateFromMenu = (path) => {
@@ -31,11 +32,9 @@ export default function UserMenu() {
     navigate(path)
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     closeMenu()
-    logout()
-    console.log('Sesión cerrada')
-    navigate('/inicio')
+    try { await logout(); navigate('/inicio') } catch (error) { notify(error.message, 'error') }
   }
 
   if (!isAuthenticated || !user) {
@@ -62,14 +61,14 @@ export default function UserMenu() {
 
   // MAGIA AQUÍ: Interceptamos el objeto anidado que manda C#
   const userData = user.user || user || {}
-  
+
   const nombreReal = userData.nombre || userData.Nombre || userData.name || ''
   const apellidoReal = userData.apellido || userData.Apellido || ''
   const rutReal = userData.run || userData.Run || userData.rut || userData.Rut || ''
   const rolReal = userData.rol || userData.Role || userData.role || 'Usuario'
 
   const fullName = nombreReal ? `${nombreReal} ${apellidoReal}`.trim() : 'Usuario'
-  
+
   const userInitials = fullName
     .split(' ')
     .slice(0, 2)
@@ -136,7 +135,7 @@ export default function UserMenu() {
         }}
       >
         <Box sx={{ px: 2, py: 1.5 }}>
-          <Typography variant="subtitle2" fontWeight={700}>
+          <Typography variant="subtitle2"  sx={{ fontWeight: 700 }}>
             {fullName}
           </Typography>
           <Typography variant="caption" color="text.secondary">

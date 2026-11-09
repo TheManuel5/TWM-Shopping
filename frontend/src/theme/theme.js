@@ -50,7 +50,7 @@ const theme = createTheme({
   },
   typography: {
     fontFamily: 'Inter, Roboto, Arial, sans-serif',
-    h4: { fontWeight: 800, color: '#030c2e' },
+    h4: { fontSize: '1.75rem', lineHeight: 1.25, letterSpacing: '-0.025em', fontWeight: 800, color: '#030c2e' },
     h5: { fontWeight: 800, color: '#030c2e' },
     h6: { fontWeight: 700, color: '#030c2e' },
     subtitle1: { fontWeight: 600 },
@@ -60,13 +60,19 @@ const theme = createTheme({
     },
   },
   shape: {
-    borderRadius: 12,
+    borderRadius: 4,
   },
   components: {
+    MuiDialog: { styleOverrides: { paper: { borderRadius: 18, border: '1px solid #e5e7f0', boxShadow: '0 24px 70px rgba(3,12,46,0.18)' } } },
+    MuiDialogTitle: { styleOverrides: { root: { fontSize: '1.25rem', fontWeight: 800, padding: '24px 24px 16px' } } },
+    MuiDialogActions: { styleOverrides: { root: { padding: '16px 24px 24px', gap: 8 } } },
     MuiButton: {
+      defaultProps: { color: 'primary', disableElevation: true },
       styleOverrides: {
         root: {
           borderRadius: 10,
+          minHeight: 40,
+          transition: 'background-color 160ms ease, box-shadow 160ms ease',
           boxShadow: 'none',
           '&:hover': {
             boxShadow: 'none',
@@ -74,6 +80,8 @@ const theme = createTheme({
         },
       },
     },
+    MuiLinearProgress: { styleOverrides: { root: { borderRadius: 8, backgroundColor: '#e2e0ff' }, bar: { borderRadius: 8 } } },
+    MuiSkeleton: { defaultProps: { animation: 'wave' }, styleOverrides: { root: { backgroundColor: '#eeebfa' } } },
     MuiPaper: {
       styleOverrides: {
         root: {

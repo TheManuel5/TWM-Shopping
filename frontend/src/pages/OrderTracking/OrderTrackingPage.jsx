@@ -1,267 +1,34 @@
-import {
-  ChatOutlined,
-  CheckCircleOutlined,
-  ContentCopyOutlined,
-  CreditCardOutlined,
-  DescriptionOutlined,
-  LocalShippingOutlined,
-  LocationOnOutlined,
-  ReceiptLongOutlined,
-  ReplayOutlined,
-  StorefrontOutlined,
-} from '@mui/icons-material'
-import {
-  Avatar,
-  Box,
-  Breadcrumbs,
-  Button,
-  Card,
-  Divider,
-  Grid,
-  IconButton,
-  Link,
-  Paper,
-  Stack,
-  Typography,
-} from '@mui/material'
-import { jsPDF } from 'jspdf'
-import { useNavigate } from 'react-router-dom'
-import chairImage from '../../assets/products/chair.jpg'
-import shoeImage from '../../assets/products/shoe.jpg'
-import StatusChip from '../../components/atoms/StatusChip/StatusChip'
-import OrderStepper from '../../components/molecules/OrderStepper/OrderStepper'
-
+import { catalogImage } from '../../utils/catalogImages'
+import useAuth from '../../contexts/AuthContext/useAuth'
+import { ChatOutlined, ContentCopyOutlined, DescriptionOutlined, LocalShippingOutlined, ReceiptLongOutlined, ReplayOutlined } from '@mui/icons-material'
+import { Box, Breadcrumbs, Button, Card, Chip, Divider, Grid, IconButton, Link, Stack, Step, StepLabel, Stepper, Typography } from '@mui/material'
+import { useNavigate, useParams } from 'react-router-dom'
+import useCollection from '../../hooks/useCollection'
+import { formatCLP } from '../../utils/taxonomyData'
+import { exportReceipt } from '../../utils/pdfExport'
+import { money } from '../../data/commerce'
+import { notify } from '../../utils/feedback'
 export default function OrderTrackingPage() {
+  const { id } = useParams()
+  const { user } = useAuth()
   const navigate = useNavigate()
-
-  const handleDownloadInvoicePDF = () => {
-    const doc = new jsPDF()
-    doc.setFontSize(16)
-    doc.text('SHOPPING - COMPROBANTE DE VENTA (BOLETA)', 14, 20)
-    doc.setFontSize(10)
-    doc.text('Pedido N°: #1032   |   Fecha: 20 de septiembre de 2026', 14, 30)
-    doc.text('Vendedor: Tienda Sur (RUT: 76.123.456-7) - Osorno', 14, 37)
-    doc.text('Cliente: Ana Rodríguez (RUT: 12.345.678-9)', 14, 44)
-    doc.line(14, 50, 196, 50)
-
-    doc.text('1x Zapatillas New Balance 574 Hombre Gris (Talla 42) ..... $29.990', 14, 60)
-    doc.text('1x Mochila Columbia Trail Journey 25L Negro .............. $13.010', 14, 68)
-    doc.line(14, 75, 196, 75)
-
-    doc.text('Valor Neto (sin IVA): $43.000 CLP', 14, 85)
-    doc.text('IVA (19%):            $8.170 CLP', 14, 92)
-    doc.setFontSize(12)
-    doc.text('TOTAL PAGADO:         $51.170 CLP', 14, 102)
-    doc.setFontSize(10)
-    doc.text('Medio de Pago: Visa terminada en **** 4242', 14, 112)
-    doc.text('Despacho: Chilexpress | N° Seguimiento: 9087654321 | Estado: En preparación', 14, 119)
-
-    doc.save('Comprobante_Venta_Pedido_1032.pdf')
-  }
-
-  return (
-    <Box sx={{ maxWidth: 1180, mx: 'auto' }}>
-      <Breadcrumbs sx={{ mb: 2, fontSize: '0.85rem' }}>
-        <Link underline="hover" color="inherit" onClick={() => navigate('/perfil')} sx={{ cursor: 'pointer' }}>
-          Mi cuenta
-        </Link>
-        <Link underline="hover" color="inherit" onClick={() => navigate('/mis-compras')} sx={{ cursor: 'pointer' }}>
-          Compras
-        </Link>
-        <Typography variant="caption" color="text.primary" sx={{ fontWeight: 700 }}>
-          Pedido #1032
-        </Typography>
-      </Breadcrumbs>
-
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        justifyContent="space-between"
-        alignItems={{ xs: 'flex-start', sm: 'center' }}
-        spacing={2}
-        sx={{ mb: 2.5 }}
-      >
-        <Stack direction="row" spacing={2} alignItems="center">
-          <Avatar sx={{ width: 52, height: 52, bgcolor: 'secondary.main', color: 'primary.main' }}>
-            <CheckCircleOutlined fontSize="large" />
-          </Avatar>
-          <Box>
-            <Typography variant="h4">¡Compra confirmada!</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Tu pedido #1032 ha sido recibido correctamente.
-            </Typography>
-          </Box>
-        </Stack>
-
-        <Box sx={{ textAlign: { sm: 'right' } }}>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-            Realizado el
-          </Typography>
-          <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-            20 de septiembre de 2026
-          </Typography>
-        </Box>
-      </Stack>
-
-      <Grid container spacing={2} sx={{ mb: 2.5 }}>
-        <Grid item xs={12} md={4}>
-          <Card sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Avatar sx={{ bgcolor: 'secondary.light', color: 'primary.main' }}>
-              <StorefrontOutlined />
-            </Avatar>
-            <Box>
-              <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Tienda Sur</Typography>
-              <Typography variant="caption" color="text.secondary">2 productos</Typography>
-            </Box>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} md={4}>
-          <Card sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Avatar sx={{ bgcolor: 'secondary.light', color: 'primary.main' }}>
-              <CreditCardOutlined />
-            </Avatar>
-            <Box>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Medio de pago</Typography>
-              <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Visa •••• 4242</Typography>
-            </Box>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} md={4}>
-          <Card sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Avatar sx={{ bgcolor: 'secondary.light', color: 'primary.main' }}>
-              <ReceiptLongOutlined />
-            </Avatar>
-            <Box>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Total pagado</Typography>
-              <Typography variant="h6" sx={{ fontWeight: 900 }}>$51.170</Typography>
-            </Box>
-          </Card>
-        </Grid>
-      </Grid>
-
-      <Card sx={{ p: 2.5, mb: 2.5 }}>
-        <OrderStepper activeStep={1} />
-      </Card>
-
-      <Grid container spacing={2.5}>
-        <Grid item xs={12} md={6.5}>
-          <Card sx={{ p: 2.5, mb: 2.5 }}>
-            <Typography variant="h6" sx={{ mb: 2 }}>Productos de tu compra</Typography>
-            <Stack spacing={2}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Stack direction="row" spacing={1.5} alignItems="center">
-                  <Box component="img" src={shoeImage} alt="" sx={{ width: 64, height: 64, borderRadius: 2, objectFit: 'cover' }} />
-                  <Box>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Zapatillas New Balance 574 Hombre Gris</Typography>
-                    <Typography variant="caption" color="text.secondary">Talla: 42 | Color: Gris</Typography>
-                  </Box>
-                </Stack>
-                <Box sx={{ textAlign: 'right' }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>$29.990</Typography>
-                  <Typography variant="caption" color="text.secondary">Cantidad: 1</Typography>
-                </Box>
-              </Stack>
-
-              <Divider />
-
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Stack direction="row" spacing={1.5} alignItems="center">
-                  <Box component="img" src={chairImage} alt="" sx={{ width: 64, height: 64, borderRadius: 2, objectFit: 'cover' }} />
-                  <Box>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Mochila Columbia Trail Journey 25L Negro</Typography>
-                    <Typography variant="caption" color="text.secondary">Color: Negro</Typography>
-                  </Box>
-                </Stack>
-                <Box sx={{ textAlign: 'right' }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>$13.010</Typography>
-                  <Typography variant="caption" color="text.secondary">Cantidad: 1</Typography>
-                </Box>
-              </Stack>
-            </Stack>
-          </Card>
-
-          <Card sx={{ p: 2.5 }}>
-            <Typography variant="h6" sx={{ mb: 1.5 }}>Resumen de pago</Typography>
-            <Stack spacing={1}>
-              <Stack direction="row" justifyContent="space-between">
-                <Typography variant="body2" color="text.secondary">Subtotal (neto)</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>$43.000</Typography>
-              </Stack>
-              <Stack direction="row" justifyContent="space-between">
-                <Typography variant="body2" color="text.secondary">IVA (19%)</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>$8.170</Typography>
-              </Stack>
-              <Divider />
-              <Stack direction="row" justifyContent="space-between">
-                <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>Total pagado</Typography>
-                <Typography variant="h6" sx={{ fontWeight: 900 }}>$51.170</Typography>
-              </Stack>
-            </Stack>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} md={5.5}>
-          <Card sx={{ p: 2.5, mb: 2.5 }}>
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-              <LocalShippingOutlined color="primary" />
-              <Typography variant="h6">Información de despacho</Typography>
-            </Stack>
-            <Stack spacing={1.25}>
-              <Stack direction="row" justifyContent="space-between">
-                <Typography variant="body2" color="text.secondary">Transportadora</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 800 }}>Chilexpress</Typography>
-              </Stack>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Typography variant="body2" color="text.secondary">N° de seguimiento</Typography>
-                <Stack direction="row" spacing={0.5} alignItems="center">
-                  <Typography variant="body2" sx={{ fontWeight: 800 }}>9087654321</Typography>
-                  <IconButton size="small" onClick={() => navigator.clipboard?.writeText('9087654321')}>
-                    <ContentCopyOutlined sx={{ fontSize: 15 }} />
-                  </IconButton>
-                </Stack>
-              </Stack>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Typography variant="body2" color="text.secondary">Estado</Typography>
-                <StatusChip status="En preparación" />
-              </Stack>
-            </Stack>
-          </Card>
-
-          <Card sx={{ p: 2.5, mb: 2.5 }}>
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
-              <LocationOnOutlined color="primary" />
-              <Typography variant="h6">Dirección de entrega</Typography>
-            </Stack>
-            <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} sm={7}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Casa Osorno</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Av. Manuel Rodríguez 1234, Osorno, Los Lagos
-                </Typography>
-              </Grid>
-              <Grid item xs={12} sm={5}>
-                <Paper elevation={0} sx={{ p: 1.5, bgcolor: 'secondary.light', borderRadius: 2 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Entrega estimada</Typography>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>23 de septiembre de 2026</Typography>
-                </Paper>
-              </Grid>
-            </Grid>
-          </Card>
-
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25}>
-            <Button variant="contained" startIcon={<DescriptionOutlined />} onClick={handleDownloadInvoicePDF} sx={{ flexGrow: 1 }}>
-              Ver comprobante
-            </Button>
-            <Button variant="outlined" startIcon={<ChatOutlined />} onClick={() => navigate('/mensajes')}>
-              Contactar vendedor
-            </Button>
-            <Button variant="outlined" startIcon={<ReplayOutlined />} onClick={() => navigate('/catalogo')}>
-              Volver a comprar
-            </Button>
-          </Stack>
-        </Grid>
-      </Grid>
-    </Box>
-  )
+  const [orders] = useCollection('orders', [])
+  const order = orders.find(order => String(order.id) === id)
+  if (!order || (order.customerRut !== user.rut && !['Vendedor', 'Admin'].includes(user.role))) return <Card sx={{ p: 5 }}><Typography variant="h5">Pedido no encontrado</Typography><Button onClick={() => navigate('/mis-compras')}>Ver mis compras</Button></Card>
+  const statuses = ['En preparación', 'Enviado', 'En reparto', 'Entregado', 'Recibido']
+  const total = money(order.total)
+  const net = order.net ?? Math.round(total / 1.19)
+  return <Box sx={{ maxWidth: 1250, mx: 'auto' }}>
+    <Breadcrumbs sx={{ mb: 2 }}><Link component="button" onClick={() => navigate('/inicio')}>Inicio</Link><Link component="button" onClick={() => navigate('/mis-compras')}>Mis compras</Link><Typography>Pedido {order.id}</Typography></Breadcrumbs>
+    <Stack direction={{ xs: 'column', sm: 'row' }}   sx={[{ justifyContent: "space-between", gap: 2 }, { mb: 3 }]}><Box><Typography variant="h4">Seguimiento de pedido #{order.id}</Typography><Typography color="text.secondary">Comprado el {order.date.replace('\n', ' · ')}</Typography></Box><Chip label={order.status} color={order.status === 'Entregado' ? 'success' : 'primary'} /></Stack>
+    <Card sx={{ p: { xs: 2, md: 4 }, mb: 3 }}><Typography variant="h6" sx={{ mb: 3 }}>Estado de tu pedido</Typography><Stepper alternativeLabel activeStep={Math.max(0, statuses.indexOf(order.status))}>{statuses.map((status, index) => <Step key={status} completed={statuses.indexOf(order.status) >= index}><StepLabel>{status}</StepLabel></Step>)}</Stepper></Card>
+    <Grid container spacing={3}>
+      <Grid size={{ xs: 12, md: 8 }}><Stack spacing={3}>
+        <Card sx={{ p: 3 }}><Typography variant="h6">Productos de tu compra</Typography><Typography color="text.secondary" sx={{ mb: 2 }}>Vendido por {order.store}</Typography>{order.products.map((item, index) => <Stack key={item.key || index} direction="row" spacing={2}  sx={[{ alignItems: "center" }, { py: 2 }]}><Box component="img" src={catalogImage(item)} alt={item.name} sx={{ width: 76, height: 76, objectFit: 'contain', borderRadius: 2 }} /><Box sx={{ flex: 1 }}><Typography  sx={{ fontWeight: 800 }}>{item.name}</Typography><Typography variant="caption" color="text.secondary">{item.detail} · Cantidad: {item.qty || 1}</Typography></Box><Typography  sx={{ fontWeight: 800 }}>{formatCLP(money(item.price) * (item.qty || 1))}</Typography></Stack>)}</Card>
+        <Card sx={{ p: 3 }}><Stack direction="row"   sx={{ gap: 1, alignItems: "center" }}><LocalShippingOutlined color="primary" /><Typography variant="h6">Información del despacho</Typography></Stack><Typography sx={{ my: 2 }}>{order.address}</Typography><Typography>Transportista: {order.dispatch?.carrier || 'Pendiente de asignación'}</Typography><Stack direction="row"   sx={{ alignItems: "center", gap: 1 }}><Typography>Seguimiento: {order.dispatch?.tracking || 'Disponible cuando se despache'}</Typography>{order.dispatch?.tracking && <IconButton aria-label="Copiar seguimiento" onClick={() => navigator.clipboard.writeText(order.dispatch.tracking).then(() => notify('Seguimiento copiado.')).catch(() => notify('No se pudo copiar el seguimiento.', 'error'))}><ContentCopyOutlined fontSize="small" /></IconButton>}</Stack></Card>
+        <Card sx={{ p: 3 }}><Typography variant="h6" sx={{ mb: 2 }}>Historial de transacciones</Typography>{!order.history?.length && <Typography color="text.secondary">La carga no incluye el historial de cambios de este pedido.</Typography>}{(order.history || [{ date: order.createdAt || new Date().toISOString(), status: order.status }]).map((event, index) => <Stack key={index} direction="row"  sx={[{ justifyContent: "space-between" }, { py: 1 }]}><Typography variant="body2">{new Date(event.date).toLocaleString('es-CL')}</Typography><Typography  sx={{ fontWeight: 700 }}>{event.status}</Typography></Stack>)}</Card>
+      </Stack></Grid>
+      <Grid size={{ xs: 12, md: 4 }}><Card sx={{ p: 3 }}><Stack direction="row"   sx={{ gap: 1, alignItems: "center" }}><ReceiptLongOutlined color="primary" /><Typography variant="h6">Resumen de pago</Typography></Stack><Stack spacing={1.5} sx={{ mt: 2 }}>{[['Productos', total - (order.shipping || 0)], ['Despacho', order.shipping || 0], ['Neto sin IVA', net], ['IVA (19%)', order.iva ?? total - net]].map(([label, value]) => <Stack key={label} direction="row"  sx={{ justifyContent: "space-between" }}><Typography color="text.secondary">{label}</Typography><Typography>{formatCLP(value)}</Typography></Stack>)}<Divider /><Stack direction="row"  sx={{ justifyContent: "space-between" }}><Typography  sx={{ fontWeight: 800 }}>Total</Typography><Typography variant="h5" color="primary">{formatCLP(total)}</Typography></Stack></Stack><Typography sx={{ my: 2 }}>{order.payment} {order.cardLast4 ? '•••• ' + order.cardLast4 : order.transferCode}</Typography><Stack spacing={1.5}><Button variant="contained" startIcon={<DescriptionOutlined />} onClick={() => exportReceipt(order)}>Descargar comprobante</Button><Button variant="outlined" startIcon={<ChatOutlined />} onClick={() => navigate('/mensajes')}>Contactar vendedor</Button><Button variant="outlined" startIcon={<ReplayOutlined />} onClick={() => navigate('/catalogo')}>Seguir comprando</Button><Button onClick={() => navigate('/mis-compras')}>Mis compras y devoluciones</Button></Stack></Card></Grid>
+    </Grid>
+  </Box>
 }

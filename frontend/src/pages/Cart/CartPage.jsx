@@ -1,3 +1,7 @@
+import { catalogImage } from '../../utils/catalogImages'
+import useCollection from '../../hooks/useCollection'
+import { logEvent } from '../../data/localStore'
+import { requestQuote, toggleFavorite } from '../../data/catalog'
 import {
   ArrowBackOutlined,
   DeleteOutlined,
@@ -18,82 +22,43 @@ import {
   Divider,
   Grid,
   IconButton,
-  MenuItem,
   Paper,
   Radio,
-  Select,
   Stack,
   Typography,
 } from '@mui/material'
-import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import chairImage from '../../assets/products/chair.jpg'
-import phoneImage from '../../assets/products/phone.jpg'
-import shoeImage from '../../assets/products/shoe.jpg'
 import QuantityInput from '../../components/atoms/QuantityInput/QuantityInput'
 import { formatCLP } from '../../utils/taxonomyData'
 
-const INITIAL_GROUPS = [
-  {
-    vendorId: 'tienda-sur',
-    vendorName: 'Tienda Sur',
-    comuna: 'Osorno',
-    items: [
-      { id: 1, name: 'Zapatillas New Balance 574', subtitle: 'Hombre · Gris', size: '38', price: 29990, qty: 1, image: shoeImage },
-      { id: 2, name: 'Mochila urbana Everest', subtitle: 'Negro · 20 L', size: 'Única', price: 19990, qty: 1, image: chairImage },
-    ],
-  },
-  {
-    vendorId: 'audio-austral',
-    vendorName: 'Audio Austral',
-    comuna: 'Osorno',
-    items: [
-      { id: 3, name: 'Audífonos Bluetooth Sony WH-CH520', subtitle: 'Negro · Inalámbricos', size: 'Única', price: 25990, qty: 1, image: phoneImage },
-    ],
-  },
-]
-
 export default function CartPage() {
   const navigate = useNavigate()
-  const [groups, setGroups] = useState(INITIAL_GROUPS)
-  const [selectedVendor, setSelectedVendor] = useState('tienda-sur')
-
-  const handleQtyChange = (vendorId, itemId, newQty) => {
-    setGroups((prev) =>
-      prev.map((g) =>
-        g.vendorId !== vendorId
-          ? g
-          : {
-              ...g,
-              items: g.items.map((it) => (it.id === itemId ? { ...it, qty: newQty } : it)),
-            },
-      ),
-    )
+  const [cart, setCart] = useCollection('cart', [])
+  const [selectedVendor, setSelectedVendor] = useCollection('selectedVendor', '')
+  const groups = [...new Set(cart.map(item => item.seller))].map(seller => ({ vendorId: seller, vendorName: seller, comuna: 'Osorno', items: cart.filter(item => item.seller === seller) }))
+  const activeGroup = groups.find(g => g.vendorId === selectedVendor) || groups[0]
+  const subtotal = activeGroup?.items.reduce((sum, item) => sum + item.price * item.qty, 0) || 0
+  const handleQtyChange = (vendorId, itemId, qty) => {
+    setCart(prev => prev.map(item => item.seller === vendorId && item.key === itemId ? { ...item, qty: Math.min(item.type === 'Servicio' ? 1000 : item.stock, qty) } : item))
+    logEvent('Actualizar cantidad', { itemId, qty })
   }
-
   const handleRemoveItem = (vendorId, itemId) => {
-    setGroups((prev) =>
-      prev.map((g) =>
-        g.vendorId !== vendorId ? g : { ...g, items: g.items.filter((it) => it.id !== itemId) },
-      ),
-    )
+    setCart(prev => prev.filter(item => !(item.seller === vendorId && item.key === itemId)))
+    logEvent('Quitar del carrito', { itemId })
   }
-
-  const activeGroup = groups.find((g) => g.vendorId === selectedVendor) || groups[0]
-  const subtotal = activeGroup.items.reduce((acc, it) => acc + it.price * it.qty, 0)
-
+  if (!activeGroup) return <Card sx={{ p: 5, textAlign: 'center' }}><Typography variant="h4">Tu carrito está vacío</Typography><Typography sx={{ my: 2 }}>Encuentra productos y servicios para tu próxima compra.</Typography><Button variant="contained" onClick={() => navigate('/catalogo')}>Explorar catálogo</Button></Card>
   return (
     <Box sx={{ maxWidth: 1320, mx: 'auto' }}>
       <Typography variant="h4" sx={{ mb: 0.5 }}>
         Mi carrito
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Revisa tus productos y selecciona el vendedor para continuar. Cada compra corresponde a un solo vendedor (RF12).
+        Revisa tus productos y selecciona el vendedor para continuar. Cada compra corresponde a un solo vendedor.
       </Typography>
 
       <Grid container spacing={3}>
         {/* Bloques Agrupados por Vendedor (P06) */}
-        <Grid item xs={12} lg={8}>
+        <Grid size={{ xs: 12, lg: 8 }}>
           <Stack spacing={2.5}>
             {groups.map((group) => {
               const isSelected = group.vendorId === selectedVendor
@@ -105,8 +70,8 @@ export default function CartPage() {
                     border: isSelected ? '2px solid #602ff7' : '1px solid #e5e7f0',
                   }}
                 >
-                  <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-                    <Stack direction="row" spacing={1.25} alignItems="center">
+                  <Stack direction="row"   sx={[{ justifyContent: "space-between", alignItems: "center" }, { mb: 2 }]}>
+                    <Stack direction="row" spacing={1.25}  sx={{ alignItems: "center" }}>
                       <Radio
                         checked={isSelected}
                         onChange={() => setSelectedVendor(group.vendorId)}
@@ -115,7 +80,7 @@ export default function CartPage() {
                       />
                       <StorefrontOutlined color="primary" />
                       <Box>
-                        <Stack direction="row" spacing={1} alignItems="center">
+                        <Stack direction="row" spacing={1}  sx={{ alignItems: "center" }}>
                           <Typography variant="h6">{group.vendorName}</Typography>
                           {isSelected && (
                             <Chip
@@ -141,17 +106,17 @@ export default function CartPage() {
                   <Stack spacing={2}>
                     {group.items.map((item) => (
                       <Stack
-                        key={item.id}
+                        key={item.key}
                         direction={{ xs: 'column', sm: 'row' }}
-                        alignItems={{ xs: 'flex-start', sm: 'center' }}
-                        justifyContent="space-between"
+
+
                         spacing={2}
-                      >
-                        <Stack direction="row" spacing={1.5} alignItems="center">
+                       sx={{ alignItems: { xs: 'flex-start', sm: 'center' }, justifyContent: "space-between" }}>
+                        <Stack direction="row" spacing={1.5}  sx={{ alignItems: "center" }}>
                           <Checkbox checked={isSelected} onChange={() => setSelectedVendor(group.vendorId)} />
                           <Box
                             component="img"
-                            src={item.image}
+                            src={catalogImage(item)}
                             alt={item.name}
                             sx={{ width: 76, height: 76, borderRadius: 2, objectFit: 'cover' }}
                           />
@@ -162,28 +127,23 @@ export default function CartPage() {
                             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                               {item.subtitle}
                             </Typography>
-                            {item.size !== 'Única' && (
-                              <Select size="small" value={item.size} sx={{ height: 28, fontSize: '0.78rem' }}>
-                                <MenuItem value="37">Talla 37</MenuItem>
-                                <MenuItem value="38">Talla 38</MenuItem>
-                                <MenuItem value="42">Talla 42</MenuItem>
-                              </Select>
-                            )}
+                            <Typography variant="caption" color="text.secondary">Variante: {item.size || item.talla || 'Única'} · {item.color || ''}</Typography>
                           </Box>
                         </Stack>
 
-                        <Stack direction="row" spacing={2} alignItems="center">
+                        <Stack direction="row" spacing={2}  sx={{ alignItems: "center" }}>
                           <QuantityInput
                             value={item.qty}
-                            onChange={(val) => handleQtyChange(group.vendorId, item.id, val)}
+                            max={item.type === 'Servicio' ? 1000 : item.stock}
+                            onChange={(val) => handleQtyChange(group.vendorId, item.key, val)}
                           />
                           <Typography variant="subtitle1" sx={{ fontWeight: 900, minWidth: 85, textAlign: 'right' }}>
                             {formatCLP(item.price * item.qty)}
                           </Typography>
-                          <IconButton size="small" onClick={() => navigate('/favoritos')}>
+                          <IconButton aria-label={`Guardar ${item.name} en favoritos`} size="small" onClick={() => { toggleFavorite(item); navigate('/favoritos') }}>
                             <FavoriteBorderOutlined fontSize="small" />
                           </IconButton>
-                          <IconButton size="small" onClick={() => handleRemoveItem(group.vendorId, item.id)}>
+                          <IconButton aria-label={`Quitar ${item.name} del carrito`} size="small" onClick={() => handleRemoveItem(group.vendorId, item.key)}>
                             <DeleteOutlined fontSize="small" />
                           </IconButton>
                         </Stack>
@@ -206,7 +166,7 @@ export default function CartPage() {
                         gap: 1,
                       }}
                     >
-                      <Stack direction="row" spacing={1} alignItems="center">
+                      <Stack direction="row" spacing={1}  sx={{ alignItems: "center" }}>
                         <InfoOutlined color="primary" fontSize="small" />
                         <Typography variant="caption" color="text.secondary">
                           Para comprar productos de este vendedor, debes realizar una compra por separado.
@@ -228,14 +188,14 @@ export default function CartPage() {
         </Grid>
 
         {/* Resumen Lateral Derecho (P06) */}
-        <Grid item xs={12} lg={4}>
+        <Grid size={{ xs: 12, lg: 4 }}>
           <Card sx={{ p: 3 }}>
             <Typography variant="h6" sx={{ mb: 2 }}>
               Resumen de tu compra
             </Typography>
 
             <Paper elevation={0} sx={{ p: 1.5, bgcolor: '#f7f6ff', borderRadius: 2.5, mb: 2 }}>
-              <Stack direction="row" spacing={1.25} alignItems="center">
+              <Stack direction="row" spacing={1.25}  sx={{ alignItems: "center" }}>
                 <StorefrontOutlined color="primary" />
                 <Box>
                   <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
@@ -249,7 +209,7 @@ export default function CartPage() {
             </Paper>
 
             <Stack spacing={1.25} sx={{ mb: 2 }}>
-              <Stack direction="row" justifyContent="space-between">
+              <Stack direction="row"  sx={{ justifyContent: "space-between" }}>
                 <Typography variant="body2" color="text.secondary">
                   Subtotal productos
                 </Typography>
@@ -257,7 +217,7 @@ export default function CartPage() {
                   {formatCLP(subtotal)}
                 </Typography>
               </Stack>
-              <Stack direction="row" justifyContent="space-between">
+              <Stack direction="row"  sx={{ justifyContent: "space-between" }}>
                 <Typography variant="body2" color="text.secondary">
                   Envío
                 </Typography>
@@ -266,7 +226,7 @@ export default function CartPage() {
                 </Typography>
               </Stack>
               <Divider />
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Stack direction="row"   sx={{ justifyContent: "space-between", alignItems: "center" }}>
                 <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
                   Total productos
                 </Typography>
@@ -277,16 +237,16 @@ export default function CartPage() {
             </Stack>
 
             <Stack spacing={1.25} sx={{ mb: 2.5 }}>
-              <Button variant="contained" size="large" fullWidth onClick={() => navigate('/checkout')}>
+              <Button variant="contained" size="large" fullWidth onClick={() => { setSelectedVendor(activeGroup.vendorId); navigate('/checkout') }}>
                 Continuar compra
               </Button>
-              <Button variant="outlined" size="large" fullWidth onClick={() => navigate('/cotizaciones')}>
+              <Button variant="outlined" size="large" fullWidth onClick={() => { requestQuote(activeGroup.items); navigate('/cotizaciones') }}>
                 Solicitar cotización (15 días)
               </Button>
             </Stack>
 
             <Stack spacing={1.25} sx={{ mb: 2 }}>
-              <Stack direction="row" spacing={1.25} alignItems="center">
+              <Stack direction="row" spacing={1.25}  sx={{ alignItems: "center" }}>
                 <LocalShippingOutlined color="primary" fontSize="small" />
                 <Box>
                   <Typography variant="caption" sx={{ fontWeight: 800, display: 'block' }}>
@@ -297,7 +257,7 @@ export default function CartPage() {
                   </Typography>
                 </Box>
               </Stack>
-              <Stack direction="row" spacing={1.25} alignItems="center">
+              <Stack direction="row" spacing={1.25}  sx={{ alignItems: "center" }}>
                 <VerifiedUserOutlined color="primary" fontSize="small" />
                 <Box>
                   <Typography variant="caption" sx={{ fontWeight: 800, display: 'block' }}>

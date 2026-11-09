@@ -1,59 +1,27 @@
-// URL base de tu API Backend en .NET (ajustado al puerto de tu terminal)
-const API_BASE_URL = 'http://localhost:5156/api';
-
-// Función genérica para manejar peticiones HTTP
+export const API_MODE = import.meta.env.PROD || import.meta.env.VITE_DATA_MODE !== 'demo'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5156/api'
 export async function fetchApi(endpoint, options = {}) {
-  const token = window.localStorage.getItem('shopping-user-session')
-    ? JSON.parse(window.localStorage.getItem('shopping-user-session')).token
-    : null;
-
-  const headers = {
-    'Content-Type': 'application/json',
-    ...(token && { Authorization: `Bearer ${token}` }),
-    ...options.headers,
-  };
-
+  let response
   try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `Error en la petición: ${response.statusText}`);
-    }
-
-    // Si la respuesta es vacía (ej. DELETE), retornamos null
-    const text = await response.text();
-    return text ? JSON.parse(text) : null;
-  } catch (error) {
-    console.error(`Error consultando a la API en ${endpoint}:`, error);
-    throw error;
+    response = await fetch(`${API_BASE_URL}${endpoint}`, { credentials: 'include', ...options,
+      headers: { 'Content-Type': 'application/json', ...options.headers }, signal: options.signal || AbortSignal.timeout(60000) })
+  } catch { throw new Error('No se pudo conectar con la API. Comprueba la dirección configurada y que el servidor esté ejecutándose.') }
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}))
+    const error = new Error(data.message || Object.values(data.errors || {}).flat().join(' ') || `La API respondió ${response.status}.`)
+    error.status = response.status
+    throw error
   }
+  return response.status === 204 ? null : response.json()
 }
-
-// Servicios específicos organizados por módulos de negocio
 export const apiService = {
-  // --- 1. CATÁLOGO UNIFICADO (Conectado y Funcional) ---
-  // Llama a fn_catalogo_unificado() en PostgreSQL a través de .NET
-  getCatalogo: (query = '') => {
-    const url = query ? `/catalogo?q=${query}` : '/catalogo';
-    return fetchApi(url);
-  },
-
-  // --- 2. AUTENTICACIÓN Y USUARIOS (Para implementar luego) ---
-  login: (credentials) => fetchApi('/auth/login', { method: 'POST', body: JSON.stringify(credentials) }),
-  register: (userData) => fetchApi('/auth/register', { method: 'POST', body: JSON.stringify(userData) }),
-  
-  // --- 3. CARRITO Y ÓRDENES (RF12 / RF15 - Para implementar luego) ---
-  createOrder: (orderData) => fetchApi('/ventas/checkout', { method: 'POST', body: JSON.stringify(orderData) }),
-  getOrderTracking: (orderId) => fetchApi(`/ventas/${orderId}/seguimiento`),
-
-  // --- 4. COTIZACIONES (RF22 - Para implementar luego) ---
-  getQuotes: () => fetchApi('/cotizaciones'),
-  createQuote: (quoteData) => fetchApi('/cotizaciones', { method: 'POST', body: JSON.stringify(quoteData) }),
-
-  // --- 4. MÓDULO ANALÍTICO ---
-  runReport: (queryId) => fetchApi(`/reportes/ejecutar/${queryId}`),
-};
+  getState: () => fetchApi('/state'),
+  commit: (changes, revision, delta = false, deleted = {}) => fetchApi('/state/transaction', { method: 'PUT', body: JSON.stringify({ changes, revision, delta, deleted }) }),
+  login: credentials => fetchApi('/auth/login', { method: 'POST', body: JSON.stringify(credentials) }),
+  register: values => fetchApi('/auth/register', { method: 'POST', body: JSON.stringify(values) }),
+  me: () => fetchApi('/auth/me'),
+  logout: () => fetchApi('/auth/logout', { method: 'POST' }),
+  changePassword: values => fetchApi('/auth/password', { method: 'PUT', body: JSON.stringify(values) }),
+  preview: values => fetchApi('/ventas/preview', { method: 'POST', body: JSON.stringify(values) }),
+  checkout: values => fetchApi('/ventas/checkout', { method: 'POST', body: JSON.stringify(values) }),
+}

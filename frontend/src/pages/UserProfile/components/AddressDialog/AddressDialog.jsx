@@ -1,3 +1,4 @@
+import useGeography from '../../../../hooks/useGeography'
 import {
   Button,
   Dialog,
@@ -6,21 +7,23 @@ import {
   DialogTitle,
   FormControlLabel,
   Switch,
+  MenuItem,
   TextField,
 } from '@mui/material'
 
 export default function AddressDialog({ open, address, editing, onChange, onClose, onSave }) {
+  const CHILE_DPA = useGeography()
   const updateField = (field, value) => {
     onChange({ ...address, [field]: value })
   }
 
   const formComplete = Boolean(
-    address.name &&
+    address.name.trim() &&
     address.region &&
     address.province &&
     address.commune &&
-    address.street &&
-    address.number,
+    address.street.trim() &&
+    String(address.number).trim() && CHILE_DPA[address.region]?.[address.province]?.includes(address.commune),
   )
 
   return (
@@ -35,9 +38,9 @@ export default function AddressDialog({ open, address, editing, onChange, onClos
         }}
       >
         <TextField label="Etiqueta" placeholder="Casa u oficina" value={address.name} onChange={(event) => updateField('name', event.target.value)} required />
-        <TextField label="Región" value={address.region} onChange={(event) => updateField('region', event.target.value)} required />
-        <TextField label="Provincia" value={address.province} onChange={(event) => updateField('province', event.target.value)} required />
-        <TextField label="Comuna" value={address.commune} onChange={(event) => updateField('commune', event.target.value)} required />
+        <TextField select label="Región" value={address.region} onChange={event => { const region = event.target.value; const province = Object.keys(CHILE_DPA[region])[0]; onChange({ ...address, region, province, commune: CHILE_DPA[region][province][0] }) }} required>{Object.keys(CHILE_DPA).map(value => <MenuItem key={value} value={value}>{value}</MenuItem>)}</TextField>
+        <TextField select label="Provincia" value={address.province} onChange={event => onChange({ ...address, province: event.target.value, commune: CHILE_DPA[address.region][event.target.value][0] })} required>{Object.keys(CHILE_DPA[address.region] || {}).map(value => <MenuItem key={value} value={value}>{value}</MenuItem>)}</TextField>
+        <TextField select label="Comuna" value={address.commune} onChange={event => updateField('commune', event.target.value)} required>{(CHILE_DPA[address.region]?.[address.province] || []).map(value => <MenuItem key={value} value={value}>{value}</MenuItem>)}</TextField>
         <TextField label="Calle" value={address.street} onChange={(event) => updateField('street', event.target.value)} required />
         <TextField label="Número" value={address.number} onChange={(event) => updateField('number', event.target.value)} required />
         <TextField label="Departamento (opcional)" value={address.department} onChange={(event) => updateField('department', event.target.value)} />

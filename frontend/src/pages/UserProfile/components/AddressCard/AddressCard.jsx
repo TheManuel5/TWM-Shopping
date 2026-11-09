@@ -27,13 +27,13 @@ export default function AddressCard({ address, deleteDisabled, onDelete, onEdit,
           onChange={onSetPrimary}
           value={address.id}
           name="primary-address"
-          inputProps={{ 'aria-label': `Usar ${address.name} como dirección principal` }}
+
           sx={{ p: 0.5 }}
-        />
+         slotProps={{ input: { 'aria-label': `Usar ${address.name} como dirección principal` } }}/>
         <HomeOutlined color={address.primary ? 'primary' : 'action'} sx={{ mt: 0.5 }} />
         <Box sx={{ flexGrow: 1, minWidth: 0 }}>
           <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-            <Typography fontWeight={700}>{address.name}</Typography>
+            <Typography  sx={{ fontWeight: 700 }}>{address.name}</Typography>
             {address.primary && (
               <Chip label="Dirección principal" size="small" color="primary" variant="outlined" />
             )}

@@ -1,6 +1,14 @@
+import useCollection from '../../hooks/useCollection'
+import { flattenCategories } from '../../utils/categories'
+import useSellerCollection from '../../hooks/useSellerCollection'
+import { dateKey } from '../../utils/dates'
+import { catalogSeed } from '../../data/catalog'
+import { logEvent } from '../../data/localStore'
+import { notify } from '../../utils/feedback'
+import { validateOffer } from '../../utils/validation'
+import ImagePicker from '../../components/crud2/ImagePicker'
 import {
   AccessTimeOutlined,
-  AddPhotoAlternateOutlined,
   DesktopWindowsOutlined,
   GroupOutlined,
   HomeOutlined,
@@ -28,28 +36,37 @@ import {
 } from '@mui/material'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import applianceImage from '../../assets/products/appliance.jpg'
-import laptopImage from '../../assets/products/laptop.jpg'
-import phoneImage from '../../assets/products/phone.jpg'
 import { formatCLP } from '../../utils/taxonomyData'
 
 export default function PublishServicePage() {
   const navigate = useNavigate()
-  const [serviceName, setServiceName] = useState('Mantenimiento de computadores')
-  const [subCategory, setSubCategory] = useState('Computación y Tecnología')
+  const [geography] = useCollection('geography', { communes: [] })
+  const [categoryTree] = useCollection('categories', { Productos: [], Servicios: [] })
+  const categoryNames = [...new Set(flattenCategories(categoryTree).map(category => category.name))]
+  const [catalog, setCatalog] = useSellerCollection('catalog', catalogSeed)
+  const [images, setImages] = useState([])
+  const [serviceName, setServiceName] = useState('')
+  const [subCategory, setSubCategory] = useState('')
   const [duration, setDuration] = useState('90 minutos')
   const [ageRestriction, setAgeRestriction] = useState('18 años')
   const [modality, setModality] = useState('En local')
-  const [comunas, setComunas] = useState(['Osorno', 'San Pablo', 'Puerto Octay', 'Purranque'])
+  const [comunas, setComunas] = useState([])
   const [description, setDescription] = useState(
-    'Revisión, limpieza y optimización de computadores de escritorio y notebooks. Incluye limpieza interna, cambio de pasta térmica y revisión de hardware.',
+    '',
   )
-  const [officialPrice, setOfficialPrice] = useState(35700)
-  const [offerActive, setOfferActive] = useState(true)
-  const [offerPrice, setOfferPrice] = useState(29750)
-  const [offerFrom, setOfferFrom] = useState('2026-09-20')
-  const [offerTo, setOfferTo] = useState('2026-10-20')
+  const [officialPrice, setOfficialPrice] = useState(0)
+  const [offerActive, setOfferActive] = useState(false)
+  const [offerPrice, setOfferPrice] = useState(0)
+  const [offerFrom, setOfferFrom] = useState(dateKey())
+  const [offerTo, setOfferTo] = useState('')
 
+  const saveService = (draft = false) => {
+    if (serviceName.trim().length < 3) { notify('Ingresa un nombre de al menos tres caracteres.', 'error'); return }
+    if (!draft && (serviceName.trim().length < 3 || !description.trim() || !subCategory || !duration || !comunas.length || !images.length || Number(officialPrice) <= 0)) { notify('Completa nombre, descripción, categoría, duración, cobertura, imagen y precio positivo.', 'error'); return }
+    if (!draft && offerActive) { const message = validateOffer(officialPrice, offerPrice, offerFrom, offerTo); if (message) { notify(message, 'error'); return } }
+    const product = { id: Date.now(), nombre: serviceName.trim(), descripcion: description.trim(), categoria: subCategory, tipo: 'Servicio', duracion: duration, edad: ageRestriction === 'Sin restricción' ? 0 : 18, modalidad: modality, comunas, precio: Number(officialPrice), stock: 100, imagen: images[0], imagenes: images, vendedor: 'Tienda Sur', estado: draft ? 'Borrador' : 'Publicado', oferta: offerActive ? { precio: Number(offerPrice), inicio: offerFrom, fin: offerTo } : null }
+    try { setCatalog([product, ...catalog]); logEvent(draft ? 'Guardar borrador de servicio' : 'Publicar servicio', product); notify(draft ? 'Borrador guardado.' : 'Servicio publicado.'); navigate('/crud-2') } catch (error) { notify(error.message, 'error') }
+  }
   const handleRemoveComuna = (com) => {
     setComunas((prev) => prev.filter((c) => c !== com))
   }
@@ -69,7 +86,7 @@ export default function PublishServicePage() {
         Publicar servicio
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
-        Completa la información de tu servicio profesional o doméstico para que sea visible en Shopping (RF09).
+        Completa la información de tu servicio profesional o doméstico para que sea visible en Shopping.
       </Typography>
 
       <Stack direction="row" spacing={1} sx={{ mb: 3 }}>
@@ -81,10 +98,10 @@ export default function PublishServicePage() {
 
       <Grid container spacing={2.5}>
         {/* Columna 1: Información Principal del Servicio (RF09 - P16) */}
-        <Grid item xs={12} lg={5.5}>
+        <Grid size={{ xs: 12, lg: 5.5 }}>
           <Card sx={{ p: 3 }}>
             <Typography variant="h6" sx={{ mb: 2 }}>
-              Información principal (RF09)
+              Información principal
             </Typography>
 
             <Typography variant="caption" sx={{ fontWeight: 700 }}>
@@ -93,7 +110,7 @@ export default function PublishServicePage() {
             <TextField
               fullWidth
               size="small"
-              value={serviceName}
+              label="Nombre del servicio" value={serviceName}
               onChange={(e) => setServiceName(e.target.value)}
               sx={{ mt: 0.5, mb: 2 }}
             />
@@ -102,16 +119,14 @@ export default function PublishServicePage() {
               Categoría *
             </Typography>
             <Grid container spacing={1.5} sx={{ mt: 0.25, mb: 2 }}>
-              <Grid item xs={5}>
+              <Grid size={{ xs: 5 }}>
                 <Select fullWidth size="small" value="Servicios">
                   <MenuItem value="Servicios">Servicios</MenuItem>
                 </Select>
               </Grid>
-              <Grid item xs={7}>
+              <Grid size={{ xs: 7 }}>
                 <Select fullWidth size="small" value={subCategory} onChange={(e) => setSubCategory(e.target.value)}>
-                  <MenuItem value="Computación y Tecnología">Computación y Tecnología</MenuItem>
-                  <MenuItem value="Servicios domésticos">Servicios domésticos</MenuItem>
-                  <MenuItem value="Servicios profesionales">Servicios profesionales</MenuItem>
+                  {categoryNames.map(name => <MenuItem key={name} value={name}>{name}</MenuItem>)}
                 </Select>
               </Grid>
             </Grid>
@@ -119,34 +134,11 @@ export default function PublishServicePage() {
             <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 1 }}>
               Fotos del servicio *
             </Typography>
-            <Stack direction="row" spacing={1} sx={{ mb: 2 }} flexWrap="wrap" useFlexGap>
-              {[laptopImage, phoneImage, applianceImage].map((img, i) => (
-                <Box key={i} component="img" src={img} alt="" sx={{ width: 76, height: 76, borderRadius: 2, objectFit: 'cover' }} />
-              ))}
-              <Paper
-                variant="outlined"
-                sx={{
-                  width: 76,
-                  height: 76,
-                  borderStyle: 'dashed',
-                  borderColor: 'primary.main',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                }}
-              >
-                <AddPhotoAlternateOutlined color="primary" fontSize="small" />
-                <Typography variant="caption" color="primary" sx={{ fontSize: '0.65rem', fontWeight: 700 }}>
-                  Agregar
-                </Typography>
-              </Paper>
-            </Stack>
+            <ImagePicker images={images} onChange={setImages} />
 
             {/* Duración y Restricción Etaria (RF09 + Trigger 6) */}
             <Grid container spacing={1.5} sx={{ mb: 2 }}>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <Typography variant="caption" sx={{ fontWeight: 700 }}>Duración del servicio *</Typography>
                 <Select fullWidth size="small" value={duration} onChange={(e) => setDuration(e.target.value)} sx={{ mt: 0.5 }}>
                   <MenuItem value="60 minutos">60 minutos</MenuItem>
@@ -154,7 +146,7 @@ export default function PublishServicePage() {
                   <MenuItem value="120 minutos">120 minutos</MenuItem>
                 </Select>
               </Grid>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <Typography variant="caption" sx={{ fontWeight: 700 }}>Restricción de edad *</Typography>
                 <Select fullWidth size="small" value={ageRestriction} onChange={(e) => setAgeRestriction(e.target.value)} sx={{ mt: 0.5 }}>
                   <MenuItem value="Sin restricción">Sin restricción</MenuItem>
@@ -164,7 +156,7 @@ export default function PublishServicePage() {
             </Grid>
 
             <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 0.75 }}>
-              Modalidad de atención * (Consulta JSON 2)
+              Modalidad de atención *
             </Typography>
             <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
               {[
@@ -188,9 +180,10 @@ export default function PublishServicePage() {
             <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 0.75 }}>
               Región y comunas de cobertura *
             </Typography>
+            <Select fullWidth multiple value={comunas} onChange={event => setComunas(event.target.value)} sx={{ mb: 1 }}>{geography.communes.map(item => item.nombre).map(comuna => <MenuItem key={comuna} value={comuna}>{comuna}</MenuItem>)}</Select>
             <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, mb: 2 }}>
-              <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-                <Chip label="Los Lagos" size="small" />
+              <Stack direction="row" spacing={0.75}  useFlexGap sx={{ flexWrap: "wrap" }}>
+
                 {comunas.map((c) => (
                   <Chip
                     key={c}
@@ -218,7 +211,7 @@ export default function PublishServicePage() {
         </Grid>
 
         {/* Columna 2: Precio y Disponibilidad (RF10 - P16) */}
-        <Grid item xs={12} md={6} lg={3}>
+        <Grid size={{ xs: 12, md: 6, lg: 3 }}>
           <Card sx={{ p: 3, height: '100%' }}>
             <Typography variant="h6" sx={{ mb: 2 }}>
               Precio y disponibilidad
@@ -269,14 +262,14 @@ export default function PublishServicePage() {
         </Grid>
 
         {/* Columna 3: Vista Previa Pública en Tiempo Real (P16) */}
-        <Grid item xs={12} md={6} lg={3.5}>
+        <Grid size={{ xs: 12, md: 6, lg: 3.5 }}>
           <Card sx={{ p: 2.5 }}>
             <Typography variant="h6" sx={{ mb: 1.5 }}>
               Vista previa pública
             </Typography>
             <Box
               component="img"
-              src={laptopImage}
+              src={images[0]}
               alt={serviceName}
               sx={{ width: '100%', height: 185, objectFit: 'cover', borderRadius: 2.5, mb: 1.5 }}
             />
@@ -284,7 +277,7 @@ export default function PublishServicePage() {
               {serviceName}
             </Typography>
 
-            <Stack direction="row" spacing={1} alignItems="baseline" sx={{ mb: 2 }}>
+            <Stack direction="row" spacing={1}  sx={[{ alignItems: "baseline" }, { mb: 2 }]}>
               <Typography variant="h5" sx={{ fontWeight: 900, color: 'primary.main' }}>
                 {formatCLP(offerActive ? offerPrice : officialPrice)}
               </Typography>
@@ -299,28 +292,28 @@ export default function PublishServicePage() {
             </Stack>
 
             <Stack spacing={1} sx={{ mb: 2 }}>
-              <Stack direction="row" spacing={1} alignItems="center">
+              <Stack direction="row" spacing={1}  sx={{ alignItems: "center" }}>
                 <AccessTimeOutlined fontSize="small" color="primary" />
                 <Typography variant="body2">Duración: <strong>{duration}</strong></Typography>
               </Stack>
-              <Stack direction="row" spacing={1} alignItems="center">
+              <Stack direction="row" spacing={1}  sx={{ alignItems: "center" }}>
                 <GroupOutlined fontSize="small" color="primary" />
                 <Typography variant="body2">Restricción de edad: <strong>{ageRestriction}</strong></Typography>
               </Stack>
-              <Stack direction="row" spacing={1} alignItems="center">
+              <Stack direction="row" spacing={1}  sx={{ alignItems: "center" }}>
                 <LocationOnOutlined fontSize="small" color="primary" />
                 <Typography variant="body2">Modalidad: <strong>{modality}</strong></Typography>
               </Stack>
-              <Stack direction="row" spacing={1} alignItems="flex-start">
+              <Stack direction="row" spacing={1}  sx={{ alignItems: "flex-start" }}>
                 <MapOutlined fontSize="small" color="primary" />
                 <Typography variant="body2">
-                  Cobertura: <strong>Los Lagos</strong> ({comunas.join(', ')})
+                  Cobertura registrada ({comunas.join(', ')})
                 </Typography>
               </Stack>
             </Stack>
 
             <Paper elevation={0} sx={{ p: 1.5, bgcolor: 'secondary.light', borderRadius: 2, mb: 2 }}>
-              <Stack direction="row" spacing={1} alignItems="center">
+              <Stack direction="row" spacing={1}  sx={{ alignItems: "center" }}>
                 <InfoOutlined fontSize="small" color="primary" />
                 <Typography variant="caption" color="text.secondary">
                   Así se verá tu servicio en Shopping. Podrás editar la información en cualquier momento.
@@ -329,10 +322,10 @@ export default function PublishServicePage() {
             </Paper>
 
             <Stack direction="row" spacing={1}>
-              <Button variant="outlined" fullWidth onClick={() => navigate('/vendedor/inventario')}>
+              <Button variant="outlined" fullWidth onClick={() => saveService(true)}>
                 Guardar borrador
               </Button>
-              <Button variant="contained" fullWidth onClick={() => navigate('/servicio/102')}>
+              <Button variant="contained" fullWidth onClick={() => saveService(false)}>
                 Publicar servicio
               </Button>
             </Stack>

@@ -1,3 +1,9 @@
+import useGeography from '../../hooks/useGeography'
+import useSellerCollection from '../../hooks/useSellerCollection'
+import { useNavigate } from 'react-router-dom'
+import { confirmAction, notify } from '../../utils/feedback'
+import { logEvent } from '../../data/localStore'
+import useCollection from '../../hooks/useCollection'
 import {
   AddOutlined,
   CalculateOutlined,
@@ -30,7 +36,7 @@ import {
 } from '@mui/material'
 import { useState } from 'react'
 import StatusChip from '../../components/atoms/StatusChip/StatusChip'
-import { CHILE_DPA, formatCLP } from '../../utils/taxonomyData'
+import { formatCLP } from '../../utils/taxonomyData'
 
 const INITIAL_ZONES = [
   { id: 1, region: 'Los Lagos', provincia: 'Osorno', comuna: 'Osorno', rate: 3570 },
@@ -39,20 +45,18 @@ const INITIAL_ZONES = [
 ]
 
 // Estados exactos de Restricción Check 9 del PDF (En preparación, Despachado, En reparto, Entregado)
-const SHIPMENTS = [
-  { id: '#SH1003287', date: '22 sep 2026', carrier: 'Blue Express', tracking: '712345678901', status: 'En preparación' },
-  { id: '#SH1003271', date: '21 sep 2026', carrier: 'Chilexpress', tracking: '600123456789', status: 'Despachado' },
-  { id: '#SH1003254', date: '20 sep 2026', carrier: 'Starken', tracking: '990876543210', status: 'En reparto' },
-  { id: '#SH1003241', date: '18 sep 2026', carrier: 'Blue Express', tracking: '712300098765', status: 'Entregado' },
-]
-
 export default function ShippingRatesPage() {
-  const [calcMethod, setCalcMethod] = useState('zona')
-  const [zones, setZones] = useState(INITIAL_ZONES)
+  const navigate = useNavigate()
+  const CHILE_DPA = useGeography()
+  const [tab, setTab] = useState('Tarifas')
+  const [editingId, setEditingId] = useState(null)
+  const [orders] = useCollection('orders', [])
+  const [calcMethod, setCalcMethod] = useCollection('shippingMethod', 'zona')
+  const [zones, setZones] = useSellerCollection('zones', INITIAL_ZONES)
 
-  const [newRegion, setNewRegion] = useState('Los Lagos')
-  const [newProvincia, setNewProvincia] = useState('Osorno')
-  const [newComuna, setNewComuna] = useState('Puerto Octay')
+  const [newRegion, setNewRegion] = useState(Object.keys(CHILE_DPA)[0] || '')
+  const [newProvincia, setNewProvincia] = useState('')
+  const [newComuna, setNewComuna] = useState('')
   const [newRate, setNewRate] = useState(4200)
 
   // Simulador de Costo de Envío (P21)
@@ -60,23 +64,21 @@ export default function ShippingRatesPage() {
   const [dimW, setDimW] = useState(32)
   const [dimH, setDimH] = useState(20)
   const [dimD, setDimD] = useState(12)
-  const [destComuna, setDestComuna] = useState('Osorno')
+  const [destComuna, setDestComuna] = useState('')
 
-  const baseZoneRate = zones.find((z) => z.comuna === destComuna)?.rate || 3570
+  const baseZoneRate = zones.find((z) => z.comuna === destComuna)?.rate ?? 0
   const volumetricKg = (dimW * dimH * dimD) / 5000
-  const realKg = weightG / 1000
-  const billableKg = Math.max(realKg, volumetricKg)
   const simulatedCost =
     calcMethod === 'zona'
       ? baseZoneRate
-      : Math.round(baseZoneRate + billableKg * 850)
+      : Math.round(2000 + dimW * dimH * dimD * 0.25)
 
   const handleAddZone = () => {
-    if (!newRate) return
-    setZones((prev) => [
-      ...prev,
-      { id: Date.now(), region: newRegion, provincia: newProvincia, comuna: newComuna, rate: Number(newRate) },
-    ])
+    if (!Number.isInteger(Number(newRate)) || Number(newRate) < 0 || !CHILE_DPA[newRegion]?.[newProvincia]?.includes(newComuna)) { notify('Selecciona una comuna válida y una tarifa entera de cero o más.', 'error'); return }
+    if (zones.some(zone => zone.comuna === newComuna && zone.id !== editingId)) { notify('Ya hay una tarifa para esta comuna. Usa Editar.', 'warning'); return }
+    const zone = { id: editingId || Date.now(), region: newRegion, provincia: newProvincia, comuna: newComuna, rate: Number(newRate) }
+    setZones(current => editingId ? current.map(row => row.id === editingId ? zone : row) : [...current, zone])
+    logEvent(editingId ? 'Actualizar tarifa' : 'Crear tarifa', zone); setEditingId(null); notify('Tarifa guardada.')
   }
 
   const provinciasList = Object.keys(CHILE_DPA[newRegion] || {})
@@ -88,20 +90,20 @@ export default function ShippingRatesPage() {
         Despachos y costos de envío
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
-        Configura las zonas geográficas (DPA Chile), tarifas dinámicas por volumen y seguimiento de transportistas (RF14 / RF20).
+        Configura las zonas geográficas (DPA Chile), tarifas dinámicas por volumen y seguimiento de transportistas.
       </Typography>
 
-      <Tabs value="Tarifas" sx={{ mb: 3, borderBottom: '1px solid', borderColor: 'divider' }}>
+      <Tabs value={tab} onChange={(_, value) => setTab(value)} sx={{ mb: 3, borderBottom: '1px solid', borderColor: 'divider' }}>
         <Tab value="Seguimiento" label="Seguimiento" />
         <Tab value="Tarifas" label="Tarifas" />
       </Tabs>
 
-      <Grid container spacing={3} sx={{ mb: 3 }}>
+      {tab === 'Tarifas' && <Grid container spacing={3} sx={{ mb: 3 }}>
         {/* Columna Izquierda: Método de cálculo y Tabla de Zonas (P21) */}
-        <Grid item xs={12} lg={7.5}>
+        <Grid size={{ xs: 12, lg: 7.5 }}>
           <Card sx={{ p: 3 }}>
             <Typography variant="h6" sx={{ mb: 1 }}>
-              Método de cálculo de envío (RF14)
+              Método de cálculo de envío
             </Typography>
             <RadioGroup
               row
@@ -126,7 +128,7 @@ export default function ShippingRatesPage() {
                 control={<Radio />}
                 label={
                   <Box>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Por peso y dimensiones (Trigger 2)</Typography>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Por peso y dimensiones</Typography>
                     <Typography variant="caption" color="text.secondary">
                       Fórmula: Tarifa Base + máx(Peso Real, Ancho×Alto×Fondo / 5000) × $850
                     </Typography>
@@ -135,11 +137,11 @@ export default function ShippingRatesPage() {
               />
             </RadioGroup>
 
-            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+            <Stack direction="row"   sx={[{ justifyContent: "space-between", alignItems: "center" }, { mb: 1.5 }]}>
               <Box>
                 <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Zonas y tarifas</Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Integra Región, Provincia y Comuna de Chile.sql
+                  Define tarifas para cada comuna.
                 </Typography>
               </Box>
               <Button variant="contained" size="small" startIcon={<AddOutlined />} onClick={handleAddZone}>
@@ -165,8 +167,8 @@ export default function ShippingRatesPage() {
                     <TableCell sx={{ fontWeight: 700 }}>{z.comuna}</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 800 }}>{formatCLP(z.rate)}</TableCell>
                     <TableCell align="right">
-                      <IconButton size="small"><EditOutlined fontSize="small" /></IconButton>
-                      <IconButton size="small" color="error" onClick={() => setZones((prev) => prev.filter((item) => item.id !== z.id))}>
+                      <IconButton aria-label={`Editar tarifa ${z.comuna}`} size="small" onClick={() => { setEditingId(z.id); setNewRegion(z.region); setNewProvincia(z.provincia); setNewComuna(z.comuna); setNewRate(z.rate) }}><EditOutlined fontSize="small" /></IconButton>
+                      <IconButton size="small" color="error" aria-label={`Eliminar tarifa ${z.comuna}`} onClick={async () => { if (await confirmAction(`¿Eliminar la tarifa de ${z.comuna}?`)) { setZones(prev => prev.filter(item => item.id !== z.id)); logEvent('Eliminar tarifa', { id: z.id }); notify('Tarifa eliminada.') } }}>
                         <DeleteOutlined fontSize="small" />
                       </IconButton>
                     </TableCell>
@@ -176,8 +178,8 @@ export default function ShippingRatesPage() {
             </Table>
 
             {/* Formulario inferior para añadir nueva Comuna */}
-            <Grid container spacing={1.5} alignItems="flex-end">
-              <Grid item xs={12} sm={3}>
+            <Grid container spacing={1.5}  sx={{ alignItems: "flex-end" }}>
+              <Grid size={{ xs: 12, sm: 3 }}>
                 <Typography variant="caption" sx={{ fontWeight: 700 }}>Región</Typography>
                 <Select
                   fullWidth
@@ -196,7 +198,7 @@ export default function ShippingRatesPage() {
                   ))}
                 </Select>
               </Grid>
-              <Grid item xs={12} sm={3}>
+              <Grid size={{ xs: 12, sm: 3 }}>
                 <Typography variant="caption" sx={{ fontWeight: 700 }}>Provincia</Typography>
                 <Select
                   fullWidth
@@ -213,7 +215,7 @@ export default function ShippingRatesPage() {
                   ))}
                 </Select>
               </Grid>
-              <Grid item xs={12} sm={3}>
+              <Grid size={{ xs: 12, sm: 3 }}>
                 <Typography variant="caption" sx={{ fontWeight: 700 }}>Comuna</Typography>
                 <Select fullWidth size="small" value={newComuna} onChange={(e) => setNewComuna(e.target.value)}>
                   {comunasList.map((c) => (
@@ -221,11 +223,11 @@ export default function ShippingRatesPage() {
                   ))}
                 </Select>
               </Grid>
-              <Grid item xs={12} sm={3}>
+              <Grid size={{ xs: 12, sm: 3 }}>
                 <Typography variant="caption" sx={{ fontWeight: 700 }}>Tarifa (CLP)</Typography>
                 <Stack direction="row" spacing={1}>
-                  <TextField size="small" type="number" value={newRate} onChange={(e) => setNewRate(e.target.value)} />
-                  <Button variant="contained" onClick={handleAddZone}>Agregar</Button>
+                  <TextField size="small" type="number" label="Tarifa" value={newRate} onChange={(e) => setNewRate(e.target.value)} />
+                  <Button variant="contained" onClick={handleAddZone}>{editingId ? 'Guardar' : 'Agregar'}</Button>{editingId && <Button onClick={() => setEditingId(null)}>Cancelar</Button>}
                 </Stack>
               </Grid>
             </Grid>
@@ -233,7 +235,7 @@ export default function ShippingRatesPage() {
         </Grid>
 
         {/* Columna Derecha: Simulador de Costo de Envío (P21) */}
-        <Grid item xs={12} lg={4.5}>
+        <Grid size={{ xs: 12, lg: 4.5 }}>
           <Card sx={{ p: 3 }}>
             <Typography variant="h6" sx={{ mb: 0.5 }}>
               Simulador de costo de envío
@@ -254,13 +256,13 @@ export default function ShippingRatesPage() {
 
             <Typography variant="caption" sx={{ fontWeight: 700 }}>Dimensiones del paquete (Ancho × Alto × Fondo cm)</Typography>
             <Grid container spacing={1} sx={{ mt: 0.25, mb: 2 }}>
-              <Grid item xs={4}>
+              <Grid size={{ xs: 4 }}>
                 <TextField size="small" type="number" value={dimW} onChange={(e) => setDimW(Number(e.target.value))} />
               </Grid>
-              <Grid item xs={4}>
+              <Grid size={{ xs: 4 }}>
                 <TextField size="small" type="number" value={dimH} onChange={(e) => setDimH(Number(e.target.value))} />
               </Grid>
-              <Grid item xs={4}>
+              <Grid size={{ xs: 4 }}>
                 <TextField size="small" type="number" value={dimD} onChange={(e) => setDimD(Number(e.target.value))} />
               </Grid>
             </Grid>
@@ -272,13 +274,13 @@ export default function ShippingRatesPage() {
               ))}
             </Select>
 
-            <Button variant="contained" fullWidth startIcon={<CalculateOutlined />} sx={{ mb: 2 }}>
+            <Button onClick={() => { logEvent('Simular envío', { weightG, dimW, dimH, dimD, destComuna, simulatedCost }); notify(`Costo estimado: ${formatCLP(simulatedCost)}`, 'info') }} variant="contained" fullWidth startIcon={<CalculateOutlined />} sx={{ mb: 2 }}>
               Calcular tarifa
             </Button>
 
             <Paper elevation={0} sx={{ p: 2, bgcolor: 'secondary.light', borderRadius: 2.5 }}>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                Costo de envío estimado ({calcMethod === 'zona' ? 'Por Zona' : 'Volumétrico Trigger 2'})
+                Costo de envío estimado ({calcMethod === 'zona' ? 'Por Zona' : 'Volumétrico'})
               </Typography>
               <Typography variant="h4" sx={{ fontWeight: 900, my: 0.5 }}>
                 {formatCLP(simulatedCost)} CLP
@@ -289,15 +291,15 @@ export default function ShippingRatesPage() {
             </Paper>
           </Card>
         </Grid>
-      </Grid>
+      </Grid>}
 
       {/* Tabla Inferior: Despachos y asignaciones de transporte (RF20 + Check 9) */}
       <Card sx={{ p: 3 }}>
         <Typography variant="h6" sx={{ mb: 0.5 }}>
-          Despachos y asignaciones de transporte (RF20)
+          Despachos y asignaciones de transporte
         </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
-          Estados validados según Restricción Check 9: En preparación, Despachado, En reparto, Entregado.
+          Estados de despacho: En preparación, Despachado, En reparto, Entregado.
         </Typography>
 
         <Table size="small">
@@ -312,7 +314,7 @@ export default function ShippingRatesPage() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {SHIPMENTS.map((sh) => (
+            {orders.filter(order => order.dispatch).map(order => ({ id: order.id, date: order.date.replace('\n', ' '), carrier: order.dispatch.carrier, tracking: order.dispatch.tracking, status: order.status })).map((sh) => (
               <TableRow key={sh.id}>
                 <TableCell sx={{ fontWeight: 800 }}>{sh.id}</TableCell>
                 <TableCell>{sh.date}</TableCell>
@@ -320,15 +322,15 @@ export default function ShippingRatesPage() {
                 <TableCell sx={{ fontFamily: 'monospace' }}>{sh.tracking}</TableCell>
                 <TableCell><StatusChip status={sh.status} /></TableCell>
                 <TableCell align="right">
-                  <Button variant="outlined" size="small">Ver detalles</Button>
+                  <Button onClick={() => navigate(`/pedido/${sh.id}`)} variant="outlined" size="small">Ver detalles</Button>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
 
-        <Stack direction="row" justifyContent="flex-end" sx={{ mt: 2.5 }}>
-          <Button variant="contained" startIcon={<SaveOutlined />}>
+        <Stack direction="row"  sx={[{ justifyContent: "flex-end" }, { mt: 2.5 }]}>
+          <Button onClick={() => { logEvent('Guardar configuración de despacho', { calcMethod, zones }); notify('Configuración de despacho guardada.') }} variant="contained" startIcon={<SaveOutlined />}>
             Guardar configuración
           </Button>
         </Stack>

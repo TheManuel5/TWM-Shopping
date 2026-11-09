@@ -1,295 +1,67 @@
-import {
-  AddPhotoAlternateOutlined,
-  ChatOutlined,
-  CreditCardOutlined,
-  Inventory2Outlined,
-} from '@mui/icons-material'
-import {
-  Box,
-  Button,
-  Card,
-  Grid,
-  MenuItem,
-  Paper,
-  Select,
-  Stack,
-  Tab,
-  Tabs,
-  Typography,
-} from '@mui/material'
+import { catalogImage } from '../../utils/catalogImages'
+import { API_MODE } from '../../services/api'
+import { AddOutlined, ChatOutlined, Inventory2Outlined } from '@mui/icons-material'
+import { Alert, Box, Button, Card, Chip, Divider, Grid, MenuItem, Stack, Step, StepLabel, Stepper, Tab, Tabs, TextField, Typography } from '@mui/material'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import applianceImage from '../../assets/products/appliance.jpg'
-import chairImage from '../../assets/products/chair.jpg'
-import phoneImage from '../../assets/products/phone.jpg'
-import shoeImage from '../../assets/products/shoe.jpg'
-import QuantityInput from '../../components/atoms/QuantityInput/QuantityInput'
-import StatusChip from '../../components/atoms/StatusChip/StatusChip'
-import OrderStepper from '../../components/molecules/OrderStepper/OrderStepper'
+import useCollection from '../../hooks/useCollection'
+import useAuth from '../../contexts/AuthContext/useAuth'
+import { catalogSeed } from '../../data/catalog'
+import { logEvent } from '../../data/localStore'
+import { money } from '../../data/commerce'
 import { formatCLP } from '../../utils/taxonomyData'
-
-const INITIAL_RETURNS = [
-  { id: 'DEV-008', orderId: '#1032', product: 'Zapatillas New Balance 574', price: 29990, qty: 1, date: '22 sep 2026', status: 'Aprobada', image: shoeImage },
-  { id: 'DEV-007', orderId: '#1003', product: 'Audífonos Bluetooth SoundX', price: 49990, qty: 1, date: '14 sep 2026', status: 'En proceso', image: phoneImage },
-  { id: 'DEV-006', orderId: '#0988', product: 'Mochila Outdoor 25L', price: 69990, qty: 1, date: '2 sep 2026', status: 'Rechazada', image: chairImage },
-  { id: 'DEV-005', orderId: '#0976', product: 'Freidora de Aire 4.5L', price: 59990, qty: 1, date: '18 ago 2026', status: 'Finalizada', image: applianceImage },
-]
-
-const RETURN_STEPS = [
-  { label: 'Solicitada', description: '22 sep 2026' },
-  { label: 'Aprobada', description: '23 sep 2026' },
-  { label: 'Producto recibido', description: 'En espera' },
-  { label: 'Reembolso procesado', description: 'En espera' },
-]
+import { confirmAction, notify } from '../../utils/feedback'
+import ImagePicker from '../../components/crud2/ImagePicker'
 
 export default function OrdersReturnsPage() {
   const navigate = useNavigate()
-  const [tab, setTab] = useState('Devoluciones')
-  const [returnsList, setReturnsList] = useState(INITIAL_RETURNS)
-  const [selectedDev, setSelectedDev] = useState('DEV-008')
+  const { user } = useAuth()
+  const manager = ['Vendedor', 'Admin'].includes(user.role)
+  const [orders] = useCollection('orders', [])
+  const [returns, setReturns] = useCollection('returns', [])
+  const [catalog, setCatalog] = useCollection('catalog', catalogSeed)
+  const [tab, setTab] = useState('Compras')
+  const [selection, setSelection] = useState('')
   const [reason, setReason] = useState('Talla incorrecta')
-  const [returnQty, setReturnQty] = useState(1)
-
-  const activeReturn = returnsList.find((r) => r.id === selectedDev) || returnsList[0]
-
-  const handleCreateReturn = () => {
-    const newId = `DEV-00${returnsList.length + 5}`
-    const created = {
-      id: newId,
-      orderId: '#1032',
-      product: 'Zapatillas New Balance 574',
-      price: 29990 * returnQty,
-      qty: returnQty,
-      date: 'Hoy',
-      status: 'En proceso',
-      image: shoeImage,
-    }
-    setReturnsList((prev) => [created, ...prev])
-    setSelectedDev(newId)
+  const [qty, setQty] = useState(1)
+  const [images, setImages] = useState([])
+  const [activeId, setActiveId] = useState('')
+  const [filter, setFilter] = useState('Todas')
+  const mine = orders.filter(order => manager || order.customerRut === user.rut)
+  const choices = mine.filter(order => ['Entregado', 'Recibido'].includes(order.status)).flatMap(order => order.products.map((product, index) => ({ key: `${order.id}:${index}`, order, product })))
+  const selected = choices.find(choice => choice.key === selection) || choices[0]
+  const activeReturn = returns.find(item => item.id === activeId) || returns[0]
+  const visibleReturns = returns.filter(item => (manager || item.customerRut === user.rut) && (filter === 'Todas' || item.status === filter))
+  const alreadyRequested = selected ? returns.filter(item => item.itemKey === selected.key && item.status !== 'Rechazada').reduce((sum, item) => sum + item.qty, 0) : 0
+  const remaining = selected ? (selected.product.qty || 1) - alreadyRequested : 0
+  const createReturn = event => {
+    event.preventDefault()
+    if (!selected || !Number.isInteger(Number(qty)) || qty < 1 || qty > remaining) { notify('La cantidad supera las unidades entregadas disponibles para devolución.', 'error'); return }
+    const request = { id: `DEV-${crypto.randomUUID().slice(0, 8)}`, orderId: selected.order.id, itemKey: selected.key, productId: selected.product.id, sku: selected.product.sku, product: selected.product.name, image: selected.product.image, qty: Number(qty), price: money(selected.product.price) * Number(qty), reason, date: new Date().toLocaleDateString('es-CL'), createdAt: new Date().toISOString(), customerRut: selected.order.customerRut || user.rut, status: 'Solicitada', images, history: ['Solicitada'] }
+    setReturns(current => [request, ...current]); setActiveId(request.id); setQty(1); setImages([])
+    logEvent('Solicitar devolución', { ...request, images: images.length }); notify('Solicitud de devolución creada.')
   }
-
-  return (
-    <Box sx={{ maxWidth: 1280, mx: 'auto' }}>
-      <Typography variant="h4" sx={{ mb: 0.5 }}>
-        Mis compras y devoluciones
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Revisa el estado de tus pedidos y gestiona tus solicitudes de devolución y reembolso (RF29 / RF30).
-      </Typography>
-
-      <Tabs
-        value={tab}
-        onChange={(_, v) => setTab(v)}
-        sx={{ mb: 3, borderBottom: '1px solid', borderColor: 'divider' }}
-      >
-        <Tab value="Compras" label="Compras" onClick={() => navigate('/pedido/1032')} />
-        <Tab value="Devoluciones" label="Devoluciones" />
-      </Tabs>
-
-      <Grid container spacing={2.5}>
-        {/* Columna Izquierda: Listado de Expedientes DEV (P14) */}
-        <Grid item xs={12} md={4}>
-          <Select fullWidth size="small" value="Todas" sx={{ bgcolor: 'background.paper', mb: 2 }}>
-            <MenuItem value="Todas">Todas las devoluciones</MenuItem>
-          </Select>
-
-          <Stack spacing={1.5}>
-            {returnsList.map((dev) => {
-              const selected = dev.id === activeReturn.id
-              return (
-                <Card
-                  key={dev.id}
-                  onClick={() => setSelectedDev(dev.id)}
-                  sx={{
-                    p: 2,
-                    cursor: 'pointer',
-                    borderColor: selected ? 'primary.main' : 'divider',
-                    bgcolor: selected ? 'secondary.light' : 'background.paper',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1.5,
-                  }}
-                >
-                  <Box component="img" src={dev.image} alt="" sx={{ width: 62, height: 62, borderRadius: 2, objectFit: 'cover' }} />
-                  <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.25 }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>{dev.id}</Typography>
-                      <StatusChip status={dev.status} />
-                    </Stack>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                      Pedido {dev.orderId}
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 700 }} noWrap>
-                      {dev.product}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {formatCLP(dev.price)} · {dev.qty} unidad · Solicitada: {dev.date}
-                    </Typography>
-                  </Box>
-                </Card>
-              )
-            })}
-          </Stack>
-        </Grid>
-
-        {/* Columna Derecha: Crear Solicitud + Seguimiento de Reembolso (P14) */}
-        <Grid item xs={12} md={8}>
-          <Stack spacing={2.5}>
-            {/* Bloque Superior: Solicitar nueva devolución */}
-            <Card sx={{ p: 3 }}>
-              <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
-                <Inventory2Outlined color="primary" />
-                <Box>
-                  <Typography variant="h6">Solicitar nueva devolución</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Completa la información de tu devolución para aumentar el stock tras su aprobación (Trigger 10).
-                  </Typography>
-                </Box>
-              </Stack>
-
-              <Grid container spacing={2.5} alignItems="center">
-                <Grid item xs={12} md={5}>
-                  <Stack direction="row" spacing={1.5} alignItems="center">
-                    <Box component="img" src={shoeImage} alt="" sx={{ width: 72, height: 72, borderRadius: 2, objectFit: 'cover' }} />
-                    <Box>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                        Zapatillas New Balance 574
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                        Pedido #1032 · Talla 42 · Gris
-                        <br />
-                        Vendido por Tienda Sur
-                      </Typography>
-                      <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>
-                        $29.990
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </Grid>
-
-                <Grid item xs={12} md={7}>
-                  <Grid container spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
-                    <Grid item xs={12} sm={7}>
-                      <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 0.5 }}>
-                        Motivo de la devolución
-                      </Typography>
-                      <Select fullWidth size="small" value={reason} onChange={(e) => setReason(e.target.value)}>
-                        <MenuItem value="Talla incorrecta">Talla incorrecta</MenuItem>
-                        <MenuItem value="Producto con falla">Producto con falla de fábrica</MenuItem>
-                        <MenuItem value="No coincide con descripción">No coincide con la descripción</MenuItem>
-                      </Select>
-                    </Grid>
-                    <Grid item xs={12} sm={5}>
-                      <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 0.5 }}>
-                        Cantidad
-                      </Typography>
-                      <QuantityInput value={returnQty} max={2} onChange={setReturnQty} />
-                    </Grid>
-                  </Grid>
-
-                  <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 1 }}>
-                    Fotos de respaldo (opcional)
-                  </Typography>
-                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-                    {[shoeImage, chairImage].map((img, i) => (
-                      <Box key={i} component="img" src={img} alt="" sx={{ width: 58, height: 58, borderRadius: 2, objectFit: 'cover' }} />
-                    ))}
-                    <Paper
-                      variant="outlined"
-                      sx={{
-                        width: 110,
-                        height: 58,
-                        borderStyle: 'dashed',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <AddPhotoAlternateOutlined fontSize="small" color="primary" />
-                      <Typography variant="caption" sx={{ fontSize: '0.68rem' }}>Agregar fotos</Typography>
-                    </Paper>
-                  </Stack>
-
-                  <Stack direction="row" justifyContent="flex-end" spacing={1.5}>
-                    <Button variant="outlined">Cancelar</Button>
-                    <Button variant="contained" onClick={handleCreateReturn}>
-                      Solicitar devolución
-                    </Button>
-                  </Stack>
-                </Grid>
-              </Grid>
-            </Card>
-
-            {/* Bloque Inferior: Seguimiento del Expediente y Reembolso (P14) */}
-            <Card sx={{ p: 3 }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-                <Box>
-                  <Typography variant="h6">Solicitud de devolución {activeReturn.id}</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Pedido {activeReturn.orderId} · Solicitada el {activeReturn.date}
-                  </Typography>
-                </Box>
-                <StatusChip status={activeReturn.status} />
-              </Stack>
-
-              <OrderStepper
-                activeStep={activeReturn.status === 'Finalizada' ? 4 : 2}
-                steps={RETURN_STEPS}
-              />
-
-              <Grid container spacing={2} sx={{ mt: 1 }}>
-                <Grid item xs={12} md={6}>
-                  <Paper elevation={0} sx={{ p: 2, bgcolor: '#f7f6ff', borderRadius: 2.5 }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 0.5 }}>
-                      Resumen del reembolso
-                    </Typography>
-                    <Typography variant="h5" sx={{ fontWeight: 900, mb: 0.5 }}>
-                      {formatCLP(activeReturn.price)}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                      Se devolverá al medio de pago original registrado en la venta:
-                    </Typography>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <CreditCardOutlined fontSize="small" color="primary" />
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>Visa •••• 4242</Typography>
-                    </Stack>
-                  </Paper>
-                </Grid>
-
-                <Grid item xs={12} md={6}>
-                  <Paper elevation={0} sx={{ p: 2, bgcolor: '#f7f6ff', borderRadius: 2.5 }}>
-                    <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                        Estado del reembolso
-                      </Typography>
-                      <StatusChip status={activeReturn.status === 'Finalizada' ? 'Completado' : 'En proceso'} />
-                    </Stack>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
-                      Tu reembolso se está gestionando. Te avisaremos apenas se haya acreditado en tu cuenta.
-                    </Typography>
-                    <Stack direction="row" spacing={1}>
-                      <Button variant="outlined" size="small" fullWidth>
-                        Ver instrucciones
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        fullWidth
-                        startIcon={<ChatOutlined />}
-                        onClick={() => navigate('/mensajes')}
-                      >
-                        Contactar vendedor
-                      </Button>
-                    </Stack>
-                  </Paper>
-                </Grid>
-              </Grid>
-            </Card>
-          </Stack>
-        </Grid>
-      </Grid>
-    </Box>
-  )
+  const updateStatus = async status => {
+    if (!await confirmAction(`¿Cambiar la solicitud ${activeReturn.id} a ${status}?`, 'Actualizar devolución')) return
+    let restocked = activeReturn.restocked
+    if (!API_MODE && status === 'Aprobada' && !restocked) {
+      setCatalog(catalog.map(product => {
+        if (product.id !== activeReturn.productId) return product
+        return { ...product, stock: product.stock + activeReturn.qty, variantes: product.variantes?.map(variant => variant.sku === activeReturn.sku ? { ...variant, stock: variant.stock + activeReturn.qty } : variant) }
+      }))
+      restocked = true
+    }
+    setReturns(current => current.map(item => item.id === activeReturn.id ? { ...item, status, restocked, history: [...item.history, status] } : item))
+    logEvent('Actualizar devolución', { id: activeReturn.id, status }); notify('Solicitud actualizada.')
+  }
+  return <Box sx={{ maxWidth: 1350, mx: 'auto' }}><Typography variant="h4">Mis compras y devoluciones</Typography><Typography color="text.secondary" sx={{ mb: 2 }}>Consulta tus pedidos, solicita una devolución y sigue el reembolso.</Typography>
+    <Tabs value={tab} onChange={(_, value) => setTab(value)} sx={{ mb: 3 }}><Tab value="Compras" label="Compras" /><Tab value="Devoluciones" label="Devoluciones" /></Tabs>
+    {tab === 'Compras' ? <Stack spacing={2}>{!mine.length && <Alert severity="info">Aún no tienes compras. Explora el catálogo para comenzar.</Alert>}{mine.map(order => <Card key={order.id} sx={{ p: 3 }}><Stack direction={{ xs: 'column', sm: 'row' }}   sx={{ justifyContent: "space-between", gap: 2 }}><Box><Typography variant="h6">Pedido #{order.id}</Typography><Typography variant="caption">{order.date.replace('\n', ' · ')} · {order.store}</Typography></Box><Chip label={order.status} color={['Entregado', 'Recibido'].includes(order.status) ? 'success' : 'primary'} /></Stack><Divider sx={{ my: 2 }} />{order.products.map((item, index) => <Stack key={index} direction="row"   sx={[{ gap: 2, alignItems: "center" }, { py: 1 }]}><Box component="img" src={catalogImage(item)} alt={item.name} sx={{ width: 65, height: 65, objectFit: 'contain' }} /><Typography sx={{ flex: 1 }}>{item.name} × {item.qty || 1}</Typography><Typography  sx={{ fontWeight: 800 }}>{formatCLP(money(item.price) * (item.qty || 1))}</Typography></Stack>)}<Stack direction="row"   sx={[{ gap: 1, flexWrap: "wrap" }, { mt: 2 }]}><Button variant="contained" onClick={() => navigate(`/pedido/${order.id}`)}>Ver seguimiento</Button>{['Entregado', 'Recibido'].includes(order.status) && <Button variant="outlined" onClick={() => { setTab('Devoluciones'); setSelection(`${order.id}:0`) }}>Solicitar devolución</Button>}<Typography sx={[{ fontWeight: 800 }, { ml: 'auto' }]} >Total: {formatCLP(money(order.total))}</Typography></Stack></Card>)}</Stack> : <Grid container spacing={2.5}>
+      <Grid size={{ xs: 12, md: 4 }}><TextField select fullWidth size="small" label="Estado" value={filter} onChange={event => setFilter(event.target.value)} sx={{ mb: 2 }}>{['Todas', 'Solicitada', 'Aprobada', 'Rechazada', 'Finalizada'].map(status => <MenuItem key={status} value={status}>{status}</MenuItem>)}</TextField><Stack spacing={2}>{visibleReturns.map(item => <Card key={item.id} onClick={() => setActiveId(item.id)} sx={{ p: 2, cursor: 'pointer', borderColor: activeReturn?.id === item.id ? 'primary.main' : 'divider' }}><Typography  sx={{ fontWeight: 800 }}>{item.id}</Typography><Typography>{item.product}</Typography><Typography variant="caption">Pedido {item.orderId} · {item.date}</Typography><Chip size="small" label={item.status} sx={{ display: 'flex', mt: 1, width: 'fit-content' }} /></Card>)}{!visibleReturns.length && <Alert severity="info">No hay solicitudes en esta sección.</Alert>}</Stack></Grid>
+      <Grid size={{ xs: 12, md: 8 }}><Stack spacing={2.5}>
+        <Card component="form" onSubmit={createReturn} sx={{ p: 3 }}><Stack direction="row"   sx={[{ gap: 1, alignItems: "center" }, { mb: 2 }]}><Inventory2Outlined color="primary" /><Typography variant="h6">Solicitar nueva devolución</Typography></Stack>{!choices.length ? <Alert severity="info">Puedes solicitar devoluciones de pedidos entregados.</Alert> : <Stack spacing={2}><TextField select fullWidth label="Producto entregado" value={selected?.key || ''} onChange={event => { setSelection(event.target.value); setQty(1) }}>{choices.map(choice => <MenuItem key={choice.key} value={choice.key}>#{choice.order.id} · {choice.product.name}</MenuItem>)}</TextField><TextField select label="Motivo" value={reason} onChange={event => setReason(event.target.value)}>{['Talla incorrecta', 'Producto con falla', 'No coincide con descripción'].map(value => <MenuItem key={value} value={value}>{value}</MenuItem>)}</TextField><TextField required label="Cantidad a devolver" type="number" value={qty} onChange={event => setQty(Number(event.target.value))} helperText={`${remaining} unidades disponibles para devolver`} slotProps={{ htmlInput: { min: 1, max: remaining, step: 1 } }} /><ImagePicker images={images} onChange={setImages} max={3} /><Stack direction="row"   sx={{ justifyContent: "flex-end", gap: 1 }}><Button onClick={() => { setQty(1); setImages([]); setTab('Compras') }}>Cancelar</Button><Button type="submit" variant="contained" startIcon={<AddOutlined />} disabled={remaining <= 0}>Solicitar devolución</Button></Stack></Stack>}</Card>
+        {activeReturn && (manager || activeReturn.customerRut === user.rut) && <Card sx={{ p: 3 }}><Typography variant="h6">Solicitud {activeReturn.id}</Typography><Typography color="text.secondary" sx={{ mb: 3 }}>{activeReturn.reason} · {activeReturn.qty} unidades</Typography><Stepper activeStep={activeReturn.status === 'Finalizada' ? 3 : activeReturn.status === 'Aprobada' ? 1 : 0} alternativeLabel>{['Solicitada', 'Aprobada', 'Reembolso procesado'].map(label => <Step key={label}><StepLabel>{label}</StepLabel></Step>)}</Stepper><Box sx={{ bgcolor: 'secondary.light', borderRadius: 2, p: 2, my: 3 }}><Typography>Importe solicitado</Typography><Typography variant="h4" color="primary">{formatCLP(activeReturn.price)}</Typography><Typography variant="caption">{activeReturn.status === 'Finalizada' ? 'Reembolso simulado procesado al medio de pago original.' : 'Se informará el resultado de la revisión de tu solicitud.'}</Typography></Box><Stack direction="row"   sx={{ gap: 1, flexWrap: "wrap" }}>{manager && activeReturn.status === 'Solicitada' && <><Button variant="contained" onClick={() => updateStatus('Aprobada')}>Aprobar devolución</Button><Button color="error" variant="outlined" onClick={() => updateStatus('Rechazada')}>Rechazar</Button></>}{!API_MODE && manager && activeReturn.status === 'Aprobada' && <Button variant="contained" onClick={() => updateStatus('Finalizada')}>Procesar reembolso simulado</Button>}<Button startIcon={<ChatOutlined />} onClick={() => navigate('/mensajes')}>Contactar vendedor</Button><Button onClick={() => notify('Conserva el embalaje y contacta al vendedor para coordinar la entrega del producto.', 'info')}>Ver instrucciones</Button></Stack></Card>}
+      </Stack></Grid>
+    </Grid>}
+  </Box>
 }

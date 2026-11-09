@@ -1,3 +1,9 @@
+import ApiMessages from './ApiMessages'
+import { API_MODE } from '../../services/api'
+import useCollection from '../../hooks/useCollection'
+import useAuth from '../../contexts/AuthContext/useAuth'
+import { logEvent } from '../../data/localStore'
+import { notify } from '../../utils/feedback'
 import {
   DescriptionOutlined,
   LocalShippingOutlined,
@@ -44,20 +50,25 @@ const INITIAL_MESSAGES = [
   { id: 4, from: 'store', time: '10:24', text: 'Perfecto, entonces te reservo la talla 42. Te avisaremos por este mismo medio cuando tu pedido sea despachado. ¡Muchas gracias por tu compra!' },
 ]
 
-export default function MessagesPage() {
+function DemoMessagesPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const [search, setSearch] = useState('')
+  const [conversations, setConversations] = useCollection('conversations', CONVERSATIONS)
   const [activeConv, setActiveConv] = useState('tienda-sur')
-  const [messages, setMessages] = useState(INITIAL_MESSAGES)
+  const [messages, setMessages] = useCollection('messages', INITIAL_MESSAGES.map(message => ({ ...message, conversationId: 'tienda-sur', createdAt: new Date().toISOString() })))
   const [text, setText] = useState('')
   const [filterChip, setFilterChip] = useState('Todos')
 
   const handleSend = (e) => {
     e.preventDefault()
-    if (!text.trim()) return
+    if (!text.trim() || text.trim().length > 2000) { notify('Escribe un mensaje de hasta 2000 caracteres.', 'warning'); return }
     setMessages((prev) => [
       ...prev,
-      { id: Date.now(), from: 'me', time: 'Ahora', text: text.trim() },
+      { id: Date.now(), from: ['Vendedor', 'Admin'].includes(user.role) ? 'store' : 'me', time: new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }), text: text.trim(), conversationId: activeConv, createdAt: new Date().toISOString() },
     ])
+    setConversations(current => current.map(conversation => conversation.id === activeConv ? { ...conversation, lastMsg: text.trim(), time: 'Ahora', unread: 0 } : conversation))
+    logEvent('Enviar mensaje', { conversationId: activeConv, text: text.trim(), role: user.role })
     setText('')
   }
 
@@ -67,17 +78,17 @@ export default function MessagesPage() {
         Mensajes
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
-        Conversa directamente con las tiendas sobre tus pedidos, productos y cotizaciones (RF19).
+        Conversa directamente con las tiendas sobre tus pedidos, productos y cotizaciones.
       </Typography>
 
       <Card sx={{ p: 0, overflow: 'hidden' }}>
         <Grid container sx={{ minHeight: 620 }}>
           {/* Columna 1: Lista de Conversaciones (P12) */}
-          <Grid item xs={12} md={3.5} sx={{ borderRight: '1px solid', borderColor: 'divider', p: 2 }}>
+          <Grid sx={{ borderRight: '1px solid', borderColor: 'divider', p: 2 }} size={{ xs: 12, md: 3.5 }}>
             <TextField
               fullWidth
               size="small"
-              placeholder="Buscar conversaciones..."
+              placeholder="Buscar conversaciones..." value={search} onChange={event => setSearch(event.target.value)}
               slotProps={{
                 input: {
                   startAdornment: (
@@ -103,13 +114,13 @@ export default function MessagesPage() {
             </Stack>
 
             <Stack spacing={1}>
-              {CONVERSATIONS.map((c) => {
+              {conversations.filter(c => c.name.toLowerCase().includes(search.toLowerCase()) && (filterChip !== 'No leídos (2)' || c.unread > 0) && (filterChip !== 'Pedidos' || c.id === 'tienda-sur')).map((c) => {
                 const selected = c.id === activeConv
                 return (
                   <Paper
                     key={c.id}
                     elevation={0}
-                    onClick={() => setActiveConv(c.id)}
+                    onClick={() => { setActiveConv(c.id); setConversations(current => current.map(row => row.id === c.id ? { ...row, unread: 0 } : row)) }}
                     sx={{
                       p: 1.5,
                       cursor: 'pointer',
@@ -122,7 +133,7 @@ export default function MessagesPage() {
                   >
                     <Avatar sx={{ bgcolor: 'text.primary', fontWeight: 800 }}>{c.initials}</Avatar>
                     <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                      <Stack direction="row" justifyContent="space-between">
+                      <Stack direction="row"  sx={{ justifyContent: "space-between" }}>
                         <Typography variant="subtitle2" sx={{ fontWeight: 800 }} noWrap>
                           {c.name}
                         </Typography>
@@ -130,7 +141,7 @@ export default function MessagesPage() {
                           {c.time}
                         </Typography>
                       </Stack>
-                      <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Stack direction="row"   sx={{ justifyContent: "space-between", alignItems: "center" }}>
                         <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 160 }}>
                           {c.lastMsg}
                         </Typography>
@@ -144,18 +155,18 @@ export default function MessagesPage() {
           </Grid>
 
           {/* Columna 2: Ventana de Chat Activa (P12) */}
-          <Grid item xs={12} md={5.5} sx={{ display: 'flex', flexDirection: 'column', borderRight: '1px solid', borderColor: 'divider' }}>
+          <Grid sx={{ display: 'flex', flexDirection: 'column', borderRight: '1px solid', borderColor: 'divider' }} size={{ xs: 12, md: 5.5 }}>
             <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <Avatar sx={{ bgcolor: 'text.primary', fontWeight: 800 }}>TS</Avatar>
               <Box>
-                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Tienda Sur</Typography>
+                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>{conversations.find(conversation => conversation.id === activeConv)?.name}</Typography>
                 <Typography variant="caption" color="success.main" sx={{ fontWeight: 700 }}>● En línea</Typography>
               </Box>
             </Box>
 
             <Box sx={{ p: 2.5, flexGrow: 1, bgcolor: '#fbfaff', overflowY: 'auto' }}>
               <Stack spacing={2}>
-                {messages.map((m) => {
+                {messages.filter(message => message.conversationId === activeConv).map((m) => {
                   const isMe = m.from === 'me'
                   return (
                     <Box
@@ -185,10 +196,10 @@ export default function MessagesPage() {
 
                 {/* Tarjeta Embebida del Pedido #1032 alineada con Talla 42 (P12) */}
                 <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5 }}>
-                  <Stack direction="row" spacing={1.5} alignItems="center">
+                  <Stack direction="row" spacing={1.5}  sx={{ alignItems: "center" }}>
                     <Box component="img" src={shoeImage} alt="" sx={{ width: 54, height: 54, borderRadius: 2, objectFit: 'cover' }} />
                     <Box>
-                      <Stack direction="row" spacing={1} alignItems="center">
+                      <Stack direction="row" spacing={1}  sx={{ alignItems: "center" }}>
                         <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Pedido #1032</Typography>
                         <StatusChip status="En preparación" />
                       </Stack>
@@ -207,7 +218,7 @@ export default function MessagesPage() {
 
             {/* Respuestas rápidas e Input de Mensaje */}
             <Box sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-              <Stack direction="row" spacing={1} sx={{ mb: 1.5 }} flexWrap="wrap" useFlexGap>
+              <Stack direction="row" spacing={1} sx={[{ flexWrap: "wrap" }, { mb: 1.5 }]}  useFlexGap>
                 <Chip
                   icon={<StorefrontOutlined fontSize="small" />}
                   label="Consultar disponibilidad"
@@ -239,7 +250,7 @@ export default function MessagesPage() {
                   onChange={(e) => setText(e.target.value)}
                   placeholder="Escribe un mensaje para Tienda Sur..."
                 />
-                <IconButton type="submit" sx={{ bgcolor: 'primary.main', color: '#fff', '&:hover': { bgcolor: 'primary.dark' } }}>
+                <IconButton aria-label="Enviar" type="submit" sx={{ bgcolor: 'primary.main', color: '#fff', '&:hover': { bgcolor: 'primary.dark' } }}>
                   <SendOutlined fontSize="small" />
                 </IconButton>
               </Stack>
@@ -247,28 +258,28 @@ export default function MessagesPage() {
           </Grid>
 
           {/* Columna 3: Información de la tienda y Producto en conversación (P12) */}
-          <Grid item xs={12} md={3} sx={{ p: 2.5 }}>
+          <Grid sx={{ p: 2.5 }} size={{ xs: 12, md: 3 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 2 }}>
               Información de la tienda
             </Typography>
-            <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
+            <Stack direction="row" spacing={1.5}  sx={[{ alignItems: "center" }, { mb: 2 }]}>
               <Avatar sx={{ width: 48, height: 48, bgcolor: 'text.primary', fontWeight: 800 }}>TS</Avatar>
               <Box>
-                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Tienda Sur</Typography>
+                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>{conversations.find(conversation => conversation.id === activeConv)?.name}</Typography>
                 <Typography variant="caption">★ <strong>4,8</strong> (1.256 reseñas)</Typography>
               </Box>
             </Stack>
 
             <Stack spacing={1} sx={{ mb: 2 }}>
-              <Stack direction="row" spacing={1} alignItems="center">
+              <Stack direction="row" spacing={1}  sx={{ alignItems: "center" }}>
                 <LocationOnOutlined fontSize="small" color="primary" />
                 <Typography variant="caption">Osorno, Los Lagos</Typography>
               </Stack>
-              <Stack direction="row" spacing={1} alignItems="center">
+              <Stack direction="row" spacing={1}  sx={{ alignItems: "center" }}>
                 <LocalShippingOutlined fontSize="small" color="primary" />
                 <Typography variant="caption">Despachos a todo Chile</Typography>
               </Stack>
-              <Stack direction="row" spacing={1} alignItems="center">
+              <Stack direction="row" spacing={1}  sx={{ alignItems: "center" }}>
                 <VerifiedOutlined fontSize="small" color="primary" />
                 <Typography variant="caption">Tienda verificada</Typography>
               </Stack>
@@ -280,7 +291,7 @@ export default function MessagesPage() {
               Producto en conversación
             </Typography>
             <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2.5, mb: 2 }}>
-              <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1.5 }}>
+              <Stack direction="row" spacing={1.5}  sx={[{ alignItems: "center" }, { mb: 1.5 }]}>
                 <Box component="img" src={shoeImage} alt="" sx={{ width: 52, height: 52, borderRadius: 2, objectFit: 'cover' }} />
                 <Box>
                   <Typography variant="caption" sx={{ fontWeight: 800, display: 'block' }}>
@@ -305,3 +316,5 @@ export default function MessagesPage() {
     </Box>
   )
 }
+
+export default function MessagesPage() { return API_MODE ? <ApiMessages /> : <DemoMessagesPage /> }

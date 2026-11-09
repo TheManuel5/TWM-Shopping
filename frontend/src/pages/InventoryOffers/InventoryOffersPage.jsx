@@ -1,3 +1,8 @@
+import { catalogImage } from '../../utils/catalogImages'
+import useSellerCollection from '../../hooks/useSellerCollection'
+import { catalogSeed, asItem } from '../../data/catalog'
+import { logEvent } from '../../data/localStore'
+import { confirmAction, notify } from '../../utils/feedback'
 import {
   AddOutlined,
   CloseOutlined,
@@ -34,28 +39,16 @@ import {
 } from '@mui/material'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import chairImage from '../../assets/products/chair.jpg'
-import laptopImage from '../../assets/products/laptop.jpg'
-import phoneImage from '../../assets/products/phone.jpg'
-import shoeImage from '../../assets/products/shoe.jpg'
 import QuantityInput from '../../components/atoms/QuantityInput/QuantityInput'
 import StatusChip from '../../components/atoms/StatusChip/StatusChip'
 import StatMetricCard from '../../components/molecules/StatMetricCard/StatMetricCard'
 import { formatCLP } from '../../utils/taxonomyData'
 
-const INITIAL_INVENTORY = [
-  { id: 1, name: 'Zapatillas Urban Run', category: 'Deporte y outdoor', sku: 'UR-001', variant: 'Talla 42 · Negro', stock: 8, reserved: 2, price: 39990, offerPrice: 31992, image: shoeImage },
-  { id: 2, name: 'Zapatillas Urban Run', category: 'Deporte y outdoor', sku: 'UR-002', variant: 'Talla 43 · Negro', stock: 18, reserved: 1, price: 39990, offerPrice: null, image: shoeImage },
-  { id: 3, name: 'Zapatillas Urban Run', category: 'Deporte y outdoor', sku: 'UR-003', variant: 'Talla 42 · Blanco', stock: 12, reserved: 0, price: 39990, offerPrice: null, image: shoeImage },
-  { id: 4, name: 'Notebook Pro 14"', category: 'Tecnología', sku: 'NBP-014', variant: '16 GB · Gris', stock: 5, reserved: 1, price: 699990, offerPrice: 599990, image: laptopImage },
-  { id: 5, name: 'Audífonos Bluetooth X1', category: 'Tecnología', sku: 'AUD-X1', variant: 'Negro', stock: 25, reserved: 3, price: 29990, offerPrice: 24990, image: phoneImage },
-  { id: 6, name: 'Mochila Travel 25L', category: 'Ropa, moda y calzado', sku: 'MOCH-25', variant: 'Azul', stock: 0, reserved: 0, price: 24990, offerPrice: null, image: chairImage },
-]
-
 export default function InventoryOffersPage() {
   const navigate = useNavigate()
   const [tab, setTab] = useState('Inventario')
-  const [rows, setRows] = useState(INITIAL_INVENTORY)
+  const [catalog, setCatalog] = useSellerCollection('catalog', catalogSeed)
+  const rows = catalog.filter(product => product.tipo !== 'Servicio').flatMap(product => (product.variantes?.length ? product.variantes : [{ sku: `PRD-${product.id}`, stock: product.stock, size: product.tamano, color: product.color, price: product.precio }]).map(variant => ({ ...asItem(product), sku: variant.sku, stock: variant.stock, price: variant.price, reserved: 0, variant: [variant.size, variant.color].filter(Boolean).join(' · '), offerPrice: product.oferta?.precio })))
   const [onlyLowStock, setOnlyLowStock] = useState(false)
   const [search, setSearch] = useState('')
   const [selectedSku, setSelectedSku] = useState('UR-001')
@@ -71,7 +64,16 @@ export default function InventoryOffersPage() {
   }
 
   const handleDirectStockChange = (sku, newStock) => {
-    setRows((prev) => prev.map((r) => (r.sku === sku ? { ...r, stock: Math.max(0, newStock) } : r)))
+    if (!Number.isInteger(newStock) || newStock < 0) { notify('Ingresa un stock entero de cero o más.', 'error'); return }
+    const row = rows.find(item => item.sku === sku)
+    if (!row) return
+    setCatalog(current => current.map(product => {
+      if (product.id !== row.id) return product
+      const variantes = product.variantes?.map(variant => variant.sku === sku ? { ...variant, stock: newStock } : variant)
+      return { ...product, variantes, stock: variantes?.length ? variantes.reduce((sum, variant) => sum + variant.stock, 0) : newStock }
+    }))
+    logEvent('Ajustar inventario', { sku, stock: newStock, motivo: adjustReason })
+    notify('Stock actualizado.')
   }
 
   const handleApplyAdjustment = () => {
@@ -83,24 +85,25 @@ export default function InventoryOffersPage() {
     const matchQuery =
       r.name.toLowerCase().includes(search.toLowerCase()) ||
       r.sku.toLowerCase().includes(search.toLowerCase())
-    return matchLow && matchQuery
+    return matchLow && matchQuery && (tab !== 'Ofertas' || Boolean(r.offerPrice))
   })
 
   const lowStockCount = rows.filter((r) => r.stock > 0 && r.stock < 10).length
 
+  if (!activeItem) return <Card sx={{ p: 4 }}><Typography variant="h5">Aún no hay productos en el inventario</Typography><Button onClick={() => navigate('/vendedor/publicar-producto')}>Publicar producto</Button></Card>
   return (
     <Box sx={{ maxWidth: 1400, mx: 'auto' }}>
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
-        justifyContent="space-between"
-        alignItems={{ xs: 'flex-start', sm: 'center' }}
+
+
         spacing={2}
-        sx={{ mb: 2.5 }}
+        sx={[{ justifyContent: "space-between", alignItems: { xs: 'flex-start', sm: 'center' } }, { mb: 2.5 }]}
       >
         <Box>
           <Typography variant="h4">Inventario y publicaciones</Typography>
           <Typography variant="body2" color="text.secondary">
-            Gestiona tu stock físico por variante, alertas críticas (&lt; 10 unidades) y ofertas temporales (RF17 / RF27).
+            Gestiona tu stock físico por variante, alertas críticas (&lt; 10 unidades) y ofertas temporales.
           </Typography>
         </Box>
         <Button
@@ -114,7 +117,7 @@ export default function InventoryOffersPage() {
 
       {/* 4 KPIs Superiores (P17) */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatMetricCard
             title="Productos"
             value="12"
@@ -122,7 +125,7 @@ export default function InventoryOffersPage() {
             icon={<Inventory2Outlined />}
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatMetricCard
             title="Variantes"
             value="38"
@@ -130,7 +133,7 @@ export default function InventoryOffersPage() {
             icon={<HubOutlined />}
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatMetricCard
             title="Stock bajo (< 10)"
             value={String(lowStockCount)}
@@ -140,7 +143,7 @@ export default function InventoryOffersPage() {
             iconColor="#b45309"
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatMetricCard
             title="Ofertas activas"
             value="3"
@@ -152,7 +155,7 @@ export default function InventoryOffersPage() {
 
       <Grid container spacing={2.5}>
         {/* Tabla Principal de Inventario por Variante (P17) */}
-        <Grid item xs={12} lg={8.5}>
+        <Grid size={{ xs: 12, lg: 8.5 }}>
           <Card sx={{ p: 2.5 }}>
             <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
               <Tab value="Productos" label="Productos" onClick={() => navigate('/crud-2')} />
@@ -164,11 +167,11 @@ export default function InventoryOffersPage() {
             <Stack
               direction={{ xs: 'column', md: 'row' }}
               spacing={1.5}
-              alignItems={{ xs: 'stretch', md: 'center' }}
-              justifyContent="space-between"
-              sx={{ mb: 2 }}
+
+
+              sx={[{ alignItems: { xs: 'stretch', md: 'center' }, justifyContent: "space-between" }, { mb: 2 }]}
             >
-              <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
+              <Stack direction="row" spacing={1.5}   sx={{ alignItems: "center", flexWrap: "wrap" }}>
                 <Select size="small" value="Todas" sx={{ minWidth: 165 }}>
                   <MenuItem value="Todas">Todas las categorías</MenuItem>
                 </Select>
@@ -223,8 +226,8 @@ export default function InventoryOffersPage() {
                       sx={{ cursor: 'pointer' }}
                     >
                       <TableCell>
-                        <Stack direction="row" spacing={1.25} alignItems="center">
-                          <Box component="img" src={row.image} alt="" sx={{ width: 42, height: 42, borderRadius: 1.5, objectFit: 'cover' }} />
+                        <Stack direction="row" spacing={1.25}  sx={{ alignItems: "center" }}>
+                          <Box component="img" src={catalogImage(row)} alt="" sx={{ width: 42, height: 42, borderRadius: 1.5, objectFit: 'cover' }} />
                           <Box>
                             <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>{row.name}</Typography>
                             <Typography variant="caption" color="text.secondary">{row.category}</Typography>
@@ -261,15 +264,15 @@ export default function InventoryOffersPage() {
         </Grid>
 
         {/* Panel Derecho: Ajustar Stock y Oferta Activa (P17) */}
-        <Grid item xs={12} lg={3.5}>
+        <Grid size={{ xs: 12, lg: 3.5 }}>
           <Card sx={{ p: 3 }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+            <Stack direction="row"   sx={[{ justifyContent: "space-between", alignItems: "center" }, { mb: 2 }]}>
               <Typography variant="h6">Ajustar stock</Typography>
-              <IconButton size="small"><CloseOutlined fontSize="small" /></IconButton>
+              <IconButton aria-label="Ver catálogo" size="small" onClick={() => navigate('/crud-2')}><CloseOutlined fontSize="small" /></IconButton>
             </Stack>
 
-            <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
-              <Box component="img" src={activeItem.image} alt="" sx={{ width: 64, height: 64, borderRadius: 2, objectFit: 'cover' }} />
+            <Stack direction="row" spacing={1.5}  sx={[{ alignItems: "center" }, { mb: 2 }]}>
+              <Box component="img" src={catalogImage(activeItem)} alt="" sx={{ width: 64, height: 64, borderRadius: 2, objectFit: 'cover' }} />
               <Box>
                 <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>{activeItem.name}</Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
@@ -300,7 +303,7 @@ export default function InventoryOffersPage() {
             </Typography>
             <Select fullWidth size="small" value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)} sx={{ mb: 2 }}>
               <MenuItem value="Reposición">Reposición de proveedor</MenuItem>
-              <MenuItem value="Devolución aprobada">Reintegro por devolución (Trigger 10)</MenuItem>
+              <MenuItem value="Devolución aprobada">Reintegro por devolución</MenuItem>
               <MenuItem value="Auditoría">Ajuste de inventario físico</MenuItem>
             </Select>
 
@@ -319,28 +322,12 @@ export default function InventoryOffersPage() {
 
             <Divider sx={{ mb: 2 }} />
 
-            <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.5, color: 'primary.main' }}>
-              Oferta activa en este producto (RF10)
-            </Typography>
-            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2.5 }}>
-              <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1.5 }}>
-                <LocalOfferOutlined color="primary" />
-                <Box>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>20% de descuento</Typography>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>
-                    $31.992{' '}
-                    <Typography component="span" variant="caption" color="text.secondary" sx={{ textDecoration: 'line-through' }}>
-                      $39.990
-                    </Typography>
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Válida desde 20/09/2026 hasta 31/10/2026
-                  </Typography>
-                </Box>
-              </Stack>
-              <Button variant="outlined" fullWidth size="small" onClick={() => navigate('/vendedor/publicar-producto')}>
-                Editar oferta
-              </Button>
+            <Typography variant="subtitle2" color="primary" sx={{ mb: 2 }}>Oferta de la publicación</Typography>
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <Typography  sx={{ fontWeight: 800 }}>{activeItem.offerPrice ? formatCLP(activeItem.offerPrice) : 'Sin oferta temporal'}</Typography>
+              <Typography variant="caption"  sx={[{ display: "block" }, { mb: 2 }]}>Precio oficial: {formatCLP(activeItem.price)}</Typography>
+              <Button fullWidth variant="outlined" onClick={() => navigate(`/vendedor/publicar-producto?editar=${activeItem.id}`)}>Editar publicación y oferta</Button>
+              {activeItem.offerPrice && <Button fullWidth color="error" onClick={async () => { if (await confirmAction('¿Quitar la oferta temporal de esta publicación?', 'Quitar oferta')) { setCatalog(current => current.map(product => product.id === activeItem.id ? { ...product, oferta: null } : product)); logEvent('Eliminar oferta', { id: activeItem.id }); notify('Oferta eliminada.') } }}>Quitar oferta</Button>}
             </Paper>
           </Card>
         </Grid>

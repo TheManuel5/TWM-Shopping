@@ -1,5 +1,11 @@
+import { API_MODE } from '../../services/api'
+import useAuth from '../../contexts/AuthContext/useAuth'
+import { formatCLP } from '../../utils/taxonomyData'
+import { logEvent } from '../../data/localStore'
+import { money } from '../../data/commerce'
+import { exportReceipt } from '../../utils/pdfExport'
+import useCollection from '../../hooks/useCollection'
 import { useMemo, useState } from 'react';
-import { jsPDF } from 'jspdf';
 import {
   Alert,
   Box,
@@ -50,53 +56,12 @@ function DetailField({ icon, label, children }) {
   );
 }
 
-function generateReceiptPdf(order) {
-  if (!order) return;
-
-  const pdf = new jsPDF();
-  const margin = 20;
-  let y = 24;
-
-  pdf.setFontSize(18);
-  pdf.setFont(undefined, 'bold');
-  pdf.text(`Comprobante de pedido #${order.id}`, margin, y);
-  y += 12;
-  pdf.setFontSize(10);
-  pdf.setFont(undefined, 'normal');
-  pdf.text(`Fecha: ${order.date.replace('\n', ', ')}`, margin, y);
-  y += 7;
-  pdf.text(`Cliente: ${order.customer}`, margin, y);
-  y += 7;
-  pdf.text(`Correo: ${order.email}`, margin, y);
-  y += 12;
-  pdf.line(margin, y, 190, y);
-  y += 9;
-
-  pdf.setFont(undefined, 'bold');
-  pdf.text('Productos', margin, y);
-  y += 8;
-  pdf.setFont(undefined, 'normal');
-  order.products.forEach((product) => {
-    const productName = pdf.splitTextToSize(product.name, 130);
-    pdf.text(productName, margin, y);
-    pdf.text(product.price, 190, y, { align: 'right' });
-    y += Math.max(7, productName.length * 5);
-  });
-
-  y += 3;
-  pdf.line(margin, y, 190, y);
-  y += 10;
-  pdf.setFont(undefined, 'bold');
-  pdf.setFontSize(13);
-  pdf.text('Total', margin, y);
-  pdf.text(order.total, 190, y, { align: 'right' });
-  pdf.save(`comprobante-pedido-${order.id}.pdf`);
-}
-
 export default function Orders() {
-  const [orders, setOrders] = useState(initialOrders);
+  const { user } = useAuth()
+  const admin = !API_MODE && user?.canAdmin && user.role === 'Admin';
+  const [orders, setOrders] = useCollection('orders', initialOrders);
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [filters, setFilters] = useState({ search: '', store: 'Todas', status: 'Todos', from: '2024-04-01', to: '2024-04-30' });
+  const [filters, setFilters] = useState({ search: '', store: 'Todas', status: 'Todos', from: '', to: '' });
   const [appliedFilters, setAppliedFilters] = useState(filters);
   const [formOpen, setFormOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -115,7 +80,9 @@ export default function Orders() {
     const matchesSearch = !query || [order.id, order.customer, order.store, ...order.products.map((product) => product.name)].join(' ').toLowerCase().includes(query);
     const matchesStore = appliedFilters.store === 'Todas' || order.store === appliedFilters.store;
     const matchesStatus = appliedFilters.status === 'Todos' || order.status === appliedFilters.status;
-    return matchesSearch && matchesStore && matchesStatus;
+    const [day, month, year] = order.date.split('\n')[0].split('-');
+    const date = `${year}-${month}-${day}`;
+    return matchesSearch && matchesStore && matchesStatus && (!appliedFilters.from || date >= appliedFilters.from) && (!appliedFilters.to || date <= appliedFilters.to);
   }), [orders, appliedFilters]);
 
   const paginatedOrders = visibleOrders.slice((page - 1) * ordersPerPage, page * ordersPerPage);
@@ -124,11 +91,12 @@ export default function Orders() {
     setFilters((current) => ({ ...current, [key]: value }));
     setPage(1);
   };
-  const openCreate = () => { setEditingOrder(null); setFormData(emptyForm); setFormErrors({}); setFormOpen(true); };
+  const openCreate = () => { if (!admin) return; setEditingOrder(null); setFormData(emptyForm); setFormErrors({}); setFormOpen(true); };
   const openEdit = (order) => {
+    if (!admin) return;
     setSelectedOrder(null);
     setEditingOrder(order);
-    setFormData({ customer: order.customer, email: order.email, store: order.store, status: order.status, total: order.total.replace(/\D/g, ''), address: order.address.replaceAll('\n', ', ') });
+    setFormData({ customer: order.customer, email: order.email, store: order.store, status: order.status, total: String(money(order.total)), address: order.address.replaceAll('\n', ', ') });
     setFormErrors({});
     setFormOpen(true);
   };
@@ -145,21 +113,21 @@ export default function Orders() {
     if (!formData.customer.trim()) errors.customer = 'Ingresa el nombre del cliente';
     if (!formData.email.trim()) errors.email = 'Ingresa el correo electrónico';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) errors.email = 'Ingresa un correo válido';
-    if (!formData.total.trim()) errors.total = 'Ingresa el total del pedido';
+    if (!formData.total.trim() || Number(formData.total) <= 0) errors.total = 'Ingresa un total mayor que cero';
     if (!formData.address.trim()) errors.address = 'Ingresa la dirección de envío';
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
       return;
     }
     const orderData = { ...formData, capturedAt: new Date().toISOString() };
-    console.log(editingOrder ? 'Actualizar pedido:' : 'Crear pedido:', orderData);
+    logEvent(editingOrder ? 'Actualizar pedido:' : 'Crear pedido:', orderData);
     if (editingOrder) {
-      const updatedOrder = { ...editingOrder, ...formData, address: formData.address.replaceAll(', ', '\n') };
+      const updatedOrder = { ...editingOrder, ...formData, total: Number(formData.total), net: Math.round(Number(formData.total) / 1.19), iva: Number(formData.total) - Math.round(Number(formData.total) / 1.19), address: formData.address.replaceAll(', ', '\n') };
       setOrders((current) => current.map((order) => (order.id === editingOrder.id ? updatedOrder : order)));
       setSelectedOrder(updatedOrder);
       setNotice(`Pedido #${editingOrder.id} actualizado`);
     } else {
-      const newOrder = { ...formData, id: String(Number(orders[0]?.id || 1031) + 1), date: '04-05-2024\n12:00', email: formData.email || 'cliente@correo.com', phone: '+56 9 0000 0000', address: formData.address.replaceAll(', ', '\n'), products: [{ name: 'Producto nuevo', emoji: '📦', price: formData.total, detail: 'Sin detalle' }] };
+      const newOrder = { ...formData, createdAt: new Date().toISOString(), id: `PED-${crypto.randomUUID().slice(0, 8).toUpperCase()}`, date: new Date().toLocaleDateString('en-GB').replaceAll('/', '-') + '\n' + new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }), email: formData.email || 'cliente@correo.com', phone: '+56 9 0000 0000', address: formData.address.replaceAll(', ', '\n'), products: [{ name: 'Producto nuevo', emoji: '📦', price: formData.total, detail: 'Sin detalle' }] };
       setOrders((current) => [newOrder, ...current]);
       setPage(1);
       setSelectedOrder(newOrder);
@@ -169,9 +137,10 @@ export default function Orders() {
   };
 
   const confirmDelete = () => {
-    if (!deletingOrder) return;
-    console.log('Eliminar pedido:', deletingOrder);
+    if (!deletingOrder || !admin) return;
+    logEvent('Eliminar pedido:', deletingOrder);
     setOrders((current) => current.filter((order) => order.id !== deletingOrder.id));
+    setPage(1);
     setDeleteOpen(false);
     setDeletingOrder(null);
     setNotice(`Pedido #${deletingOrder.id} eliminado`);
@@ -185,15 +154,15 @@ export default function Orders() {
           <Box className="orders-title-group">
             <ShoppingBagOutlinedIcon color="primary" fontSize="large" />
             <Box>
-              <Typography variant="h4" component="h1" fontWeight={700}>Gestión de pedidos</Typography>
+              <Typography variant="h4" component="h1"  sx={{ fontWeight: 700 }}>Gestión de pedidos</Typography>
               <Typography color="text.secondary">Administra y haz seguimiento a todos los pedidos de la plataforma.</Typography>
             </Box>
             <Chip label={`${orders.length} total`} size="small" color="primary" variant="outlined" />
           </Box>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>Nuevo pedido</Button>
+          {admin && <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>Nuevo pedido</Button>}
         </Box>
         <OrderFilters filters={filters} onChange={updateFilter} onApply={() => { setAppliedFilters(filters); setPage(1); setNotice('Filtros aplicados'); }} />
-        <OrdersTable orders={paginatedOrders} selectedId={selectedOrder?.id} onSelect={setSelectedOrder} onEdit={openEdit} onDelete={(order) => { setSelectedOrder(null); setDeletingOrder(order); setDeleteOpen(true); }} />
+        <OrdersTable orders={paginatedOrders} selectedId={selectedOrder?.id} onSelect={order => { setSelectedOrder(order); setDispatchData(order.dispatch || { carrier: '', tracking: '' }) }} onEdit={admin ? openEdit : undefined} onDelete={admin ? (order) => { setSelectedOrder(null); setDeletingOrder(order); setDeleteOpen(true); } : undefined} />
         <Box className="orders-pagination">
           <Pagination
             count={pageCount}
@@ -210,7 +179,7 @@ export default function Orders() {
 
       {selectedOrder && <Box className="order-detail-panel">
         <>
-          <Box className="detail-header"><Box><Typography component="h2">Pedido #{selectedOrder.id}</Typography><Typography className="detail-date">28 abr 2024, 16:24</Typography></Box><IconButton aria-label="Cerrar detalle" onClick={() => setSelectedOrder(null)}><CloseIcon /></IconButton></Box>
+          <Box className="detail-header"><Box><Typography component="h2">Pedido #{selectedOrder.id}</Typography><Typography className="detail-date">{selectedOrder.date.replace('\n', ' · ')}</Typography></Box><IconButton aria-label="Cerrar detalle" onClick={() => setSelectedOrder(null)}><CloseIcon /></IconButton></Box>
           <Chip label={selectedOrder.status} size="small" className="detail-status" />
           <Typography className="detail-section-title">Información del cliente</Typography>
           <Box className="detail-grid"><DetailField icon={<PersonOutlineOutlinedIcon />} label="Cliente"><strong>{selectedOrder.customer}</strong><span>{selectedOrder.email}</span><span>{selectedOrder.phone}</span></DetailField><DetailField icon={<PlaceOutlinedIcon />} label="Dirección de envío"><strong>{selectedOrder.address.split('\n')[0]}</strong>{selectedOrder.address.split('\n').slice(1).map((line) => <span key={line}>{line}</span>)}</DetailField></Box>
@@ -218,13 +187,13 @@ export default function Orders() {
           <DetailField icon={<Inventory2OutlinedIcon />} label="Tienda vendedora"><strong>{selectedOrder.store}</strong></DetailField>
           <Divider />
           <Typography className="detail-section-title">Productos ({selectedOrder.products.length})</Typography>
-          <Stack spacing={1}>{selectedOrder.products.map((product) => <Box className="detail-product" key={product.name}><span className="detail-product-emoji">{product.emoji}</span><Box><strong>{product.name}</strong><span>{product.detail}</span></Box><strong>{product.price}</strong></Box>)}</Stack>
-          <Box className="detail-totals"><span>Subtotal (neto)<strong>{selectedOrder.total}</strong></span><span>IVA (19%)<strong>$8.170</strong></span><strong>Total<strong>{selectedOrder.total}</strong></strong></Box>
-          <Box className="detail-grid payment-grid"><DetailField icon={<ReceiptLongOutlinedIcon />} label="Método de pago"><span>Visa terminada en 4242</span></DetailField><DetailField icon={<LocalShippingOutlinedIcon />} label="Envío"><span>Chilexpress</span></DetailField></Box>
-          <Box component="form" onSubmit={(event) => { event.preventDefault(); console.log('Actualizar estado del pedido:', { id: selectedOrder.id, status: selectedOrder.status }); setNotice('Estado actualizado'); }} className="status-form"><Typography className="detail-section-title">Estado del pedido</Typography><TextField size="small" select fullWidth value={selectedOrder.status} onChange={(event) => setSelectedOrder({ ...selectedOrder, status: event.target.value })}>{['En preparación', 'Entregado', 'Enviado', 'Recibido', 'Cancelado'].map((status) => <MenuItem key={status} value={status}>{status}</MenuItem>)}</TextField><Button type="submit" variant="contained">Actualizar estado</Button></Box>
-          <Box component="form" onSubmit={(event) => { event.preventDefault(); console.log('Guardar información de despacho:', { orderId: selectedOrder.id, ...dispatchData }); setNotice('Información de despacho guardada'); }} className="dispatch-form"><Typography className="detail-section-title"><LocalShippingOutlinedIcon /> Información de despacho</Typography><TextField size="small" label="Empresa de despacho" value={dispatchData.carrier} onChange={(event) => setDispatchData({ ...dispatchData, carrier: event.target.value })} /><TextField size="small" label="Número de seguimiento" value={dispatchData.tracking} onChange={(event) => setDispatchData({ ...dispatchData, tracking: event.target.value })} /><Button type="submit" variant="contained">Guardar despacho</Button></Box>
-          <Box className="transaction-history"><Typography className="detail-section-title"><HistoryOutlinedIcon /> Historial de transacciones</Typography><Box className="history-item"><span>28-04-2024 16:24</span><span>Pedido creado</span></Box><Box className="history-item"><span>28-04-2024 16:27</span><span>Pago confirmado</span></Box><Box className="history-item"><span>29-04-2024 10:12</span><span>Estado cambiado a En preparación</span></Box></Box>
-          <Box className="detail-actions"><Button variant="outlined" startIcon={<ReceiptLongOutlinedIcon />} onClick={() => setReceiptOpen(true)}>Ver comprobante</Button><Button variant="outlined" color="error" onClick={() => { setDeletingOrder(selectedOrder); setSelectedOrder(null); setDeleteOpen(true); }}>Eliminar pedido</Button></Box>
+          <Stack spacing={1}>{selectedOrder.products.map((product) => <Box className="detail-product" key={product.name}><span className="detail-product-emoji">{product.emoji}</span><Box><strong>{product.name}</strong><span>{product.detail}</span></Box><strong>{formatCLP(money(product.price))}</strong></Box>)}</Stack>
+          <Box className="detail-totals"><span>Subtotal (neto)<strong>{formatCLP(selectedOrder.net ?? Math.round(money(selectedOrder.total) / 1.19))}</strong></span><span>IVA (19%)<strong>{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(selectedOrder.iva ?? money(selectedOrder.total) - Math.round(money(selectedOrder.total) / 1.19))}</strong></span><strong>Total<strong>{formatCLP(money(selectedOrder.total))}</strong></strong></Box>
+          <Box className="detail-grid payment-grid"><DetailField icon={<ReceiptLongOutlinedIcon />} label="Método de pago"><span>{selectedOrder.payment || 'Sin medio de pago registrado'} {selectedOrder.cardLast4 ? '•••• ' + selectedOrder.cardLast4 : selectedOrder.transferCode || ''}</span></DetailField><DetailField icon={<LocalShippingOutlinedIcon />} label="Envío"><span>{selectedOrder.dispatch?.carrier || 'Por asignar'}</span></DetailField></Box>
+          <Box component="form" onSubmit={(event) => { event.preventDefault(); setOrders(prev => prev.map(order => order.id === selectedOrder.id ? { ...order, status: selectedOrder.status, history: [...(order.history || []), { date: new Date().toISOString(), status: selectedOrder.status }] } : order)); logEvent('Actualizar estado del pedido:', { id: selectedOrder.id, status: selectedOrder.status }); setNotice('Estado actualizado'); }} className="status-form"><Typography className="detail-section-title">Estado del pedido</Typography><TextField size="small" select fullWidth value={selectedOrder.status} onChange={(event) => setSelectedOrder({ ...selectedOrder, status: event.target.value })}>{(API_MODE ? ['En preparación', 'Enviado', 'En reparto', 'Entregado', 'Recibido'].filter((status, index, states) => index === states.indexOf(orders.find(order => order.id === selectedOrder?.id)?.status) || index === states.indexOf(orders.find(order => order.id === selectedOrder?.id)?.status) + 1) : ['En preparación', 'Entregado', 'Enviado', 'Recibido', 'Cancelado']).map((status) => <MenuItem key={status} value={status}>{status}</MenuItem>)}</TextField><Button type="submit" variant="contained">Actualizar estado</Button></Box>
+          {selectedOrder.dispatch && <Box component="form" onSubmit={(event) => { event.preventDefault(); if (!dispatchData.carrier.trim() || !dispatchData.tracking.trim()) { setNotice('Completa transportista y seguimiento'); return; } setOrders(prev => prev.map(order => order.id === selectedOrder.id ? { ...order, dispatch: dispatchData } : order)); logEvent('Guardar información de despacho:', { orderId: selectedOrder.id, ...dispatchData }); setNotice('Información de despacho guardada'); }} className="dispatch-form"><Typography className="detail-section-title"><LocalShippingOutlinedIcon /> Información de despacho</Typography><TextField size="small" label="Empresa de despacho" value={dispatchData.carrier} onChange={(event) => setDispatchData({ ...dispatchData, carrier: event.target.value })} /><TextField size="small" label="Número de seguimiento" value={dispatchData.tracking} onChange={(event) => setDispatchData({ ...dispatchData, tracking: event.target.value })} /><Button type="submit" variant="contained">Guardar despacho</Button></Box>}
+          <Box className="transaction-history"><Typography className="detail-section-title"><HistoryOutlinedIcon /> Historial de transacciones</Typography>{(selectedOrder.history || [{ date: selectedOrder.createdAt, status: 'Pedido creado' }]).map((event, index) => <Box key={index} className="history-item"><span>{event.date ? new Date(event.date).toLocaleString('es-CL') : selectedOrder.date.replace('\n', ' ')}</span><span>{event.status}</span></Box>)}</Box>
+          <Box className="detail-actions"><Button variant="outlined" startIcon={<ReceiptLongOutlinedIcon />} onClick={() => setReceiptOpen(true)}>Ver comprobante</Button>{admin && <Button variant="outlined" color="error" onClick={() => { setDeletingOrder(selectedOrder); setSelectedOrder(null); setDeleteOpen(true); }}>Eliminar pedido</Button>}</Box>
         </>
       </Box>}
 
@@ -240,16 +209,16 @@ export default function Orders() {
             {selectedOrder?.products.map((product) => (
               <Box className="receipt-line" key={product.name}>
                 <span>{product.name}</span>
-                <strong>{product.price}</strong>
+                <strong>{formatCLP(money(product.price))}</strong>
               </Box>
             ))}
             <Divider />
-            <Box className="receipt-total"><span>Total</span><strong>{selectedOrder?.total}</strong></Box>
+            <Box className="receipt-total"><span>Total</span><strong>{formatCLP(money(selectedOrder?.total))}</strong></Box>
           </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setReceiptOpen(false)} sx={{ textTransform: 'none', color: '#4b5563' }}>Cerrar</Button>
-          <Button variant="contained" onClick={() => generateReceiptPdf(selectedOrder)} sx={{ textTransform: 'none', backgroundColor: '#6430df', boxShadow: 'none' }}>
+          <Button variant="contained" onClick={() => exportReceipt(selectedOrder)} sx={{ textTransform: 'none', backgroundColor: 'primary.main', boxShadow: 'none' }}>
             Generar PDF
           </Button>
         </DialogActions>
@@ -262,21 +231,21 @@ export default function Orders() {
           </DialogTitle>
           <DialogContent>
             <Box className="order-form-grid">
-              <TextField required name="customer" label="Cliente" value={formData.customer} onChange={updateForm} error={Boolean(formErrors.customer)} helperText={formErrors.customer} InputLabelProps={{ shrink: true }} />
-              <TextField required name="email" label="Correo electrónico" type="email" value={formData.email} onChange={updateForm} error={Boolean(formErrors.email)} helperText={formErrors.email} InputLabelProps={{ shrink: true }} />
-              <TextField select name="store" label="Tienda vendedora" value={formData.store} onChange={updateForm} InputLabelProps={{ shrink: true }}>
+              <TextField required name="customer" label="Cliente" value={formData.customer} onChange={updateForm} error={Boolean(formErrors.customer)} helperText={formErrors.customer}   slotProps={{ inputLabel: { shrink: true } }}/>
+              <TextField required name="email" label="Correo electrónico" type="email" value={formData.email} onChange={updateForm} error={Boolean(formErrors.email)} helperText={formErrors.email}   slotProps={{ inputLabel: { shrink: true } }}/>
+              <TextField select name="store" label="Tienda vendedora" value={formData.store} onChange={updateForm}  slotProps={{ inputLabel: { shrink: true } }}>
                 <MenuItem value="Tienda Sur">Tienda Sur</MenuItem>
                 <MenuItem value="TechStore">TechStore</MenuItem>
                 <MenuItem value="HogarPlus">HogarPlus</MenuItem>
                 <MenuItem value="Moda Chile">Moda Chile</MenuItem>
               </TextField>
-              <TextField required name="total" label="Total" type="number" value={formData.total} onChange={updateForm} placeholder="0" inputProps={{ min: 0, inputMode: 'numeric' }} error={Boolean(formErrors.total)} helperText={formErrors.total} InputLabelProps={{ shrink: true }} />
-              <TextField select name="status" label="Estado" value={formData.status} onChange={updateForm} InputLabelProps={{ shrink: true }}>
-                {['En preparación', 'Entregado', 'Enviado', 'Recibido', 'Cancelado'].map((status) => (
+              <TextField required name="total" label="Total" type="number" value={formData.total} onChange={updateForm} placeholder="0"  error={Boolean(formErrors.total)} helperText={formErrors.total}   slotProps={{ htmlInput: { min: 0, inputMode: 'numeric' }, inputLabel: { shrink: true } }}/>
+              <TextField select name="status" label="Estado" value={formData.status} onChange={updateForm}  slotProps={{ inputLabel: { shrink: true } }}>
+                {(API_MODE ? ['En preparación', 'Enviado', 'En reparto', 'Entregado', 'Recibido'].filter((status, index, states) => index === states.indexOf(orders.find(order => order.id === selectedOrder?.id)?.status) || index === states.indexOf(orders.find(order => order.id === selectedOrder?.id)?.status) + 1) : ['En preparación', 'Entregado', 'Enviado', 'Recibido', 'Cancelado']).map((status) => (
                   <MenuItem key={status} value={status}>{status}</MenuItem>
                 ))}
               </TextField>
-              <TextField required name="address" label="Dirección de envío" value={formData.address} onChange={updateForm} multiline minRows={2} error={Boolean(formErrors.address)} helperText={formErrors.address} InputLabelProps={{ shrink: true }} />
+              <TextField required name="address" label="Dirección de envío" value={formData.address} onChange={updateForm} multiline minRows={2} error={Boolean(formErrors.address)} helperText={formErrors.address}   slotProps={{ inputLabel: { shrink: true } }}/>
             </Box>
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2.5 }}>
@@ -288,9 +257,9 @@ export default function Orders() {
               variant="contained"
               sx={{
                 textTransform: 'none',
-                backgroundColor: '#6430df',
+                backgroundColor: 'primary.main',
                 '&:hover': {
-                  backgroundColor: '#5324c4',
+                  backgroundColor: 'primary.dark',
                 },
                 fontWeight: 700,
                 boxShadow: 'none',

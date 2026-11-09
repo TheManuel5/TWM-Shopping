@@ -1,3 +1,5 @@
+import { formatCLP } from '../../utils/taxonomyData'
+import { money } from '../../data/commerce'
 import {
   Chip,
   IconButton,
@@ -62,7 +64,7 @@ export default function OrdersTable({ orders, selectedId, onSelect, onEdit, onDe
                   {order.products.length > 2 && <span className="product-more">+{order.products.length - 2}</span>}
                 </div>
               </TableCell>
-              <TableCell className="order-total">{order.total}</TableCell>
+              <TableCell className="order-total">{formatCLP(money(order.total))}</TableCell>
               <TableCell>
                 <Chip
                   label={order.status}
@@ -75,7 +77,7 @@ export default function OrdersTable({ orders, selectedId, onSelect, onEdit, onDe
                 />
               </TableCell>
               <TableCell align="right" className="order-actions">
-                <Tooltip title="Editar pedido">
+                {onEdit && <Tooltip title="Editar pedido">
                   <IconButton
                     size="small"
                     aria-label={`Editar pedido ${order.id}`}
@@ -86,8 +88,8 @@ export default function OrdersTable({ orders, selectedId, onSelect, onEdit, onDe
                   >
                     <EditOutlinedIcon fontSize="small" />
                   </IconButton>
-                </Tooltip>
-                <Tooltip title="Eliminar pedido">
+                </Tooltip>}
+                {onDelete && <Tooltip title="Eliminar pedido">
                   <IconButton
                     size="small"
                     color="error"
@@ -99,7 +101,7 @@ export default function OrdersTable({ orders, selectedId, onSelect, onEdit, onDe
                   >
                     <DeleteOutlineIcon fontSize="small" />
                   </IconButton>
-                </Tooltip>
+                </Tooltip>}
               </TableCell>
             </TableRow>
           ))}

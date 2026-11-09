@@ -1,3 +1,4 @@
+import ReferenceBadge from '../../../components/atoms/ReferenceBadge'
 import {
   Favorite,
   FavoriteBorderOutlined,
@@ -68,6 +69,7 @@ export default function ProductCard({
           }}
         />
 
+        <ReferenceBadge image={product.image} />
         {product.discount && (
           <Chip
             label={`-${product.discount}%`}
@@ -135,7 +137,7 @@ export default function ProductCard({
 
       {/* Vendedor si aplica */}
       {product.seller && (
-        <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 0.75, color: 'text.secondary' }}>
+        <Stack direction="row"  spacing={0.5} sx={[{ alignItems: "center" }, { mb: 0.75, color: 'text.secondary' }]}>
           <StorefrontOutlined sx={{ fontSize: 14 }} />
           <Typography variant="caption" noWrap>
             {product.seller}
@@ -144,7 +146,7 @@ export default function ProductCard({
       )}
 
       {/* Calificaciones */}
-      <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 1 }}>
+      <Stack direction="row"  spacing={0.5} sx={[{ alignItems: "center" }, { mb: 1 }]}>
         <Star sx={{ fontSize: 15, color: '#f59e0b' }} />
         <Typography variant="caption" sx={{ fontWeight: 800, color: '#030c2e' }}>
           {product.rating}
@@ -171,7 +173,7 @@ export default function ProductCard({
           </Typography>
         )}
 
-        <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Stack direction="row"   sx={{ justifyContent: "space-between", alignItems: "center" }}>
           <Typography
             variant="h6"
             sx={{
@@ -209,7 +211,7 @@ export default function ProductCard({
         </Stack>
 
         {/* Etiqueta de despacho */}
-        <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mt: 1 }}>
+        <Stack direction="row"  spacing={0.5} sx={[{ alignItems: "center" }, { mt: 1 }]}>
           <Box
             sx={{
               display: 'inline-flex',
@@ -223,11 +225,11 @@ export default function ProductCard({
           >
             <LocalShippingOutlined sx={{ fontSize: 13, color: '#475569' }} />
             <Typography variant="caption" sx={{ fontSize: '0.7rem', fontWeight: 600, color: '#475569' }}>
-              {product.shippingText || 'Envío a todo Chile'}
+              {product.shippingText || 'Consultar despacho'}
             </Typography>
           </Box>
         </Stack>
       </Box>
     </Card>
   )
-}
+}

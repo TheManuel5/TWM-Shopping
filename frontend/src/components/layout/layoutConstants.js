@@ -1,7 +1,7 @@
-export const desktopHeaderHeight = 112
-export const mobileHeaderHeight = 112
+export const desktopHeaderHeight = 64
+export const mobileHeaderHeight = 124
 
 export const headerOffset = {
-  xs: `${mobileHeaderHeight}px`,
-  md: `${desktopHeaderHeight}px`,
+  xs: `var(--shopping-header-height, ${mobileHeaderHeight}px)`,
+  md: `var(--shopping-header-height, ${desktopHeaderHeight}px)`,
 }

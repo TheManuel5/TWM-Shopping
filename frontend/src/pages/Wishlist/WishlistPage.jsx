@@ -1,3 +1,7 @@
+import ReferenceBadge from '../../components/atoms/ReferenceBadge'
+import { notify } from '../../utils/feedback'
+import useCollection from '../../hooks/useCollection'
+import { addToCart, requestQuote, catalogSeed, asItem } from '../../data/catalog'
 import {
   BuildOutlined,
   DescriptionOutlined,
@@ -23,29 +27,18 @@ import {
 } from '@mui/material'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import applianceImage from '../../assets/products/appliance.jpg'
-import chairImage from '../../assets/products/chair.jpg'
-import fashionImage from '../../assets/products/fashion.jpg'
-import laptopImage from '../../assets/products/laptop.jpg'
-import phoneImage from '../../assets/products/phone.jpg'
-import shoeImage from '../../assets/products/shoe.jpg'
 import StatusChip from '../../components/atoms/StatusChip/StatusChip'
 import { formatCLP } from '../../utils/taxonomyData'
-
-const INITIAL_WISHLIST = [
-  { id: 1, type: 'producto', name: 'Cafetera Espresso Oster PrimaLatte', seller: 'HogarPlus', rating: '4,8', reviews: 1234, price: 129990, oldPrice: 159990, status: 'Oferta', offerNote: 'Oferta válida hasta el 30 de oct. 2026', stock: 5, image: applianceImage },
-  { id: 2, type: 'producto', name: 'Freidora de aire Ursus Trotter 5,5 L', seller: 'HogarPlus', rating: '4,7', reviews: 856, price: 79990, oldPrice: 99990, status: 'Oferta', offerNote: 'Oferta válida hasta el 30 de oct. 2026', stock: 9, image: chairImage },
-  { id: 3, type: 'producto', name: 'Consola Nintendo Switch OLED', seller: 'TecnoStore', rating: '4,9', reviews: 2341, price: 349990, oldPrice: null, status: null, offerNote: null, stock: 4, image: phoneImage },
-  { id: 4, type: 'producto', name: 'Notebook Lenovo IdeaPad 3 15,6"', seller: 'TecnoStore', rating: '4,6', reviews: 892, price: 499990, oldPrice: null, status: 'Sin stock', offerNote: null, stock: 0, image: laptopImage },
-  { id: 5, type: 'producto', name: 'Audífonos Sony WH-CH520', seller: 'TecnoStore', rating: '4,8', reviews: 1567, price: 39990, oldPrice: null, status: 'Oferta finalizada', offerNote: 'La oferta terminó el 15 de sep. 2026 (Precio oficial restaurado)', stock: 7, image: fashionImage },
-  { id: 6, type: 'producto', name: 'Zapatillas Adidas Grand Court', seller: 'ModaChile', rating: '4,7', reviews: 1123, price: 59990, oldPrice: 69990, status: 'Oferta', offerNote: 'Oferta válida hasta el 30 de oct. 2026', stock: 11, image: shoeImage },
-]
 
 export default function WishlistPage() {
   const navigate = useNavigate()
   const [tab, setTab] = useState('producto')
-  const [items, setItems] = useState(INITIAL_WISHLIST)
-  const [selectedIds, setSelectedIds] = useState([1, 2])
+  const [savedItems, setItems] = useCollection('wishlist', [])
+  const [catalog] = useCollection('catalog', catalogSeed)
+  const items = savedItems.map(saved => catalog.find(product => product.id === saved.id)).filter(product => product && product.estado !== 'Borrador').map(asItem)
+  const [category, setCategory] = useState('Todas')
+  const [sort, setSort] = useState('recientes')
+  const [selectedIds, setSelectedIds] = useState([])
   const [sellerFilter, setSellerFilter] = useState('Todos')
 
   const handleToggleSelect = (id) => {
@@ -59,8 +52,8 @@ export default function WishlistPage() {
   }
 
   const visibleItems = items.filter(
-    (it) => sellerFilter === 'Todos' || it.seller === sellerFilter,
-  )
+    (it) => it.type?.toLowerCase() === tab && (sellerFilter === 'Todos' || it.seller === sellerFilter) && (category === 'Todas' || it.category === category),
+  ).sort((a, b) => sort === 'menor' ? a.price - b.price : sort === 'mayor' ? b.price - a.price : 0)
 
   return (
     <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
@@ -68,23 +61,23 @@ export default function WishlistPage() {
         Mis favoritos
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
-        Guarda tus productos y servicios favoritos para encontrarlos o cotizarlos fácilmente (RF25).
+        Guarda tus productos y servicios favoritos para encontrarlos o cotizarlos fácilmente.
       </Typography>
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2.5, borderBottom: '1px solid', borderColor: 'divider' }}>
-        <Tab value="producto" icon={<ShoppingCartOutlined fontSize="small" />} iconPosition="start" label={`Productos (${items.length})`} />
-        <Tab value="servicio" icon={<BuildOutlined fontSize="small" />} iconPosition="start" label="Servicios (3)" />
+        <Tab value="producto" icon={<ShoppingCartOutlined fontSize="small" />} iconPosition="start" label={`Productos (${items.filter(item => item.type === 'Producto').length})`} />
+        <Tab value="servicio" icon={<BuildOutlined fontSize="small" />} iconPosition="start" label={`Servicios (${items.filter(item => item.type === 'Servicio').length})`} />
       </Tabs>
 
       {/* Filtros de Favoritos (P11) */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={4}>
+        <Grid size={{ xs: 12, sm: 4 }}>
           <Typography variant="caption" color="text.secondary">Categoría</Typography>
-          <Select fullWidth size="small" value="Todas" sx={{ bgcolor: 'background.paper', mt: 0.5 }}>
-            <MenuItem value="Todas">Todas las categorías</MenuItem>
+          <Select fullWidth size="small" value={category} onChange={event => setCategory(event.target.value)} sx={{ bgcolor: 'background.paper', mt: 0.5 }}>
+            <MenuItem value="Todas">Todas las categorías</MenuItem>{[...new Set(items.map(item => item.category))].map(value => <MenuItem key={value} value={value}>{value}</MenuItem>)}
           </Select>
         </Grid>
-        <Grid item xs={12} sm={4}>
+        <Grid size={{ xs: 12, sm: 4 }}>
           <Typography variant="caption" color="text.secondary">Vendedor</Typography>
           <Select
             fullWidth
@@ -94,26 +87,25 @@ export default function WishlistPage() {
             sx={{ bgcolor: 'background.paper', mt: 0.5 }}
           >
             <MenuItem value="Todos">Todos los vendedores</MenuItem>
-            <MenuItem value="HogarPlus">HogarPlus</MenuItem>
-            <MenuItem value="TecnoStore">TecnoStore</MenuItem>
-            <MenuItem value="ModaChile">ModaChile</MenuItem>
+            {[...new Set(items.map(item => item.seller))].map(seller => <MenuItem key={seller} value={seller}>{seller}</MenuItem>)}
           </Select>
         </Grid>
-        <Grid item xs={12} sm={4}>
+        <Grid size={{ xs: 12, sm: 4 }}>
           <Typography variant="caption" color="text.secondary">Ordenar por</Typography>
-          <Select fullWidth size="small" value="recientes" sx={{ bgcolor: 'background.paper', mt: 0.5 }}>
-            <MenuItem value="recientes">Más recientes</MenuItem>
+          <Select fullWidth size="small" value={sort} onChange={event => setSort(event.target.value)} sx={{ bgcolor: 'background.paper', mt: 0.5 }}>
+            <MenuItem value="recientes">Más recientes</MenuItem><MenuItem value="menor">Menor precio</MenuItem><MenuItem value="mayor">Mayor precio</MenuItem>
           </Select>
         </Grid>
       </Grid>
 
+      {!visibleItems.length && <Paper variant="outlined" sx={{ p: { xs: 3, md: 5 }, mb: 3, borderRadius: 3, textAlign: 'center' }}><Box sx={{ width: 64, height: 64, borderRadius: '50%', bgcolor: 'secondary.light', display: 'grid', placeItems: 'center', mx: 'auto', mb: 2 }}><FavoriteBorderOutlined color="primary" sx={{ fontSize: 30 }} /></Box><Typography variant="h6">Tus próximos favoritos están por descubrir</Typography><Typography color="text.secondary" variant="body2" sx={{ mt: 1, mb: 2.5 }}>Toca el corazón de un producto o servicio para guardarlo aquí.</Typography><Button variant="contained" onClick={() => navigate('/catalogo')}>Explorar catálogo</Button></Paper>}
       {/* Grilla de Favoritos (P11) */}
       <Grid container spacing={2.5}>
         {visibleItems.map((item) => {
           const isSelected = selectedIds.includes(item.id)
           const outOfStock = item.stock === 0
           return (
-            <Grid item xs={12} sm={6} lg={4} key={item.id}>
+            <Grid key={item.id} size={{ xs: 12, sm: 6, lg: 4 }}>
               <Card
                 sx={{
                   p: 2,
@@ -123,7 +115,7 @@ export default function WishlistPage() {
                   border: isSelected ? '2px solid #602ff7' : '1px solid #e5e7f0',
                 }}
               >
-                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+                <Stack direction="row"   sx={[{ justifyContent: "space-between", alignItems: "center" }, { mb: 1 }]}>
                   <Checkbox
                     checked={isSelected}
                     disabled={outOfStock}
@@ -146,6 +138,7 @@ export default function WishlistPage() {
                       opacity: outOfStock ? 0.45 : 1,
                     }}
                   />
+                  <ReferenceBadge image={item.image} />
                   {outOfStock && (
                     <StatusChip
                       status="Sin stock"
@@ -158,7 +151,7 @@ export default function WishlistPage() {
                   {item.name}
                 </Typography>
 
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                <Stack direction="row" spacing={1}  sx={[{ alignItems: "center" }, { mb: 1 }]}>
                   <StorefrontOutlined sx={{ fontSize: 15, color: 'text.secondary' }} />
                   <Typography variant="caption" color="text.secondary">{item.seller}</Typography>
                   <StarBorderOutlined sx={{ fontSize: 15, color: '#f59e0b' }} />
@@ -166,7 +159,7 @@ export default function WishlistPage() {
                   <Typography variant="caption" color="text.secondary">({item.reviews})</Typography>
                 </Stack>
 
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+                <Stack direction="row" spacing={1}  sx={[{ alignItems: "center" }, { mb: 0.5 }]}>
                   <Typography variant="h6" sx={{ fontWeight: 900 }}>
                     {formatCLP(item.price)}
                   </Typography>
@@ -189,7 +182,7 @@ export default function WishlistPage() {
                   fullWidth
                   disabled={outOfStock}
                   startIcon={<ShoppingCartOutlined />}
-                  onClick={() => navigate('/carrito')}
+                  onClick={() => { try { addToCart(item); navigate('/carrito') } catch (error) { notify(error.message) } }}
                   sx={{ mt: 'auto' }}
                 >
                   {outOfStock ? 'Sin stock' : 'Agregar al carrito'}
@@ -222,15 +215,15 @@ export default function WishlistPage() {
               {selectedIds.length} productos seleccionados
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              Productos de un mismo vendedor (HogarPlus) listos para cotizar
+              Selecciona artículos de un mismo vendedor para cotizar
             </Typography>
           </Box>
 
-          <Stack direction="row" spacing={2} alignItems="center">
+          <Stack direction="row" spacing={2}  sx={{ alignItems: "center" }}>
             <Button
               variant="contained"
               startIcon={<DescriptionOutlined />}
-              onClick={() => navigate('/cotizaciones')}
+              onClick={() => { try { requestQuote(items.filter(item => selectedIds.includes(item.id))); navigate('/cotizaciones') } catch (error) { notify(error.message) } }}
             >
               Solicitar cotización
             </Button>

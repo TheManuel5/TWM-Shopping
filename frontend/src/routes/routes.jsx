@@ -48,17 +48,17 @@ export default function AppRoutes() {
           <Route path="/producto/:id" element={<ProductDetailPage />} />
           <Route path="/servicio/:id" element={<ServiceDetailPage />} />
           <Route path="/carrito" element={<CartPage />} />
-          <Route path="/checkout" element={<CheckoutPage />} />
-          <Route path="/pedido/:id" element={<OrderTrackingPage />} />
 
           {/* Panel Mi Cuenta (Cliente P08 - P14) */}
           <Route path="/favoritos" element={<WishlistPage />} />
-          <Route path="/mensajes" element={<MessagesPage />} />
-          <Route path="/cotizaciones" element={<QuotesPage />} />
-          <Route path="/mis-compras" element={<OrdersReturnsPage />} />
 
           {/* Rutas Protegidas y Paneles de Gestión / Administración (P15 - P22) */}
           <Route element={<ProtectedRoute />}>
+            <Route path="/mis-compras" element={<OrdersReturnsPage />} />
+            <Route path="/cotizaciones" element={<QuotesPage />} />
+            <Route path="/mensajes" element={<MessagesPage />} />
+            <Route path="/pedido/:id" element={<OrderTrackingPage />} />
+            <Route path="/checkout" element={<CheckoutPage />} />
             <Route path="/perfil" element={<UserProfile />} />
             <Route path="/configuracion" element={<Settings />} />
 
@@ -67,6 +67,7 @@ export default function AppRoutes() {
             <Route path="/crud-2" element={<ProductsPage />} />
 
             {/* Vistas del Emprendedor / Vendedor (P15, P16, P17, P21, P22) */}
+            <Route path="/vendedor/empresa" element={<ManageCompaniesPage />} />
             <Route path="/vendedor/dashboard" element={<SellerDashboardPage />} />
             <Route path="/vendedor/publicar-producto" element={<PublishProductPage />} />
             <Route path="/vendedor/publicar-servicio" element={<PublishServicePage />} />

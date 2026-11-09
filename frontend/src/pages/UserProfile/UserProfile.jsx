@@ -1,3 +1,10 @@
+import { flushPersistence } from '../../data/localStore'
+import { API_MODE } from '../../services/api'
+import useCollection from '../../hooks/useCollection'
+import useAuth from '../../contexts/AuthContext/useAuth'
+import { logEvent, readCollection, writeCollection } from '../../data/localStore'
+import { notify } from '../../utils/feedback'
+import { emailPattern, phonePattern } from '../../utils/validation'
 import {
   AccountCircleOutlined,
   AddOutlined,
@@ -25,8 +32,6 @@ import {
   Snackbar,
   Stack,
   TextField,
-  ToggleButton,
-  ToggleButtonGroup,
   Tooltip,
   Typography,
 } from '@mui/material'
@@ -90,7 +95,7 @@ const emptyAddress = {
 
 function SectionHeading({ icon, title, description, sx }) {
   return (
-    <Stack direction="row" spacing={1.5} alignItems="flex-start" sx={sx}>
+    <Stack direction="row" spacing={1.5}  sx={[{ alignItems: "flex-start" }, sx]}>
       <Box
         sx={{
           display: 'grid',
@@ -123,9 +128,12 @@ function SectionHeading({ icon, title, description, sx }) {
 }
 
 export default function UserProfile() {
-  const [profile, setProfile] = useState(initialProfile)
-  const [addresses, setAddresses] = useState(initialAddresses)
-  const [activeRole, setActiveRole] = useState('comprar')
+  const { user, updateProfile } = useAuth()
+  const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+  const born = user.fechaNacimiento?.split('-')
+  const [savedProfile, setSavedProfile] = useCollection('profile:' + user.rut, { ...initialProfile, fullName: user.nombre, rut: user.rut, email: user.email, ...(born ? { birthDay: String(Number(born[2])), birthMonth: months[Number(born[1]) - 1], birthYear: born[0] } : {}), phones: [{ id: 1, number: user.telefono || '', label: 'Principal' }] })
+  const [profile, setProfile] = useState(savedProfile)
+  const [addresses, setAddresses] = useCollection('addresses:' + user.rut, initialAddresses.map((address, index) => index === 0 ? { ...address, street: user.direccion || address.street } : address))
   const [addressDialogOpen, setAddressDialogOpen] = useState(false)
   const [addressDraft, setAddressDraft] = useState(emptyAddress)
   const [editingAddressId, setEditingAddressId] = useState(null)
@@ -161,6 +169,7 @@ export default function UserProfile() {
   }
 
   const removePhone = (phoneId) => {
+    if (profile.phones.length <= 1) { notify('Debes conservar al menos un teléfono.', 'warning'); return }
     setProfile((currentProfile) => ({
       ...currentProfile,
       phones: currentProfile.phones.filter((phone) => phone.id !== phoneId),
@@ -180,6 +189,7 @@ export default function UserProfile() {
   }
 
   const saveAddress = () => {
+    if (['name', 'region', 'province', 'commune', 'street', 'number'].some(field => !String(addressDraft[field]).trim())) { notify('Completa todos los campos obligatorios de la dirección.', 'error'); return }
     const mustRemainPrimary =
       editingAddressId &&
       !addressDraft.primary &&
@@ -205,7 +215,7 @@ export default function UserProfile() {
         savedAddress,
       ].sort((firstAddress, secondAddress) => firstAddress.id - secondAddress.id)
     })
-    console.log(
+    logEvent(
       editingAddressId ? 'Dirección actualizada:' : 'Dirección agregada:',
       savedAddress,
     )
@@ -223,6 +233,7 @@ export default function UserProfile() {
 
   const deleteAddress = () => {
     if (!addressToDelete) return
+    if (addresses.length <= 1) { notify('Debes conservar al menos una dirección de despacho.', 'warning'); setAddressToDelete(null); return }
 
     setAddresses((currentAddresses) => {
       const remainingAddresses = currentAddresses.filter(
@@ -238,15 +249,24 @@ export default function UserProfile() {
 
       return remainingAddresses
     })
-    console.log('Dirección eliminada:', addressToDelete)
+    logEvent('Dirección eliminada:', addressToDelete)
     setAddressToDelete(null)
   }
 
-  const handleSaveProfile = (event) => {
+  const handleSaveProfile = async (event) => {
     event.preventDefault()
-    console.log('Información personal actualizada:', {
+    if (profile.fullName.trim().length < 3 || !emailPattern.test(profile.email) || !profile.phones.length || profile.phones.some(phone => !phonePattern.test(phone.number)) || new Set(profile.phones.map(phone => phone.number.replace(/\D/g, ''))).size !== profile.phones.length) { notify('Revisa nombre, correo y teléfonos. Los teléfonos deben ser válidos y no repetirse.', 'error'); return }
+    const birthday = `${profile.birthYear}-${String(months.indexOf(profile.birthMonth) + 1).padStart(2, '0')}-${String(profile.birthDay).padStart(2, '0')}`
+    const date = new Date(birthday)
+    if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== birthday || date > new Date() || Number(profile.birthYear) < 1900) { notify('La fecha de nacimiento no es válida.', 'error'); return }
+    const accounts = readCollection('accounts', [])
+    if (accounts.some(account => account.rut !== user.rut && (account.email.toLowerCase() === profile.email.trim().toLowerCase() || profile.phones.some(phone => phone.number.replace(/\D/g, '') === account.telefono.replace(/\D/g, ''))))) { notify('El correo o teléfono ya pertenece a otra cuenta.', 'error'); return }
+    setSavedProfile(profile)
+    if (API_MODE) { try { await flushPersistence() } catch (error) { notify(error.message, 'error'); return } }
+    updateProfile({ nombre: profile.fullName.trim(), email: profile.email.trim(), fechaNacimiento: birthday })
+    if (!API_MODE) writeCollection('accounts', accounts => accounts.map(account => account.rut === user.rut ? { ...account, nombre: profile.fullName.trim(), email: profile.email.trim(), fechaNacimiento: birthday } : account))
+    logEvent('Información personal actualizada:', {
       ...profile,
-      activeRole,
     })
     setNotificationOpen(true)
   }
@@ -285,33 +305,7 @@ export default function UserProfile() {
             </Typography>
           </Box>
 
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: { xs: 'flex-start', md: 'flex-end' },
-              textAlign: { xs: 'left', md: 'right' },
-            }}
-          >
-            <ToggleButtonGroup
-              value={activeRole}
-              exclusive
-              onChange={(_, nextRole) => nextRole && setActiveRole(nextRole)}
-              size="small"
-              color="primary"
-              aria-label="rol activo"
-            >
-              <ToggleButton value="comprar">Comprar</ToggleButton>
-              <ToggleButton value="vender">Vender</ToggleButton>
-            </ToggleButtonGroup>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ mt: 0.75, display: 'block' }}
-            >
-              Puedes cambiar de rol en cualquier momento.
-            </Typography>
-          </Box>
+
         </Box>
 
       <Box
@@ -361,7 +355,7 @@ export default function UserProfile() {
             </Tooltip>
 
             <Box sx={{ gridColumn: { sm: '1 / -1' } }}>
-              <Typography variant="body2" fontWeight={700} sx={{ mb: 1 }}>
+              <Typography variant="body2"  sx={[{ fontWeight: 700 }, { mb: 1 }]}>
                 Fecha de nacimiento
               </Typography>
               <Box
@@ -402,8 +396,8 @@ export default function UserProfile() {
                   label="Año"
                   value={profile.birthYear}
                   onChange={(event) => updateProfileField('birthYear', event.target.value)}
-                  inputProps={{ inputMode: 'numeric', maxLength: 4 }}
-                />
+
+                 slotProps={{ htmlInput: { inputMode: 'numeric', maxLength: 4 } }}/>
               </Box>
             </Box>
 
@@ -419,18 +413,18 @@ export default function UserProfile() {
           </Box>
 
           <Box sx={{ mt: 2.5 }}>
-            <Typography variant="body2" fontWeight={700} sx={{ mb: 1 }}>
+            <Typography variant="body2"  sx={[{ fontWeight: 700 }, { mb: 1 }]}>
               Teléfonos
             </Typography>
             <Stack spacing={1.25}>
               {profile.phones.map((phone) => (
-                <Stack key={phone.id} direction="row" spacing={1} alignItems="center">
+                <Stack key={phone.id} direction="row" spacing={1}  sx={{ alignItems: "center" }}>
                   <TextField
                     fullWidth
                     size="small"
                     value={phone.number}
                     onChange={(event) => updatePhone(phone.id, event.target.value)}
-                    slotProps={{
+                    slotProps={{ ...({
                       input: {
                         endAdornment: (
                           <Chip
@@ -441,8 +435,8 @@ export default function UserProfile() {
                           />
                         ),
                       },
-                    }}
-                    inputProps={{ 'aria-label': phone.label }}
+                    }), htmlInput: { 'aria-label': phone.label } }}
+
                   />
                   <IconButton
                     color="error"
@@ -504,7 +498,7 @@ export default function UserProfile() {
               <AddressCard
                 key={address.id}
                 address={address}
-                deleteDisabled={addresses.length === 1}
+                deleteDisabled={API_MODE || addresses.length === 1}
                 onDelete={() => setAddressToDelete(address)}
                 onEdit={() => openEditAddressDialog(address)}
                 onSetPrimary={() => setPrimaryAddress(address.id)}

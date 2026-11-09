@@ -1,3 +1,5 @@
+import useCollection from '../../hooks/useCollection'
+import { dateKey } from '../../utils/dates'
 import {
   BadgeOutlined,
   EmailOutlined,
@@ -12,12 +14,14 @@ import {
   VisibilityOff,
 } from '@mui/icons-material'
 import {
+  Alert,
   Box,
   Button,
   IconButton,
   InputAdornment,
   Link,
   Paper,
+  MenuItem,
   TextField,
   ToggleButton,
   ToggleButtonGroup,
@@ -26,6 +30,8 @@ import {
 import { useState } from 'react'
 import { Link as RouterLink, useNavigate } from 'react-router-dom'
 import AuthPageShell from '../../components/auth/AuthPageShell'
+
+import { registerLocal } from '../../services/demoAuth'
 
 const fieldStyles = {
   '& .MuiOutlinedInput-root': {
@@ -117,10 +123,11 @@ function validateRegisterForm(values) {
 
   if (!values.password.trim()) {
     errors.password = 'La contrasena es obligatoria.'
-  } else if (values.password.length < 6) {
-    errors.password = 'Debe tener al menos 6 caracteres.'
+  } else if (values.password.length < 8) {
+    errors.password = 'Debe tener al menos 8 caracteres.'
   }
 
+  if (!values.fechaNacimiento || new Date(values.fechaNacimiento) > new Date()) errors.fechaNacimiento = 'Ingresa una fecha de nacimiento válida.'
   return errors
 }
 
@@ -139,6 +146,11 @@ function RegisterField({ children, htmlFor }) {
 
 export default function Register() {
   const navigate = useNavigate()
+  const [geography] = useCollection('geography', { regions: [], provinces: [], communes: [] })
+  const [regionId, setRegionId] = useState('')
+  const [provinceId, setProvinceId] = useState('')
+  const [communeId, setCommuneId] = useState('')
+  const [streetNumber, setStreetNumber] = useState('')
   const [formData, setFormData] = useState({
     nombre: '',
     rut: '',
@@ -146,9 +158,12 @@ export default function Register() {
     telefono: '',
     direccion: '',
     password: '',
+    fechaNacimiento: '',
     rol: 'cliente',
   })
   const [touchedFields, setTouchedFields] = useState({})
+  const [errorMsg, setErrorMsg] = useState('')
+  const [busy, setBusy] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const errors = validateRegisterForm(formData)
@@ -167,7 +182,7 @@ export default function Register() {
     setTouchedFields((currentFields) => ({ ...currentFields, [name]: true }))
   }
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault()
     setSubmitted(true)
     setTouchedFields({
@@ -184,8 +199,13 @@ export default function Register() {
       return
     }
 
-    console.log('Datos de Registro capturados:', formData)
-    navigate('/register-success', { replace: true })
+    setBusy(true)
+    setErrorMsg('')
+    try {
+      await registerLocal({ ...formData, address: { street: formData.direccion, number: Number(streetNumber), communeId: Number(communeId) } })
+      navigate('/register-success', { replace: true })
+    } catch (error) { setErrorMsg(error.message) }
+    finally { setBusy(false) }
   }
 
   return (
@@ -242,6 +262,7 @@ export default function Register() {
           Completa tus datos para registrarte.
         </Typography>
 
+        {errorMsg && <Alert severity="error" sx={{ mb: 2 }}>{errorMsg}</Alert>}
         <Box sx={{ mb: 1.5 }}>
           <Typography
             variant="caption"
@@ -474,7 +495,13 @@ export default function Register() {
             />
           </Box>
 
+          <TextField required fullWidth label="Fecha de nacimiento" type="date" name="fechaNacimiento" value={formData.fechaNacimiento} onChange={handleChange} error={submitted && Boolean(errors.fechaNacimiento)} helperText={submitted && errors.fechaNacimiento} slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: dateKey() } }} />
+          <TextField required select label="Región de despacho" value={regionId} onChange={event => { setRegionId(event.target.value); setProvinceId(''); setCommuneId('') }}>{geography.regions.map(region => <MenuItem key={region.id} value={region.id}>{region.nombre}</MenuItem>)}</TextField>
+          <TextField required select label="Provincia de despacho" value={provinceId} onChange={event => { setProvinceId(event.target.value); setCommuneId('') }}>{geography.provinces.filter(province => province.id_region === regionId).map(province => <MenuItem key={province.id} value={province.id}>{province.nombre}</MenuItem>)}</TextField>
+          <TextField required select label="Comuna de despacho" value={communeId} onChange={event => setCommuneId(event.target.value)}>{geography.communes.filter(commune => commune.id_provincia === provinceId).map(commune => <MenuItem key={commune.id} value={commune.id}>{commune.nombre}</MenuItem>)}</TextField>
+          <TextField required label="Número de la dirección" type="number" value={streetNumber} onChange={event => setStreetNumber(event.target.value)} slotProps={{ htmlInput: { min: 1, step: 1 } }} />
           <Button
+            disabled={busy}
             type="submit"
             fullWidth
             variant="contained"

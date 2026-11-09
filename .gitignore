@@ -22,3 +22,30 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Configuración privada y archivos generados de .NET
+.env
+**/bin/
+**/obj/
+
+/backend/build-check/
+/backend/TWM.API/.keys/
+
+/backend/build-next/
+
+/.local-logs/
+/.local-processes.json
+/backend/test-results/
+
+/backend/.local-run/
+
+/.local-backups/
+/backend/.verification/
+
+/entrega/
+/frontend/test-results/
+/tmp/
+
+/backend/build-final/
+
+/Tarea Grupa N°02.pdf

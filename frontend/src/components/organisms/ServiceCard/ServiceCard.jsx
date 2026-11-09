@@ -1,3 +1,4 @@
+import ReferenceBadge from '../../atoms/ReferenceBadge'
 import { FavoriteBorderOutlined, LocationOnOutlined, StarBorderOutlined } from '@mui/icons-material'
 import { Box, Card, Chip, IconButton, Stack, Typography } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
@@ -39,8 +40,9 @@ export default function ServiceCard({ service, favorite = false, onToggleFavorit
           alt={service.name}
           sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
         />
+        <ReferenceBadge image={service.image} />
         <Chip
-          label={service.comuna || 'Osorno'}
+          label={service.comuna || 'Ubicación no registrada'}
           size="small"
           sx={{
             position: 'absolute',
@@ -74,7 +76,7 @@ export default function ServiceCard({ service, favorite = false, onToggleFavorit
       </Box>
 
       <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+        <Stack direction="row"   spacing={1} sx={{ justifyContent: "space-between", alignItems: "flex-start" }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 800 }} noWrap>
             {service.name}
           </Typography>
@@ -96,7 +98,7 @@ export default function ServiceCard({ service, favorite = false, onToggleFavorit
           {service.category}
         </Typography>
 
-        <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: service.price ? 1 : 0 }}>
+        <Stack direction="row"  spacing={0.5} sx={[{ alignItems: "center" }, { mb: service.price ? 1 : 0 }]}>
           <StarBorderOutlined sx={{ fontSize: 16, color: '#f59e0b' }} />
           <Typography variant="caption" sx={{ fontWeight: 800 }}>
             {service.rating}
@@ -107,15 +109,15 @@ export default function ServiceCard({ service, favorite = false, onToggleFavorit
         </Stack>
 
         {service.price && (
-          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 0.5 }}>
+          <Stack direction="row"   sx={[{ justifyContent: "space-between", alignItems: "center" }, { mt: 0.5 }]}>
             <Box>
               <Typography variant="subtitle1" sx={{ fontWeight: 900, lineHeight: 1.1 }}>
                 {formatCLP(service.price)}
               </Typography>
-              <Stack direction="row" alignItems="center" spacing={0.25}>
+              <Stack direction="row"  spacing={0.25} sx={{ alignItems: "center" }}>
                 <LocationOnOutlined sx={{ fontSize: 13, color: 'text.secondary' }} />
                 <Typography variant="caption" color="text.secondary">
-                  {service.comuna || 'Osorno'}
+                  {service.comuna || 'Ubicación no registrada'}
                 </Typography>
               </Stack>
             </Box>

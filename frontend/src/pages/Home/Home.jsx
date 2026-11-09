@@ -1,3 +1,6 @@
+import { notify } from '../../utils/feedback'
+import useCollection from '../../hooks/useCollection'
+import { catalogSeed, asItem, addToCart, toggleFavorite as saveFavorite } from '../../data/catalog'
 import {
   ArrowForward,
   CreditCardOutlined,
@@ -15,7 +18,6 @@ import {
   Stack,
   Typography,
 } from '@mui/material'
-import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 // Assets extraídos directamente de los frames oficiales de Figma (P07)
@@ -24,17 +26,8 @@ import catHogar from '../../assets/home/cat_hogar.png'
 import catModa from '../../assets/home/cat_moda.png'
 import catTecnologia from '../../assets/home/cat_tecnologia.png'
 import heroDevices from '../../assets/home/hero_devices.png'
-import prodAdidas from '../../assets/home/prod_adidas.png'
-import prodFreidora from '../../assets/home/prod_freidora.png'
-import prodIphone from '../../assets/home/prod_iphone.png'
-import prodLenovo from '../../assets/home/prod_lenovo.png'
-import prodSilla from '../../assets/home/prod_silla.png'
 
 // Assets de respaldo para servicios
-import chairImage from '../../assets/products/chair.jpg'
-import fashionImage from '../../assets/products/fashion.jpg'
-import laptopImage from '../../assets/products/laptop.jpg'
-import phoneImage from '../../assets/products/phone.jpg'
 
 import ServiceCard from '../../components/organisms/ServiceCard/ServiceCard'
 import ProductCard from './components/ProductCard'
@@ -42,8 +35,8 @@ import ProductCard from './components/ProductCard'
 // Beneficios laterales integrados en el Hero Banner (Figma P07)
 const heroSideBenefits = [
   {
-    title: 'Envíos rápidos',
-    detail: 'A todo el país',
+    title: 'Opciones de entrega',
+    detail: 'Consulta al vendedor',
     Icon: LocalShippingOutlined,
   },
   {
@@ -52,14 +45,14 @@ const heroSideBenefits = [
     Icon: VerifiedUserOutlined,
   },
   {
-    title: 'Hasta 12 cuotas',
-    detail: 'Sin interés con tarjetas bancarias',
+    title: 'Registro de compras',
+    detail: 'Consulta tus comprobantes',
     Icon: CreditCardOutlined,
   },
 ]
 
 // 4 Categorías Bento Cards destacadas (Figma P07)
-const bentoCategories = [
+const categoryStyles = [
   {
     tag: 'TECNOLOGÍA',
     title: 'Innovación para tu día a día',
@@ -136,122 +129,19 @@ const trustBenefits = [
 ]
 
 // 5 Productos Destacados exactos del frame de Figma (P07)
-const featuredProducts = [
-  {
-    id: 1,
-    name: "Notebook Lenovo IdeaPad 3 15.6' Ryzen 5 16GB 512GB SSD",
-    seller: 'Lenovo Store',
-    image: prodLenovo,
-    rating: '4.8',
-    reviews: 124,
-    previousPrice: '$529.990',
-    price: '$449.990',
-    discount: 15,
-    shippingText: 'Envío a todo Chile',
-  },
-  {
-    id: 2,
-    name: 'iPhone 15 128GB Negro',
-    seller: 'Apple Store',
-    image: prodIphone,
-    rating: '4.7',
-    reviews: 89,
-    previousPrice: '$849.990',
-    price: '$749.950',
-    discount: 12,
-    shippingText: 'Envío a todo Chile',
-  },
-  {
-    id: 3,
-    name: 'Freidora de aire Oster 5.5 litros',
-    seller: 'Oster Chile',
-    image: prodFreidora,
-    rating: '4.9',
-    reviews: 203,
-    previousPrice: '$99.990',
-    price: '$79.990',
-    discount: 20,
-    shippingText: 'Envío a todo Chile',
-  },
-  {
-    id: 4,
-    name: 'Zapatillas Adidas Grand Court Hombre',
-    seller: 'Adidas Sur',
-    image: prodAdidas,
-    rating: '4.8',
-    reviews: 167,
-    previousPrice: '$69.990',
-    price: '$54.990',
-    discount: 21,
-    shippingText: 'Envío a todo Chile',
-  },
-  {
-    id: 5,
-    name: 'Silla de escritorio ergonómica Mesh Pro',
-    seller: 'ErgoDesign',
-    image: prodSilla,
-    rating: '4.6',
-    reviews: 98,
-    previousPrice: '$119.990',
-    price: '$89.990',
-    discount: 25,
-    shippingText: 'Envío a todo Chile',
-  },
-]
-
-// Servicios locales preservados para compatibilidad funcional completa
-const localServices = [
-  {
-    id: 101,
-    name: 'Veterinaria Patitas Felices',
-    category: 'Salud y bienestar animal',
-    comuna: 'Osorno',
-    rating: '4.8',
-    reviews: 93,
-    image: fashionImage,
-    horizontal: true,
-  },
-  {
-    id: 102,
-    name: 'Servicio Técnico Austral',
-    category: 'Reparación de computadores',
-    comuna: 'Osorno',
-    rating: '4.7',
-    reviews: 120,
-    image: laptopImage,
-    horizontal: true,
-  },
-  {
-    id: 103,
-    name: 'Aseo Hogar del Sur',
-    category: 'Aseo y limpieza domiciliaria',
-    comuna: 'Osorno',
-    rating: '4.6',
-    reviews: 78,
-    image: chairImage,
-    horizontal: true,
-  },
-  {
-    id: 104,
-    name: 'Sur Media Producciones',
-    category: 'Fotografía, diseño y publicidad',
-    comuna: 'Osorno',
-    rating: '4.9',
-    reviews: 64,
-    image: phoneImage,
-    horizontal: true,
-  },
-]
 
 export default function Home() {
   const navigate = useNavigate()
   // Variables y hooks de estado estrictamente preservados
-  const [favorites, setFavorites] = useState([1])
-
-  const toggleFavorite = (id) => {
-    setFavorites((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]))
-  }
-
+  const [categoryTree] = useCollection('categories', { Productos: [], Servicios: [] })
+  const bentoCategories = categoryTree.Productos.slice(0, 4).map((category, index) => ({ ...categoryStyles[index], image: /vestuario|ropa|moda/i.test(category.name) ? catModa : /tecnolog|comput/i.test(category.name) ? catTecnologia : /hogar/i.test(category.name) ? catHogar : /deport/i.test(category.name) ? catDeportes : '/catalog/placeholder.svg', tag: category.name.toUpperCase(), title: category.name, categoryName: category.name }))
+  const [savedFavorites] = useCollection('wishlist', [])
+  const [catalog] = useCollection('catalog', catalogSeed)
+  const maxDiscount = Math.max(0, ...catalog.filter(p => p.estado !== 'Borrador').flatMap(p => (p.variantes || []).map(v => v.regularPrice > v.price ? Math.floor(100 * (1 - v.price / v.regularPrice)) : 0)))
+  const favorites = savedFavorites.map(item => item.id)
+  const visibleFeatured = catalog.filter(product => product.tipo !== 'Servicio' && product.estado !== 'Borrador' && product.stock > 0).slice(0, 5).map(raw => { const product = asItem(raw); return { ...product, price: new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(product.price), badge: '' } })
+  const localServices = catalog.filter(product => product.tipo === 'Servicio' && product.estado !== 'Borrador').slice(0, 4).map(product => ({ ...asItem(product), comuna: product.comuna || '', horizontal: true }))
+  const toggleFavorite = id => { const item = catalog.find(product => product.id === id); if (item) saveFavorite(asItem(item)) }
   return (
     <Box sx={{ width: '100%', maxWidth: 1440, mx: 'auto', pb: 6 }}>
       {/* =========================================================================
@@ -260,7 +150,7 @@ export default function Home() {
       <Box
         sx={{
           borderRadius: { xs: 4, md: 6 },
-          p: { xs: 3, sm: 4, md: 5 },
+          p: { xs: 3, sm: 4, md: 4 },
           background: 'linear-gradient(135deg, #740ffb 0%, #602ff7 45%, #4c11e0 100%)',
           boxShadow: '0 16px 40px rgba(96, 47, 247, 0.22)',
           color: '#ffffff',
@@ -289,7 +179,7 @@ export default function Home() {
             gridTemplateColumns: {
               xs: '1fr',
               md: '1.1fr 1.3fr',
-              lg: '1fr 1.25fr 0.85fr',
+              lg: '1.1fr 1.2fr 0.9fr',
             },
             gap: { xs: 3, md: 4 },
             alignItems: 'center',
@@ -303,7 +193,7 @@ export default function Home() {
               component="h1"
               sx={{
                 fontWeight: 900,
-                fontSize: { xs: '2.1rem', sm: '2.7rem', md: '3.1rem' },
+                fontSize: { xs: '2.1rem', sm: '2.7rem', md: '2.75rem' },
                 lineHeight: 1.06,
                 letterSpacing: '-0.03em',
                 color: '#ffffff',
@@ -326,9 +216,9 @@ export default function Home() {
                 mb: 3.5,
               }}
             >
-              Las mejores marcas, grandes descuentos y hasta{' '}
+              Explora productos y servicios de{' '}
               <Box component="strong" sx={{ fontWeight: 800, color: '#ffffff' }}>
-                12 cuotas sin interés
+                los vendedores del catálogo
               </Box>
               .
             </Typography>
@@ -410,13 +300,13 @@ export default function Home() {
               }}
             >
               <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: '#ffffff', letterSpacing: '0.5px' }}>
-                HASTA
+                {maxDiscount ? 'HASTA' : 'EXPLORA'}
               </Typography>
               <Typography sx={{ fontSize: '1.45rem', fontWeight: 900, color: '#ffffff', lineHeight: 1 }}>
-                50%
+                {maxDiscount ? `${maxDiscount}%` : 'TODO'}
               </Typography>
               <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: '#ffffff', letterSpacing: '0.5px' }}>
-                DCTO.
+                {maxDiscount ? 'DCTO.' : 'AQUÍ'}
               </Typography>
             </Box>
 
@@ -514,11 +404,11 @@ export default function Home() {
               bgcolor: cat.bg,
               border: `1px solid ${cat.borderColor}`,
               borderRadius: 4,
-              p: 2.75,
+              p: 2,
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
-              minHeight: 180,
+              minHeight: 155,
               position: 'relative',
               overflow: 'hidden',
               boxShadow: '0 4px 16px rgba(3, 12, 46, 0.03)',
@@ -611,7 +501,7 @@ export default function Home() {
           bgcolor: '#ffffff',
           borderRadius: 3.5,
           border: '1px solid #eef0f6',
-          p: { xs: 2.5, md: 3 },
+          p: { xs: 2, md: 2 },
           boxShadow: '0 4px 16px rgba(3, 12, 46, 0.03)',
           mb: 4.5,
         }}
@@ -633,15 +523,15 @@ export default function Home() {
             <Stack
               key={title}
               direction="row"
-              alignItems="center"
+
               spacing={1.75}
-              sx={{
+              sx={[{ alignItems: "center" }, {
                 position: 'relative',
                 ...(idx !== 0 && {
                   pl: { lg: 2.5 },
                   borderLeft: { lg: '1px solid #eef0f6' },
                 }),
-              }}
+              }]}
             >
               <Box
                 sx={{
@@ -673,9 +563,9 @@ export default function Home() {
       <Box sx={{ mb: 5 }}>
         <Stack
           direction="row"
-          justifyContent="space-between"
-          alignItems="center"
-          sx={{ mb: 2.5 }}
+
+
+          sx={[{ justifyContent: "space-between", alignItems: "center" }, { mb: 2.5 }]}
         >
           <Typography
             variant="h5"
@@ -720,13 +610,13 @@ export default function Home() {
             gap: 2.5,
           }}
         >
-          {featuredProducts.map((product) => (
+          {visibleFeatured.map((product) => (
             <ProductCard
               key={product.id}
               product={product}
               favorite={favorites.includes(product.id)}
               onToggleFavorite={toggleFavorite}
-              onAddToCart={() => navigate('/carrito')}
+              onAddToCart={() => { try { addToCart(asItem(catalog.find(item => item.id === product.id))); navigate('/carrito') } catch (error) { notify(error.message) } }}
             />
           ))}
         </Box>
@@ -738,9 +628,9 @@ export default function Home() {
       <Box sx={{ mt: 2 }}>
         <Stack
           direction="row"
-          justifyContent="space-between"
-          alignItems="center"
-          sx={{ mb: 2.5 }}
+
+
+          sx={[{ justifyContent: "space-between", alignItems: "center" }, { mb: 2.5 }]}
         >
           <Box>
             <Typography
@@ -755,7 +645,7 @@ export default function Home() {
               Servicios cerca de ti
             </Typography>
             <Typography variant="body2" sx={{ color: '#626680', mt: 0.25 }}>
-              Encuentra profesionales y servicios verificados en tu zona
+              Consulta los servicios y las ubicaciones registradas por sus vendedores
             </Typography>
           </Box>
 

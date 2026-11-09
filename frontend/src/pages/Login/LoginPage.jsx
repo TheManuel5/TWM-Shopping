@@ -9,7 +9,7 @@ import {
   Box,
   Button,
   Checkbox,
-  CircularProgress,
+  Skeleton,
   FormControlLabel,
   IconButton,
   InputAdornment,
@@ -23,7 +23,8 @@ import { useState } from 'react'
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom'
 import AuthPageShell from '../../components/auth/AuthPageShell'
 import useAuth from '../../contexts/AuthContext/useAuth'
-import { fetchApi } from '../../services/api' 
+import { loginLocal } from '../../services/demoAuth'
+import { isValidRut } from '../../utils/validation'
 
 const fieldStyles = {
   '& .MuiOutlinedInput-root': {
@@ -50,25 +51,17 @@ function formatRut(value) {
   return `${formattedBody}-${checkDigit}`
 }
 
-function isValidRut(value) {
-  const cleanedRut = cleanRut(value)
-  if (cleanedRut.length < 8) {
-    return false
-  }
-  return true
-}
-
 function validateLoginForm(values) {
   const errors = {}
 
   if (!values.rut.trim()) {
     errors.rut = 'El RUT es obligatorio.'
   } else if (!isValidRut(values.rut)) {
-    errors.rut = 'Ingresa un RUT valido.'
+    errors.rut = 'Ingresa un RUT válido.'
   }
 
   if (!values.password.trim()) {
-    errors.password = 'La contrasena es obligatoria.'
+    errors.password = 'La contraseña es obligatoria.'
   } else if (values.password.length < 6) {
     errors.password = 'Debe tener al menos 6 caracteres.'
   }
@@ -81,7 +74,7 @@ export default function Login() {
   const [touchedFields, setTouchedFields] = useState({})
   const [submitted, setSubmitted] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  
+
   const [isLoading, setIsLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
@@ -120,21 +113,10 @@ export default function Login() {
     setErrorMsg('')
 
     try {
-      // 1. Limpiamos los puntos visuales del frontend para que quede como "10000001-K"
-      const rutLimpio = formData.rut.replace(/\./g, '')
-
-      // 2. Enviamos EXCLUSIVAMENTE los nombres que C# espera en su LoginDto
-      const dataBackend = await fetchApi('/Auth/login', {
-        method: 'POST',
-        body: JSON.stringify({
-          Run: rutLimpio,
-          Password: formData.password
-        })
-      })
-
-      login(dataBackend)
+      const account = await loginLocal(formData.rut, formData.password, formData.recordarSesion)
+      await login(account, formData.recordarSesion)
       navigate(location.state?.from ?? '/inicio', { replace: true })
-      
+
     } catch (error) {
       console.error(error)
       setErrorMsg(error.message || 'Credenciales incorrectas.')
@@ -156,8 +138,8 @@ export default function Login() {
         elevation={0}
         sx={{
           width: '100%',
-          maxWidth: 480,
-          p: { xs: 3, sm: 4 },
+          maxWidth: 540,
+          p: { xs: 3, sm: 5 }, py: { xs: 4, sm: 6 },
           borderRadius: 4,
           border: '1px solid',
           borderColor: 'divider',
@@ -191,7 +173,7 @@ export default function Login() {
           Iniciar sesión
         </Typography>
         <Typography color="text.secondary" sx={{ mt: 0.5, mb: 2.5, textAlign: 'center' }}>
-          Ingresa tus datos para continuar.
+          Accede con el RUT asociado a tu cuenta.
         </Typography>
 
         {errorMsg && (
@@ -302,7 +284,7 @@ export default function Login() {
             disabled={isLoading}
             sx={{ minHeight: 48, fontWeight: 700 }}
           >
-            {isLoading ? <CircularProgress size={24} color="inherit" /> : 'Ingresar'}
+            {isLoading ? <Skeleton variant="text" width={90} sx={{ bgcolor: 'rgba(255,255,255,.4)' }} /> : 'Ingresar'}
           </Button>
         </Stack>
 

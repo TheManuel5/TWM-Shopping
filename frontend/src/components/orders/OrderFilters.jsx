@@ -19,8 +19,8 @@ export default function OrderFilters({ filters, onChange, onApply }) {
         placeholder="Buscar por N° de pedido, cliente o producto..."
         value={filters.search}
         onChange={(event) => onChange('search', event.target.value)}
-        inputProps={{ 'aria-label': 'Buscar pedidos' }}
-        slotProps={{
+
+        slotProps={{ ...({
           input: {
             endAdornment: filters.search ? (
               <InputAdornment position="end">
@@ -36,7 +36,7 @@ export default function OrderFilters({ filters, onChange, onApply }) {
               </InputAdornment>
             ) : null,
           },
-        }}
+        }), htmlInput: { 'aria-label': 'Buscar pedidos' } }}
       />
       <TextField
         select
@@ -57,22 +57,22 @@ export default function OrderFilters({ filters, onChange, onApply }) {
         type="date"
         value={filters.from}
         onChange={(event) => onChange('from', event.target.value)}
-        InputLabelProps={{ shrink: true }}
-      />
+
+       slotProps={{ inputLabel: { shrink: true } }}/>
       <TextField
         size="small"
         label="Hasta"
         type="date"
         value={filters.to}
         onChange={(event) => onChange('to', event.target.value)}
-        InputLabelProps={{ shrink: true }}
-      />
+
+       slotProps={{ inputLabel: { shrink: true } }}/>
       <Select
         size="small"
         value={filters.status}
         onChange={(event) => onChange('status', event.target.value)}
-        inputProps={{ 'aria-label': 'Filtrar por estado' }}
-      >
+
+       slotProps={{ input: { 'aria-label': 'Filtrar por estado' } }}>
         <MenuItem value="Todos">Todos los estados</MenuItem>
         <MenuItem value="En preparación">En preparación</MenuItem>
         <MenuItem value="Entregado">Entregado</MenuItem>

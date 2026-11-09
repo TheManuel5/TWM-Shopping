@@ -1,79 +1,57 @@
-import { useCallback, useMemo, useState } from 'react'
+import { API_MODE, apiService } from '../../services/api'
+import { loadRemoteState, flushPersistence } from '../../data/localStore'
+import useCollection from '../../hooks/useCollection'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { readCollection } from '../../data/localStore'
 import AuthContext from './AuthContext'
-
 const sessionKey = 'shopping-user-session'
-
-// Función para leer la sesión guardada al recargar la página
-const readStoredUser = () => {
+function readSession() {
+  if (API_MODE) return null
   try {
-    const stored = window.localStorage.getItem(sessionKey)
-    if (!stored) return null
-    const parsed = JSON.parse(stored)
-    // El backend nos manda { token, user: {...} }. Extraemos directamente el user real.
-    return parsed.user ? parsed.user : parsed
-  } catch {
-    return null
-  }
+    const raw = sessionStorage.getItem(sessionKey) || localStorage.getItem(sessionKey)
+    const value = raw ? JSON.parse(raw) : null
+    return value?.demoVersion === 2 ? value.user : null
+  } catch { return null }
 }
-
+function serverView(profile) {
+  if (!profile) return null
+  const selected = sessionStorage.getItem('shopping-view:' + profile.rut)
+  const allowed = ['Comprador', ...(profile.role === 'Vendedor' || profile.canAdmin ? ['Vendedor'] : []), ...(profile.canAdmin ? ['Admin'] : [])]
+  return { ...profile, serverRole: profile.role, role: allowed.includes(selected) ? selected : profile.role }
+}
 export default function AuthProvider({ children }) {
-  const [user, setUser] = useState(readStoredUser)
-  const [selectedComuna, setSelectedComuna] = useState('Osorno')
-
-  const login = useCallback((userData) => {
-    // Recibimos exactamente lo que responde .NET (run, nombre, apellido, rol)
-    // LoginPage ya guardó el token en el localStorage, aquí solo actualizamos la interfaz
-    setUser(userData)
+  const [user, setUser] = useState(readSession)
+  const [selectedComuna, setSelectedComuna] = useCollection('comuna', 'Osorno')
+  useEffect(() => { document.documentElement.dataset.reducedMotion = String(readCollection('preferences:' + user?.rut, {}).reducedMotion || false) }, [user?.rut])
+  const login = useCallback(async (data, remember = false) => {
+    if (API_MODE) { await loadRemoteState(); setUser(serverView(data)); return }
+    localStorage.removeItem(sessionKey)
+    sessionStorage.removeItem(sessionKey)
+    const storage = remember ? localStorage : sessionStorage
+    storage.setItem(sessionKey, JSON.stringify({ demoVersion: 2, user: data }))
+    setUser(data)
   }, [])
-
-  const switchRole = useCallback((newRole) => {
-    setUser((prev) => {
-      if (!prev) return null
-      // Soportamos tanto la key antigua 'role' como la nueva 'rol' de tu BD
-      const updated = { ...prev, rol: newRole, role: newRole }
-      
-      // Actualizamos el usuario en el localStorage sin borrar el token
-      const stored = JSON.parse(window.localStorage.getItem(sessionKey) || '{}')
-      window.localStorage.setItem(sessionKey, JSON.stringify({ ...stored, user: updated }))
-      
+  const updateProfile = useCallback((data) => {
+    setUser(previous => {
+      const updated = { ...previous, ...data }
+      if (API_MODE) { sessionStorage.setItem('shopping-view:' + updated.rut, updated.role); return updated }
+      const storage = localStorage.getItem(sessionKey) ? localStorage : sessionStorage
+      storage.setItem(sessionKey, JSON.stringify({ demoVersion: 2, user: updated }))
       return updated
     })
   }, [])
-
-  const updateProfile = useCallback((partialData) => {
-    setUser((prev) => {
-      if (!prev) return null
-      const updated = { ...prev, ...partialData }
-      
-      const stored = JSON.parse(window.localStorage.getItem(sessionKey) || '{}')
-      window.localStorage.setItem(sessionKey, JSON.stringify({ ...stored, user: updated }))
-      
-      return updated
-    })
-  }, [])
-
-  const logout = useCallback(() => {
-    window.localStorage.removeItem(sessionKey)
+  const switchRole = useCallback(role => {
+    if (API_MODE && role === 'Vendedor' && !user?.canAdmin && user?.serverRole !== 'Vendedor') return
+    if (role === 'Admin' && !user?.canAdmin) return
+    updateProfile({ role, rol: role })
+  }, [updateProfile, user])
+  const setServerUser = useCallback(profile => setUser(serverView(profile)), [])
+  const logout = useCallback(async () => {
+    if (API_MODE) { await flushPersistence(); await apiService.logout(); await loadRemoteState() }
+    localStorage.removeItem(sessionKey)
+    sessionStorage.removeItem(sessionKey)
     setUser(null)
   }, [])
-
-  const contextValue = useMemo(
-    () => ({
-      user,
-      isAuthenticated: Boolean(user),
-      login,
-      logout,
-      switchRole,
-      updateProfile,
-      selectedComuna,
-      setSelectedComuna,
-    }),
-    [login, logout, switchRole, updateProfile, user, selectedComuna],
-  )
-
-  return (
-    <AuthContext.Provider value={contextValue}>
-      {children}
-    </AuthContext.Provider>
-  )
+  const value = useMemo(() => ({ user, setServerUser, isAuthenticated: Boolean(user), login, logout, switchRole, updateProfile, selectedComuna, setSelectedComuna }), [user, setServerUser, login, logout, switchRole, updateProfile, selectedComuna, setSelectedComuna])
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

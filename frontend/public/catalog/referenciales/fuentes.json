@@ -1,0 +1,58 @@
+[
+  {
+    "file": "tecnologia.webp",
+    "category": "Accesorios informáticos",
+    "source": "https://www.pexels.com/photo/a-desk-with-a-keyboard-and-mouse-on-it-28228014/",
+    "download": "https://images.pexels.com/photos/28228014/pexels-photo-28228014.jpeg?auto=compress&fm=webp&w=1000&q=80",
+    "license": "https://www.pexels.com/license/",
+    "purpose": "Imagen referencial; no representa necesariamente el artículo ni al prestador real."
+  },
+  {
+    "file": "vestuario.webp",
+    "category": "Ropa de invierno",
+    "source": "https://www.pexels.com/photo/jackets-and-vest-hanging-on-clothes-rack-7679656/",
+    "download": "https://images.pexels.com/photos/7679656/pexels-photo-7679656.jpeg?auto=compress&fm=webp&w=1000&q=80",
+    "license": "https://www.pexels.com/license/",
+    "purpose": "Imagen referencial; no representa necesariamente el artículo ni al prestador real."
+  },
+  {
+    "file": "alimentos.webp",
+    "category": "Alimentos",
+    "source": "https://www.pexels.com/photo/assortment-of-fresh-vegetables-on-table-3851121/",
+    "download": "https://images.pexels.com/photos/3851121/pexels-photo-3851121.jpeg?auto=compress&fm=webp&w=1000&q=80",
+    "license": "https://www.pexels.com/license/",
+    "purpose": "Imagen referencial; no representa necesariamente el artículo ni al prestador real."
+  },
+  {
+    "file": "libros.webp",
+    "category": "Libros y material educativo",
+    "source": "https://www.pexels.com/photo/books-piled-up-on-the-table-3747502/",
+    "download": "https://images.pexels.com/photos/3747502/pexels-photo-3747502.jpeg?auto=compress&fm=webp&w=1000&q=80",
+    "license": "https://www.pexels.com/license/",
+    "purpose": "Imagen referencial; no representa necesariamente el artículo ni al prestador real."
+  },
+  {
+    "file": "educacion.webp",
+    "category": "Educativo presencial",
+    "source": "https://www.pexels.com/photo/teacher-with-his-students-in-the-classroom-5212335/",
+    "download": "https://images.pexels.com/photos/5212335/pexels-photo-5212335.jpeg?auto=compress&fm=webp&w=1000&q=80",
+    "license": "https://www.pexels.com/license/",
+    "purpose": "Imagen referencial; no representa necesariamente el artículo ni al prestador real."
+  },
+  {
+    "file": "profesional.webp",
+    "category": "Profesional presencial",
+    "source": "https://www.pexels.com/photo/high-level-business-meeting-in-lagos-office-30688592/",
+    "download": "https://images.pexels.com/photos/30688592/pexels-photo-30688592.jpeg?auto=compress&fm=webp&w=1000&q=80",
+    "license": "https://www.pexels.com/license/",
+    "purpose": "Imagen referencial; no representa necesariamente el artículo ni al prestador real."
+  },
+  {
+    "file": "remoto.webp",
+    "category": "Profesional remoto",
+    "source": "https://www.pexels.com/photo/man-on-a-video-call-6937837/",
+    "download": "https://images.pexels.com/photos/6937837/pexels-photo-6937837.jpeg?auto=compress&fm=webp&w=1000&q=80",
+    "license": "https://www.pexels.com/license/",
+    "purpose": "Imagen referencial; no representa necesariamente el artículo ni al prestador real."
+  }
+]

@@ -29,7 +29,7 @@ import useAuth from '../../contexts/AuthContext/useAuth'
 import RoleSwitcher from '../molecules/RoleSwitcher/RoleSwitcher'
 import { desktopHeaderHeight, headerOffset } from './layoutConstants'
 
-export const drawerWidth = 256
+export const drawerWidth = 232
 
 const CLIENT_ITEMS = [
   { label: 'Compras y devoluciones', path: '/mis-compras', icon: <ShoppingBagOutlined /> },
@@ -40,6 +40,7 @@ const CLIENT_ITEMS = [
 ]
 
 const SELLER_ADMIN_ITEMS = [
+  { label: 'Mi empresa', path: '/vendedor/empresa', icon: <BusinessOutlined /> },
   { label: 'Panel de control', path: '/vendedor/dashboard', icon: <DashboardOutlined /> },
   { label: 'Usuarios (Admin)', path: '/admin/usuarios', icon: <GroupOutlined /> },
   { label: 'Empresas (Admin)', path: '/admin/empresas', icon: <BusinessOutlined /> },
@@ -100,7 +101,7 @@ function SidebarContent({ includeHeaderSpacer = true, onNavigate }) {
             }}
           >
             <ListItemIcon sx={{ minWidth: 36 }}>{item.icon}</ListItemIcon>
-            <ListItemText primary={item.label} primaryTypographyProps={{ fontSize: '0.88rem', fontWeight: 600 }} />
+            <ListItemText primary={item.label}   slotProps={{ primary: { fontSize: '0.82rem', fontWeight: 600 } }}/>
           </ListItemButton>
         ))}
       </List>
@@ -116,7 +117,7 @@ function SidebarContent({ includeHeaderSpacer = true, onNavigate }) {
         Gestión y Admin
       </Typography>
       <List sx={{ px: 1.5 }} dense>
-        {SELLER_ADMIN_ITEMS.map((item) => (
+        {SELLER_ADMIN_ITEMS.filter(item => item.path.startsWith('/admin') ? user?.canAdmin && role === 'Admin' : item.path === '/configuracion' || ['Vendedor', 'Admin'].includes(role)).map((item) => (
           <ListItemButton
             key={item.path}
             component={NavLink}
@@ -137,7 +138,7 @@ function SidebarContent({ includeHeaderSpacer = true, onNavigate }) {
             }}
           >
             <ListItemIcon sx={{ minWidth: 36 }}>{item.icon}</ListItemIcon>
-            <ListItemText primary={item.label} primaryTypographyProps={{ fontSize: '0.88rem', fontWeight: 600 }} />
+            <ListItemText primary={item.label}   slotProps={{ primary: { fontSize: '0.82rem', fontWeight: 600 } }}/>
           </ListItemButton>
         ))}
       </List>

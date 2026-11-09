@@ -1,0 +1,188 @@
+{
+  "info": {
+    "name": "TWM Shopping — API relacional",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Usa una cuenta existente configurada por el equipo. La cookie se conserva automáticamente. Las pruebas de escritura se ejecutan únicamente en la copia aislada."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5156/api"
+    },
+    {
+      "key": "rut",
+      "value": ""
+    },
+    {
+      "key": "password",
+      "value": ""
+    },
+    {
+      "key": "queryId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Salud",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/health"
+      }
+    },
+    {
+      "name": "Conexión PostgreSQL",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/health/database"
+      }
+    },
+    {
+      "name": "Estado y revisión",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/state"
+      }
+    },
+    {
+      "name": "Catálogo",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/catalogo"
+      }
+    },
+    {
+      "name": "Productos",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/productos"
+      }
+    },
+    {
+      "name": "Servicios",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/servicios"
+      }
+    },
+    {
+      "name": "Login con cuenta existente",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"rut\": \"{{rut}}\",\n  \"password\": \"{{password}}\",\n  \"remember\": false\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Perfil de sesión",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/auth/me"
+      }
+    },
+    {
+      "name": "Pedidos",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/pedidos"
+      }
+    },
+    {
+      "name": "Cotizaciones",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/cotizaciones"
+      }
+    },
+    {
+      "name": "Reportes de ventas",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/reportes/ventas"
+      }
+    },
+    {
+      "name": "Tablas (Admin)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/admin/database/tables"
+      }
+    },
+    {
+      "name": "Consultas (Admin)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/admin/database/queries"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const rows = pm.response.json();",
+              "const query = rows.find(q => q.name === 'fn_catalogo_unificado');",
+              "if (query) pm.collectionVariables.set('queryId', query.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ejecutar consulta (Admin)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/admin/database/queries/{{queryId}}",
+        "body": {
+          "mode": "raw",
+          "raw": "[null, {}, 10]",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Cerrar sesión",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{baseUrl}}/auth/logout"
+      }
+    }
+  ]
+}

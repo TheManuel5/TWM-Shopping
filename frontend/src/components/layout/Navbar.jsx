@@ -1,3 +1,4 @@
+import useCollection from '../../hooks/useCollection'
 import {
   FavoriteBorderOutlined,
   KeyboardArrowDownOutlined,
@@ -22,7 +23,7 @@ import {
   Toolbar,
   Typography,
 } from '@mui/material'
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useAuth from '../../contexts/AuthContext/useAuth'
 import CategoryMenu from './CategoryMenu'
@@ -31,10 +32,20 @@ import UserMenu from './UserMenu'
 const COMUNAS_DISPONIBLES = ['Osorno', 'Puerto Montt', 'Puerto Varas', 'Frutillar', 'Valdivia']
 
 export default function Navbar({ onMenuClick, showSidebarToggle = true }) {
+  const headerRef = useRef(null)
+  useLayoutEffect(() => {
+    const update = () => document.documentElement.style.setProperty('--shopping-header-height', `${headerRef.current?.getBoundingClientRect().height || 64}px`)
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(headerRef.current)
+    return () => observer.disconnect()
+  }, [])
   const [searchTerm, setSearchTerm] = useState('')
   const [anchorLoc, setAnchorLoc] = useState(null)
   const { selectedComuna = 'Osorno', setSelectedComuna } = useAuth()
   const navigate = useNavigate()
+  const [cart] = useCollection('cart', [])
+  const [wishlist] = useCollection('wishlist', [])
 
   const handleSearch = (event) => {
     event.preventDefault()
@@ -43,13 +54,14 @@ export default function Navbar({ onMenuClick, showSidebarToggle = true }) {
 
   return (
     <AppBar
+      ref={headerRef}
       position="fixed"
       elevation={0}
       color="inherit"
       sx={{
         zIndex: (muiTheme) => muiTheme.zIndex.drawer + 2,
-        bgcolor: 'background.paper',
-        color: 'text.primary',
+        bgcolor: '#090f1d',
+        color: '#ffffff',
         borderBottom: '1px solid',
         borderColor: 'divider',
       }}
@@ -58,7 +70,9 @@ export default function Navbar({ onMenuClick, showSidebarToggle = true }) {
         <Toolbar
           disableGutters
           sx={{
-            minHeight: 68,
+            minHeight: { xs: 124, md: 64 },
+            flexWrap: { xs: 'wrap', md: 'nowrap' },
+            py: { xs: 1, md: 0 },
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -106,7 +120,7 @@ export default function Navbar({ onMenuClick, showSidebarToggle = true }) {
                 sx={{
                   fontWeight: 900,
                   letterSpacing: '-0.5px',
-                  color: 'text.primary',
+                  color: '#ffffff',
                 }}
               >
                 Shopping
@@ -121,7 +135,7 @@ export default function Navbar({ onMenuClick, showSidebarToggle = true }) {
               startIcon={<LocationOnOutlined color="primary" />}
               endIcon={<KeyboardArrowDownOutlined fontSize="small" />}
               sx={{
-                display: { xs: 'none', sm: 'inline-flex' },
+                display: { xs: 'none', lg: 'inline-flex' },
                 textAlign: 'left',
                 px: 1.25,
                 py: 0.5,
@@ -129,7 +143,7 @@ export default function Navbar({ onMenuClick, showSidebarToggle = true }) {
               }}
             >
               <Box sx={{ lineHeight: 1.1 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.68rem' }}>
+                <Typography variant="caption" sx={{ display: 'block', fontSize: '0.68rem', color: 'rgba(255,255,255,0.75)' }}>
                   Enviar a
                 </Typography>
                 <Typography variant="body2" sx={{ fontWeight: 700 }}>
@@ -157,6 +171,7 @@ export default function Navbar({ onMenuClick, showSidebarToggle = true }) {
             </Menu>
           </Box>
 
+          <CategoryMenu />
           {/* Barra de búsqueda central */}
           <Paper
             component="form"
@@ -166,7 +181,9 @@ export default function Navbar({ onMenuClick, showSidebarToggle = true }) {
               display: 'flex',
               alignItems: 'center',
               flexGrow: 1,
-              maxWidth: 640,
+              maxWidth: { xs: '100%', md: 640 },
+              order: { xs: 3, md: 0 },
+              flexBasis: { xs: '100%', md: 'auto' },
               height: 44,
               p: '3px 4px 3px 14px',
               borderRadius: 2.5,
@@ -204,7 +221,7 @@ export default function Navbar({ onMenuClick, showSidebarToggle = true }) {
               color="inherit"
               onClick={() => navigate('/favoritos')}
               startIcon={
-                <Badge badgeContent={8} color="primary">
+                <Badge badgeContent={wishlist.length} color="primary">
                   <FavoriteBorderOutlined />
                 </Badge>
               }
@@ -217,18 +234,18 @@ export default function Navbar({ onMenuClick, showSidebarToggle = true }) {
               color="inherit"
               onClick={() => navigate('/carrito')}
               startIcon={
-                <Badge badgeContent={3} color="primary">
+                <Badge badgeContent={cart.reduce((sum, item) => sum + item.qty, 0)} color="primary">
                   <ShoppingCartOutlined />
                 </Badge>
               }
               sx={{ fontWeight: 700 }}
             >
               <Box sx={{ display: { xs: 'none', sm: 'block' }, textAlign: 'left', lineHeight: 1.1 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.68rem' }}>
+                <Typography variant="caption" sx={{ display: 'block', fontSize: '0.68rem', color: 'rgba(255,255,255,0.75)' }}>
                   Carrito
                 </Typography>
                 <Typography variant="body2" sx={{ fontWeight: 800 }}>
-                  $49.980
+                  {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(cart.reduce((sum, item) => sum + item.price * item.qty, 0))}
                 </Typography>
               </Box>
             </Button>
@@ -237,7 +254,6 @@ export default function Navbar({ onMenuClick, showSidebarToggle = true }) {
       </Container>
 
       {/* Segunda barra horizontal con Mega-Menú P02 */}
-      <CategoryMenu />
     </AppBar>
   )
 }

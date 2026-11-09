@@ -1,9 +1,14 @@
+import useCollection from '../../hooks/useCollection'
+import useSellerCollection from '../../hooks/useSellerCollection'
+import { logEvent } from '../../data/localStore'
 import { useMemo, useState } from 'react'
 import {
   Alert,
   Box,
   Button,
   Chip,
+  Card,
+  Grid,
   Dialog,
   DialogActions,
   DialogContent,
@@ -33,7 +38,7 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import FilterAltOutlinedIcon from '@mui/icons-material/FilterAltOutlined'
 import InventoryIcon from '@mui/icons-material/Inventory'
 import ProductFormModal from '../../components/crud2/ProductFormModal'
-import PRODUCTOS_INICIALES from '../Crud2/data/productosData'
+import { catalogSeed } from '../../data/catalog'
 import '../../components/orders/Orders.css'
 
 function formatPrecio(valor) {
@@ -48,7 +53,8 @@ const categoriaColors = {
 }
 
 export default function ProductsPage() {
-  const [productos, setProductos] = useState(PRODUCTOS_INICIALES)
+  const [orders] = useCollection('orders', [])
+  const [productos, setProductos] = useSellerCollection('catalog', catalogSeed)
   const [busqueda, setBusqueda] = useState('')
   const [filtroCategoria, setFiltroCategoria] = useState('Todas')
   const [filtrosAplicados, setFiltrosAplicados] = useState({ busqueda: '', categoria: 'Todas' })
@@ -112,7 +118,7 @@ export default function ProductsPage() {
   const handleDeleteProduct = () => {
     if (!productoAEliminar) return
 
-    console.log('Producto eliminado:', productoAEliminar)
+    logEvent('Producto eliminado:', productoAEliminar)
     setProductos((actuales) =>
       actuales.filter((producto) => producto.id !== productoAEliminar.id),
     )
@@ -137,7 +143,7 @@ export default function ProductsPage() {
   }
 
   return (
-    <Box className="orders-page">
+    <Box className="orders-page products-page">
       <Box className="orders-main">
         {/* Breadcrumb */}
         <Box className="orders-breadcrumb">Panel de control <span>/</span> Mis productos</Box>
@@ -147,11 +153,11 @@ export default function ProductsPage() {
           <Box className="orders-title-group">
             <InventoryIcon color="primary" fontSize="large" />
             <Box>
-              <Typography variant="h4" component="h1" fontWeight={700}>
-                Gestión de productos
+              <Typography variant="h4" component="h1"  sx={{ fontWeight: 700 }}>
+                Mis productos
               </Typography>
               <Typography color="text.secondary">
-                Administra el catálogo, stock y precios de la tienda.
+                Administra, edita o retira los productos y servicios publicados en tu tienda.
               </Typography>
             </Box>
             <Chip
@@ -166,10 +172,16 @@ export default function ProductsPage() {
             startIcon={<AddIcon />}
             onClick={handleOpenCreate}
           >
-            Nuevo producto
+            Agregar producto
           </Button>
         </Box>
 
+        <Grid container spacing={2} sx={{ mb: 3 }}>{[
+          ['Publicaciones', productos.length],
+          ['Unidades en stock', productos.reduce((sum, p) => sum + (p.stock || 0), 0)],
+          ['Ventas registradas', orders.filter(o => o.status !== 'Cancelado').length],
+          ['Ingresos registrados', formatPrecio(orders.filter(o => o.status !== 'Cancelado').reduce((sum, o) => sum + Number(o.total || 0), 0))],
+        ].map(([label, value]) => <Grid key={label} size={{ xs: 6, lg: 3 }}><Card sx={{ p: 2 }}><Typography variant="h6">{typeof value === 'number' ? value.toLocaleString('es-CL') : value}</Typography><Typography variant="caption" color="text.secondary">{label}</Typography></Card></Grid>)}</Grid>
         {/* Filtros — mismo estilo que pedidos */}
         <Box
           className="orders-filters products-filters"
@@ -189,8 +201,8 @@ export default function ProductsPage() {
             placeholder="Buscar por nombre, categoría o descripción..."
             value={busqueda}
             onChange={(event) => setBusqueda(event.target.value)}
-            inputProps={{ 'aria-label': 'Buscar productos' }}
-            slotProps={{
+
+            slotProps={{ ...({
               input: {
                 endAdornment: busqueda ? (
                   <InputAdornment position="end">
@@ -206,7 +218,7 @@ export default function ProductsPage() {
                   </InputAdornment>
                 ) : null,
               },
-            }}
+            }), htmlInput: { 'aria-label': 'Buscar productos' } }}
           />
           <TextField
             select
@@ -234,12 +246,12 @@ export default function ProductsPage() {
           <Table aria-label="Listado de productos" size="small">
             <TableHead>
               <TableRow>
-                <TableCell>ID</TableCell>
+                <TableCell>Imagen</TableCell>
                 <TableCell>Nombre</TableCell>
                 <TableCell>Categoría</TableCell>
                 <TableCell>Precio</TableCell>
                 <TableCell>Stock</TableCell>
-                <TableCell>Descripción</TableCell>
+                <TableCell>Estado</TableCell>
                 <TableCell align="right">Acciones</TableCell>
               </TableRow>
             </TableHead>
@@ -259,12 +271,13 @@ export default function ProductsPage() {
                 productosEnPagina.map((producto) => (
                   <TableRow key={producto.id} hover className="order-row">
                     <TableCell component="th" scope="row" className="order-number">
-                      #{producto.id}
+                      <Box component="img" src={producto.imagen || '/catalog/placeholder.svg'} alt={producto.nombre} sx={{ width: 46, height: 46, objectFit: 'contain', borderRadius: 1, bgcolor: '#f7f6ff' }} />
                     </TableCell>
                     <TableCell>
-                      <Typography fontWeight={600} fontSize={14}>
+                      <Typography   sx={{ fontWeight: 600, fontSize: 14 }}>
                         {producto.nombre}
                       </Typography>
+                      <Typography variant="caption" color="text.secondary">{producto.tipo} · SKU: {producto.variantes?.[0]?.sku || producto.dbId || producto.id}</Typography>
                     </TableCell>
                     <TableCell>
                       <Chip
@@ -282,7 +295,7 @@ export default function ProductsPage() {
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={producto.stock}
+                        label={producto.tipo === 'Servicio' ? 'Disponible' : producto.stock}
                         size="small"
                         sx={{
                           backgroundColor: producto.stock < 15 ? '#ffdbe4' : '#d8f5df',
@@ -303,7 +316,7 @@ export default function ProductsPage() {
                           fontSize: 14,
                         }}
                       >
-                        {producto.descripcion}
+                        {producto.estado || 'Publicado'}
                       </Typography>
                     </TableCell>
                     <TableCell align="right" className="order-actions">
