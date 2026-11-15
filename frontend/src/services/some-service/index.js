@@ -1,1 +1,0 @@
-export { someService } from './someService';

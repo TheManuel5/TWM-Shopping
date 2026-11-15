@@ -1,3 +1,4 @@
+import AccountDashboard from '../pages/AccountDashboard/AccountDashboard'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import AppLayout from '../components/layout/AppLayout'
 import AnalyticsReportsPage from '../pages/AnalyticsReports/AnalyticsReportsPage'
@@ -54,6 +55,7 @@ export default function AppRoutes() {
 
           {/* Rutas Protegidas y Paneles de Gestión / Administración (P15 - P22) */}
           <Route element={<ProtectedRoute />}>
+            <Route path="/mi-panel" element={<AccountDashboard />} />
             <Route path="/mis-compras" element={<OrdersReturnsPage />} />
             <Route path="/cotizaciones" element={<QuotesPage />} />
             <Route path="/mensajes" element={<MessagesPage />} />
@@ -75,6 +77,7 @@ export default function AppRoutes() {
             <Route path="/vendedor/despachos" element={<ShippingRatesPage />} />
 
             {/* Vistas del Administrador (P19, P20 y Módulo Analítico Etapa 11) */}
+            <Route path="/admin/dashboard" element={<AccountDashboard global />} />
             <Route path="/admin/usuarios" element={<ManageUsersPage />} />
             <Route path="/admin/empresas" element={<ManageCompaniesPage />} />
             <Route path="/admin/reportes" element={<AnalyticsReportsPage />} />

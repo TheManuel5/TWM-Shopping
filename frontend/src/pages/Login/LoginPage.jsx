@@ -9,7 +9,7 @@ import {
   Box,
   Button,
   Checkbox,
-  Skeleton,
+  LinearProgress,
   FormControlLabel,
   IconButton,
   InputAdornment,
@@ -19,12 +19,13 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom'
 import AuthPageShell from '../../components/auth/AuthPageShell'
 import useAuth from '../../contexts/AuthContext/useAuth'
 import { loginLocal } from '../../services/demoAuth'
 import { isValidRut } from '../../utils/validation'
+import useSmoothProgress, { expectedDuration, rememberDuration } from '../../hooks/useSmoothProgress'
 
 const fieldStyles = {
   '& .MuiOutlinedInput-root': {
@@ -77,6 +78,10 @@ export default function Login() {
 
   const [isLoading, setIsLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+  // Avance de la sincronización tras validar las credenciales (etapas y bytes reales).
+  const [sync, setSync] = useState({ target: 0, label: '' })
+  const syncTimer = useRef(null)
+  const syncPercent = useSmoothProgress(sync.target)
 
   const navigate = useNavigate()
   const location = useLocation()
@@ -113,14 +118,28 @@ export default function Login() {
     setErrorMsg('')
 
     try {
+      setSync({ target: 6, label: 'Verificando tus credenciales' })
       const account = await loginLocal(formData.rut, formData.password, formData.recordarSesion)
-      await login(account, formData.recordarSesion)
+      // Mientras el servidor prepara los datos el tramo avanza según la carga anterior, sin pasar de su límite.
+      const started = performance.now()
+      const expected = expectedDuration('state', 3500)
+      setSync({ target: 20, label: 'Consultando tu cuenta en PostgreSQL' })
+      syncTimer.current = setInterval(() => setSync(current => ({ ...current, target: Math.max(current.target, 20 + 35 * Math.min(0.92, (performance.now() - started) / expected)) })), 120)
+      await login(account, formData.recordarSesion, progress => {
+        if (progress.phase === 'response') { clearInterval(syncTimer.current); rememberDuration('state', performance.now() - started); setSync({ target: 55, label: 'Descargando tus datos' }) }
+        if (progress.phase === 'download') setSync({ target: 55 + 40 * progress.loaded / progress.total, label: 'Descargando tus datos' })
+      })
+      clearInterval(syncTimer.current)
+      setSync({ target: 100, label: 'Listo' })
+      // Un instante para que el contador llegue a 100 antes de entrar.
+      await new Promise(resolve => setTimeout(resolve, 450))
       navigate(location.state?.from ?? '/inicio', { replace: true })
 
     } catch (error) {
       console.error(error)
       setErrorMsg(error.message || 'Credenciales incorrectas.')
     } finally {
+      clearInterval(syncTimer.current)
       setIsLoading(false)
     }
   }
@@ -284,8 +303,12 @@ export default function Login() {
             disabled={isLoading}
             sx={{ minHeight: 48, fontWeight: 700 }}
           >
-            {isLoading ? <Skeleton variant="text" width={90} sx={{ bgcolor: 'rgba(255,255,255,.4)' }} /> : 'Ingresar'}
+            {isLoading ? `Sincronizando… ${syncPercent}%` : 'Ingresar'}
           </Button>
+          {isLoading && <Box role="status" aria-live="polite">
+            <LinearProgress variant="determinate" value={syncPercent} aria-label="Progreso de inicio de sesión" sx={{ height: 6, '& .MuiLinearProgress-bar': { transition: 'none' } }} />
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75, textAlign: 'center' }}>{sync.label}</Typography>
+          </Box>}
         </Stack>
 
         <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>

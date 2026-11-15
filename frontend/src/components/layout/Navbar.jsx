@@ -60,10 +60,10 @@ export default function Navbar({ onMenuClick, showSidebarToggle = true }) {
       color="inherit"
       sx={{
         zIndex: (muiTheme) => muiTheme.zIndex.drawer + 2,
-        bgcolor: '#090f1d',
+        bgcolor: '#030c2e',
         color: '#ffffff',
-        borderBottom: '1px solid',
-        borderColor: 'divider',
+        borderBottom: '3px solid',
+        borderColor: 'primary.main',
       }}
     >
       <Container maxWidth="xl">

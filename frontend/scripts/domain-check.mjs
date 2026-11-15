@@ -15,9 +15,36 @@ const commerce = await load('data/commerce.js')
 const auth = await load('services/demoAuth.js')
 const categories = await load('utils/categories.js')
 const photos = await load('utils/catalogImages.js')
+const dashboards = await load('utils/dashboard.js')
 const { CATEGORY_TREE } = await load('utils/taxonomyData.js')
 
 try {
+  await test('Panel de administración: indicadores comerciales, operativos y de calidad', () => {
+    const orders = [
+      { store: 'A', total: 1000, status: 'Entregado', createdAt: '2026-10-05', shipping: 0 },
+      { store: 'B', total: 3000, status: 'En preparación', createdAt: '2026-11-02', shipping: 500, dispatch: { carrier: 'Transporte A' } },
+      { store: 'A', total: 500, status: 'Entregado', createdAt: '2026-11-20', shipping: 0 },
+      { store: 'B', total: 9000, status: 'Cancelado', createdAt: '2026-11-21', shipping: 0 },
+    ]
+    const stats = dashboards.adminAnalytics({ orders, returns: [{ reason: 'Falla' }, { reason: 'Falla' }, { reason: 'Talla' }], reviews: [{ rating: 5 }, { rating: 4 }, { rating: 5 }], questions: [{ answer: 'Sí' }, { answer: '' }] })
+    assert.deepEqual(stats.commercial.revenueByMonth.map(row => [row.label, row.value]), [['oct 26', 1000], ['nov 26', 3500]])
+    assert.deepEqual(stats.commercial.topSellers[0], { label: 'B', value: 3000 })
+    assert.equal(stats.commercial.averageTicket, 1500)
+    assert.deepEqual(stats.operations.ordersByStatus.map(row => row.label), ['En preparación', 'Entregado', 'Cancelado'])
+    assert.equal(stats.operations.deliveredRate, 50); assert.equal(stats.operations.cancelled, 1)
+    assert.deepEqual(stats.operations.delivery[0], { label: 'Retiro con el vendedor', value: 3 })
+    assert.equal(stats.quality.ratingRows[0].value, 2); assert.equal(stats.quality.average.toFixed(2), '4.67')
+    assert.deepEqual(stats.quality.returnsByReason[0], { label: 'Falla', value: 2 }); assert.equal(stats.quality.unanswered, 1)
+  })
+  await test('Panel personal: filtra por comprador o vendedor sin exponer operaciones ajenas', () => {
+    const orders = [{ id: 1, customerRut: 'A', sellerRut: 'B', total: 100, status: 'Entregado' }, { id: 2, customerRut: 'C', sellerRut: 'A', total: 250, status: 'En preparación' }, { id: 3, customerRut: 'C', sellerRut: 'B', total: 999, status: 'Enviado' }]
+    const buyer = dashboards.dashboardSummary({ orders, rut: 'A' })
+    assert.deepEqual(buyer.orders.map(v => v.id), [1]); assert.equal(buyer.amount, 100)
+    const seller = dashboards.dashboardSummary({ orders, rut: 'A', seller: true, catalog: [{ ownerRut: 'A' }, { ownerRut: 'B' }] })
+    assert.deepEqual(seller.orders.map(v => v.id), [2]); assert.equal(seller.amount, 250); assert.equal(seller.publications.length, 1)
+    assert.equal(dashboards.dashboardSummary({ orders, global: true }).orders.length, 3)
+    assert.equal(dashboards.dashboardSummary({ orders: [{ customerRut: 'A', total: 999, status: 'Cancelado' }], rut: 'A' }).amount, 0)
+  })
   await test('Fotos referenciales por categoría: prioridad de fotos propias y sin mutar el catálogo', () => {
     const product = { categoria: 'Accesorios informáticos', imagen: '/catalog/placeholder.svg', imagenes: [] }
     assert.equal(photos.catalogImage(product), '/catalog/referenciales/tecnologia.webp')
@@ -47,8 +74,8 @@ try {
     const original = console.log
     let logged
     console.log = (...args) => { logged = JSON.stringify(args) }
-    try { store.logEvent('test', { nombre: 'Prueba', password: 'secreto1', nested: { token: 'secreto2', passwordHash: 'secreto3' } }) } finally { console.log = original }
-    assert(!logged.includes('secreto'))
+    try { store.logEvent('test', { nombre: 'Prueba', password: 'secreto1', nested: { token: 'secreto2', passwordHash: 'secreto3' }, proteccion: { algorithm: 'bcrypt', cost: 12, format: '$2a$12$[contenido oculto]', valueExposed: false } }) } finally { console.log = original }
+    assert(!logged.includes('secreto')); assert(logged.includes('bcrypt')); assert(logged.includes('[contenido oculto]'))
     assert(logged.includes('Prueba'))
   })
   await test('Registro, duplicados, credenciales y cambio de contraseña sin texto plano persistido', async () => {

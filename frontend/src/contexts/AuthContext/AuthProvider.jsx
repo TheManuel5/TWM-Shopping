@@ -16,15 +16,15 @@ function readSession() {
 function serverView(profile) {
   if (!profile) return null
   const selected = sessionStorage.getItem('shopping-view:' + profile.rut)
-  const allowed = ['Comprador', ...(profile.role === 'Vendedor' || profile.canAdmin ? ['Vendedor'] : []), ...(profile.canAdmin ? ['Admin'] : [])]
+  const allowed = [...(profile.canBuy !== false ? ['Comprador'] : []), ...(profile.canSell ? ['Vendedor'] : []), ...(profile.canAdmin ? ['Admin'] : [])]
   return { ...profile, serverRole: profile.role, role: allowed.includes(selected) ? selected : profile.role }
 }
 export default function AuthProvider({ children }) {
   const [user, setUser] = useState(readSession)
   const [selectedComuna, setSelectedComuna] = useCollection('comuna', 'Osorno')
   useEffect(() => { document.documentElement.dataset.reducedMotion = String(readCollection('preferences:' + user?.rut, {}).reducedMotion || false) }, [user?.rut])
-  const login = useCallback(async (data, remember = false) => {
-    if (API_MODE) { await loadRemoteState(); setUser(serverView(data)); return }
+  const login = useCallback(async (data, remember = false, onProgress) => {
+    if (API_MODE) { await loadRemoteState(onProgress); setUser(serverView(data)); return }
     localStorage.removeItem(sessionKey)
     sessionStorage.removeItem(sessionKey)
     const storage = remember ? localStorage : sessionStorage
@@ -41,7 +41,8 @@ export default function AuthProvider({ children }) {
     })
   }, [])
   const switchRole = useCallback(role => {
-    if (API_MODE && role === 'Vendedor' && !user?.canAdmin && user?.serverRole !== 'Vendedor') return
+    if (API_MODE && role === 'Vendedor' && !user?.canSell) return
+    if (API_MODE && role === 'Comprador' && user?.canBuy === false) return
     if (role === 'Admin' && !user?.canAdmin) return
     updateProfile({ role, rol: role })
   }, [updateProfile, user])

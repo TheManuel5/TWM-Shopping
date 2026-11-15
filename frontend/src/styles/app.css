@@ -33,7 +33,7 @@
 }
 
 body {
-    font-family: 'Roboto', 'Inter', sans-serif;
+    font-family: 'Inter Variable', Inter, 'Segoe UI', Roboto, Arial, sans-serif;
     background-color: var(--background);
     color: var(--text-primary);
     line-height: 1.6;

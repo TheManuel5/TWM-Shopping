@@ -1,692 +1,116 @@
-import { notify } from '../../utils/feedback'
-import useCollection from '../../hooks/useCollection'
-import { catalogSeed, asItem, addToCart, toggleFavorite as saveFavorite } from '../../data/catalog'
-import {
-  ArrowForward,
-  CreditCardOutlined,
-  HeadsetMicOutlined,
-  LocalOfferOutlined,
-  LocalShippingOutlined,
-  StorefrontOutlined,
-  VerifiedUserOutlined,
-} from '@mui/icons-material'
-import {
-  Box,
-  Button,
-  Card,
-  Paper,
-  Stack,
-  Typography,
-} from '@mui/material'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-
-// Assets extraídos directamente de los frames oficiales de Figma (P07)
-import catDeportes from '../../assets/home/cat_deportes.png'
-import catHogar from '../../assets/home/cat_hogar.png'
-import catModa from '../../assets/home/cat_moda.png'
-import catTecnologia from '../../assets/home/cat_tecnologia.png'
+import { ArrowForwardRounded, ExpandMoreRounded, HandymanOutlined, Inventory2Outlined, StorefrontOutlined } from '@mui/icons-material'
+import { Box, Button, Stack, Typography } from '@mui/material'
 import heroDevices from '../../assets/home/hero_devices.png'
+import ProductCard from '../../components/molecules/ProductCard/ProductCard'
+import { productGrid } from '../../components/molecules/ProductCard/productGrid'
+import useCollection from '../../hooks/useCollection'
+import { catalogSeed, asItem, addToCart, byName, offerOf, toggleFavorite } from '../../data/catalog'
+import { catalogImage } from '../../utils/catalogImages'
+import { notify } from '../../utils/feedback'
 
-// Assets de respaldo para servicios
+const BLOCK = 8
+const railGrid = { ...productGrid, gridTemplateColumns: { ...productGrid.gridTemplateColumns, lg: 'repeat(4, minmax(0, 1fr))', xl: 'repeat(4, minmax(0, 1fr))' } }
+const numeric = value => Number(String(value).replace(',', '.')) || 0
 
-import ServiceCard from '../../components/organisms/ServiceCard/ServiceCard'
-import ProductCard from './components/ProductCard'
-
-// Beneficios laterales integrados en el Hero Banner (Figma P07)
-const heroSideBenefits = [
-  {
-    title: 'Opciones de entrega',
-    detail: 'Consulta al vendedor',
-    Icon: LocalShippingOutlined,
-  },
-  {
-    title: 'Compra segura',
-    detail: 'Tus datos siempre protegidos',
-    Icon: VerifiedUserOutlined,
-  },
-  {
-    title: 'Registro de compras',
-    detail: 'Consulta tus comprobantes',
-    Icon: CreditCardOutlined,
-  },
-]
-
-// 4 Categorías Bento Cards destacadas (Figma P07)
-const categoryStyles = [
-  {
-    tag: 'TECNOLOGÍA',
-    title: 'Innovación para tu día a día',
-    bg: '#eff2fd',
-    borderColor: 'rgba(79, 70, 229, 0.12)',
-    tagColor: '#4f46e5',
-    btnBg: '#602ff7',
-    btnHover: '#4d1ec9',
-    image: catTecnologia,
-    categoryName: 'Tecnología',
-  },
-  {
-    tag: 'HOGAR Y COCINA',
-    title: 'Haz de tu hogar un mejor lugar',
-    bg: '#e6f4f0',
-    borderColor: 'rgba(13, 148, 136, 0.12)',
-    tagColor: '#0d9488',
-    btnBg: '#0d9488',
-    btnHover: '#0f766e',
-    image: catHogar,
-    categoryName: 'Hogar y Cocina',
-  },
-  {
-    tag: 'MODA',
-    title: 'Tu estilo, sin límites',
-    bg: '#fbe6f2',
-    borderColor: 'rgba(219, 39, 119, 0.12)',
-    tagColor: '#db2777',
-    btnBg: '#db2777',
-    btnHover: '#be185d',
-    image: catModa,
-    categoryName: 'Ropa, moda y calzado',
-  },
-  {
-    tag: 'DEPORTES',
-    title: 'Vive lo que te apasiona',
-    bg: '#dbfbe6',
-    borderColor: 'rgba(22, 163, 74, 0.12)',
-    tagColor: '#16a34a',
-    btnBg: '#16a34a',
-    btnHover: '#15803d',
-    image: catDeportes,
-    categoryName: 'Otros',
-  },
-]
-
-// Barra horizontal de confianza y beneficios (5 pilares según Figma P07)
-const trustBenefits = [
-  {
-    title: 'Envío a todo Chile',
-    detail: 'Rápidos y confiables',
-    Icon: LocalShippingOutlined,
-  },
-  {
-    title: 'Retiro en tienda',
-    detail: 'Sin costo de puntos',
-    Icon: StorefrontOutlined,
-  },
-  {
-    title: 'Múltiples medios de pago',
-    detail: 'Tarjetas, Transferencias y más',
-    Icon: CreditCardOutlined,
-  },
-  {
-    title: 'Ofertas exclusivas',
-    detail: 'Las mejores marcas',
-    Icon: LocalOfferOutlined,
-  },
-  {
-    title: 'Te ayudamos',
-    detail: 'Atención 100% local',
-    Icon: HeadsetMicOutlined,
-  },
-]
-
-// 5 Productos Destacados exactos del frame de Figma (P07)
+/** Sección de publicaciones que crece por bloques cuando el usuario lo pide. */
+function Rail({ title, subtitle, items, favorites, onAdd, onSeeAll }) {
+  const [count, setCount] = useState(BLOCK)
+  if (!items.length) return null
+  const remaining = Math.min(items.length, BLOCK * 3) - count
+  return <Box component="section" sx={{ mb: { xs: 5, md: 7 } }}>
+    <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'flex-end', mb: 2.5, gap: 2 }}>
+      <Box sx={{ borderLeft: '5px solid', borderColor: 'primary.main', pl: 1.5 }}>
+        <Typography component="h2" sx={{ fontWeight: 900, fontSize: { xs: '1.35rem', md: '1.7rem' }, letterSpacing: '-0.02em', lineHeight: 1.2 }}>{title}</Typography>
+        {subtitle && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>{subtitle}</Typography>}
+      </Box>
+      <Button onClick={onSeeAll} endIcon={<ArrowForwardRounded />} sx={{ fontWeight: 800, flexShrink: 0 }}>Ver todo</Button>
+    </Stack>
+    <Box sx={railGrid}>
+      {items.slice(0, count).map(item => <ProductCard key={item.id} item={item} favorite={favorites.has(item.id)} onToggleFavorite={toggleFavorite} onAddToCart={onAdd} />)}
+    </Box>
+    {remaining > 0 && <Stack sx={{ alignItems: 'center', mt: 3 }}>
+      <Button variant="outlined" endIcon={<ExpandMoreRounded />} onClick={() => setCount(count + BLOCK)} sx={{ px: 4, borderRadius: 99, bgcolor: 'background.paper' }}>Ver {Math.min(BLOCK, remaining)} más</Button>
+    </Stack>}
+  </Box>
+}
 
 export default function Home() {
   const navigate = useNavigate()
-  // Variables y hooks de estado estrictamente preservados
   const [categoryTree] = useCollection('categories', { Productos: [], Servicios: [] })
-  const bentoCategories = categoryTree.Productos.slice(0, 4).map((category, index) => ({ ...categoryStyles[index], image: /vestuario|ropa|moda/i.test(category.name) ? catModa : /tecnolog|comput/i.test(category.name) ? catTecnologia : /hogar/i.test(category.name) ? catHogar : /deport/i.test(category.name) ? catDeportes : '/catalog/placeholder.svg', tag: category.name.toUpperCase(), title: category.name, categoryName: category.name }))
   const [savedFavorites] = useCollection('wishlist', [])
   const [catalog] = useCollection('catalog', catalogSeed)
-  const maxDiscount = Math.max(0, ...catalog.filter(p => p.estado !== 'Borrador').flatMap(p => (p.variantes || []).map(v => v.regularPrice > v.price ? Math.floor(100 * (1 - v.price / v.regularPrice)) : 0)))
-  const favorites = savedFavorites.map(item => item.id)
-  const visibleFeatured = catalog.filter(product => product.tipo !== 'Servicio' && product.estado !== 'Borrador' && product.stock > 0).slice(0, 5).map(raw => { const product = asItem(raw); return { ...product, price: new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(product.price), badge: '' } })
-  const localServices = catalog.filter(product => product.tipo === 'Servicio' && product.estado !== 'Borrador').slice(0, 4).map(product => ({ ...asItem(product), comuna: product.comuna || '', horizontal: true }))
-  const toggleFavorite = id => { const item = catalog.find(product => product.id === id); if (item) saveFavorite(asItem(item)) }
+  const favorites = useMemo(() => new Set(savedFavorites.map(item => item.id)), [savedFavorites])
+
+  const home = useMemo(() => {
+    const published = catalog.filter(p => p.estado !== 'Borrador')
+    const products = published.filter(p => p.tipo !== 'Servicio' && p.stock > 0)
+    const services = published.filter(p => p.tipo === 'Servicio')
+    const byRating = (a, b) => numeric(b.rating) - numeric(a.rating) || (b.reviews || 0) - (a.reviews || 0) || byName(a, b)
+    const offers = products.map(p => [p, offerOf(p)?.discount || 0]).filter(([, discount]) => discount > 0).sort((a, b) => b[1] - a[1] || byName(a[0], b[0]))
+    return {
+      totals: { products: published.length - services.length, services: services.length, sellers: new Set(published.map(p => p.ownerRut || p.vendedor)).size },
+      maxDiscount: offers[0]?.[1] || 0,
+      offers: offers.slice(0, BLOCK * 3).map(([p]) => asItem(p)),
+      featured: [...products].sort(byRating).slice(0, BLOCK * 3).map(asItem),
+      services: [...services].sort(byRating).slice(0, BLOCK * 3).map(asItem),
+    }
+  }, [catalog])
+
+  const categories = useMemo(() => [...(categoryTree.Productos || []), ...(categoryTree.Servicios || [])]
+    .map(category => ({ name: category.name, image: catalogImage({ categoria: category.name }) }))
+    // Una tarjeta por fotografía: evita nombres o imágenes repetidos entre productos y servicios.
+    .filter((category, index, list) => !category.image.includes('placeholder') && list.findIndex(other => other.name === category.name || other.image === category.image) === index)
+    .slice(0, 6), [categoryTree])
+
+  const add = item => { try { addToCart(item); notify(`«${item.name}» se agregó al carrito.`) } catch (error) { notify(error.message, 'error') } }
+  const stats = [
+    [Inventory2Outlined, home.totals.products, 'productos'],
+    [HandymanOutlined, home.totals.services, 'servicios'],
+    [StorefrontOutlined, home.totals.sellers, 'vendedores'],
+  ]
+
   return (
-    <Box sx={{ width: '100%', maxWidth: 1440, mx: 'auto', pb: 6 }}>
-      {/* =========================================================================
-          1. HERO BANNER PRINCIPAL (Figma P07)
-      ========================================================================= */}
-      <Box
-        sx={{
-          borderRadius: { xs: 4, md: 6 },
-          p: { xs: 3, sm: 4, md: 4 },
-          background: 'linear-gradient(135deg, #740ffb 0%, #602ff7 45%, #4c11e0 100%)',
-          boxShadow: '0 16px 40px rgba(96, 47, 247, 0.22)',
-          color: '#ffffff',
-          position: 'relative',
-          overflow: 'hidden',
-          mb: 4,
-        }}
-      >
-        {/* Glow y reflejos decorativos */}
-        <Box
-          sx={{
-            position: 'absolute',
-            top: -120,
-            right: -100,
-            width: 450,
-            height: 450,
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 70%)',
-            pointerEvents: 'none',
-          }}
-        />
-
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: {
-              xs: '1fr',
-              md: '1.1fr 1.3fr',
-              lg: '1.1fr 1.2fr 0.9fr',
-            },
-            gap: { xs: 3, md: 4 },
-            alignItems: 'center',
-            position: 'relative',
-            zIndex: 1,
-          }}
-        >
-          {/* Columna Izquierda: Textos y Botón CTA */}
+    <Box sx={{ width: '100%', maxWidth: 1400, mx: 'auto', pb: 4 }}>
+      {/* Hero */}
+      <Box component="section" sx={{ position: 'relative', overflow: 'hidden', borderRadius: { xs: 4, md: 5 }, color: 'white', mb: { xs: 3, md: 4 }, background: 'linear-gradient(120deg, #4520c7 0%, #602ff7 55%, #7c4dff 100%)', boxShadow: '0 20px 48px rgba(96,47,247,0.24)' }}>
+        <Box aria-hidden="true" sx={{ position: 'absolute', top: -140, right: -80, width: 460, height: 460, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.20) 0%, rgba(255,255,255,0) 70%)' }} />
+        <Box sx={{ position: 'relative', display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.05fr 1fr' }, alignItems: 'center', gap: { xs: 2, md: 4 }, p: { xs: 3, sm: 4, md: 6 } }}>
           <Box>
-            <Typography
-              component="h1"
-              sx={{
-                fontWeight: 900,
-                fontSize: { xs: '2.1rem', sm: '2.7rem', md: '2.75rem' },
-                lineHeight: 1.06,
-                letterSpacing: '-0.03em',
-                color: '#ffffff',
-                mb: 2,
-              }}
-            >
-              Ofertas para todo{' '}
-              <Box component="span" sx={{ display: 'block' }}>
-                lo que necesitas
-              </Box>
-            </Typography>
-
-            <Typography
-              variant="body1"
-              sx={{
-                color: 'rgba(255, 255, 255, 0.88)',
-                fontSize: { xs: '0.95rem', md: '1.05rem' },
-                lineHeight: 1.45,
-                maxWidth: 400,
-                mb: 3.5,
-              }}
-            >
-              Explora productos y servicios de{' '}
-              <Box component="strong" sx={{ fontWeight: 800, color: '#ffffff' }}>
-                los vendedores del catálogo
-              </Box>
-              .
-            </Typography>
-
-            <Button
-              variant="contained"
-              size="large"
-              endIcon={<ArrowForward sx={{ fontSize: 18 }} />}
-              onClick={() => navigate('/catalogo')}
-              sx={{
-                bgcolor: '#ffffff',
-                color: '#602ff7',
-                fontWeight: 800,
-                fontSize: '0.98rem',
-                borderRadius: '50px',
-                px: 3.8,
-                py: 1.25,
-                textTransform: 'none',
-                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)',
-                transition: 'all 0.2s ease',
-                '&:hover': {
-                  bgcolor: '#f5f3ff',
-                  transform: 'translateY(-2px)',
-                  boxShadow: '0 12px 28px rgba(0, 0, 0, 0.2)',
-                },
-              }}
-            >
-              Ver ofertas
-            </Button>
-
-            <Typography
-              variant="caption"
-              sx={{
-                display: 'block',
-                mt: 2.5,
-                color: 'rgba(255, 255, 255, 0.72)',
-                fontSize: '0.82rem',
-                fontWeight: 500,
-              }}
-            >
-              Tecnología, hogar, moda, deportes y mucho más
-            </Typography>
-          </Box>
-
-          {/* Columna Central: Collage Flotante de Productos + Badge 50% DCTO */}
-          <Box
-            sx={{
-              position: 'relative',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              py: { xs: 2, md: 1 },
-            }}
-          >
-            {/* Badge circular "HASTA 50% DCTO." */}
-            <Box
-              sx={{
-                position: 'absolute',
-                top: { xs: -10, sm: 0 },
-                right: { xs: 15, sm: 35, md: 45 },
-                width: { xs: 72, sm: 84 },
-                height: { xs: 72, sm: 84 },
-                borderRadius: '50%',
-                bgcolor: '#1e054d',
-                border: '3px solid #ffffff',
-                boxShadow: '0 8px 20px rgba(0,0,0,0.25)',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                textAlign: 'center',
-                zIndex: 3,
-                animation: 'pulse 3s infinite ease-in-out',
-                '@keyframes pulse': {
-                  '0%': { transform: 'scale(1)' },
-                  '50%': { transform: 'scale(1.04)' },
-                  '100%': { transform: 'scale(1)' },
-                },
-              }}
-            >
-              <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: '#ffffff', letterSpacing: '0.5px' }}>
-                {maxDiscount ? 'HASTA' : 'EXPLORA'}
-              </Typography>
-              <Typography sx={{ fontSize: '1.45rem', fontWeight: 900, color: '#ffffff', lineHeight: 1 }}>
-                {maxDiscount ? `${maxDiscount}%` : 'TODO'}
-              </Typography>
-              <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: '#ffffff', letterSpacing: '0.5px' }}>
-                {maxDiscount ? 'DCTO.' : 'AQUÍ'}
-              </Typography>
-            </Box>
-
-            {/* Imagen principal de dispositivos en perspectiva */}
-            <Box
-              component="img"
-              src={heroDevices}
-              alt="Ofertas en tecnología, electrónica y más"
-              sx={{
-                width: '100%',
-                maxWidth: 520,
-                height: 'auto',
-                objectFit: 'contain',
-                filter: 'drop-shadow(0 18px 30px rgba(18, 2, 48, 0.35))',
-                transform: 'scale(1.02)',
-              }}
-            />
-          </Box>
-
-          {/* Columna Derecha: Tarjetas de Beneficios (Pills Blancas) */}
-          <Stack
-            spacing={1.75}
-            sx={{
-              display: { xs: 'none', lg: 'flex' },
-              justifyContent: 'center',
-            }}
-          >
-            {heroSideBenefits.map(({ title, detail, Icon }) => (
-              <Paper
-                key={title}
-                elevation={0}
-                sx={{
-                  p: 2,
-                  borderRadius: 3.5,
-                  bgcolor: '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 2,
-                  boxShadow: '0 8px 24px rgba(18, 2, 48, 0.12)',
-                  transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                  '&:hover': {
-                    transform: 'translateX(4px)',
-                    boxShadow: '0 12px 30px rgba(18, 2, 48, 0.16)',
-                  },
-                }}
-              >
-                <Box
-                  sx={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 2.5,
-                    bgcolor: '#f1eeff',
-                    color: '#602ff7',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                  }}
-                >
-                  <Icon sx={{ fontSize: 24 }} />
-                </Box>
-                <Box>
-                  <Typography variant="body2" sx={{ fontWeight: 800, color: '#030c2e', lineHeight: 1.2 }}>
-                    {title}
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: '#626680', fontWeight: 500, fontSize: '0.78rem' }}>
-                    {detail}
-                  </Typography>
-                </Box>
-              </Paper>
-            ))}
-          </Stack>
-        </Box>
-      </Box>
-
-      {/* =========================================================================
-          2. BENTO CARDS DE CATEGORÍAS (Figma P07)
-      ========================================================================= */}
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: {
-            xs: '1fr',
-            sm: 'repeat(2, 1fr)',
-            lg: 'repeat(4, 1fr)',
-          },
-          gap: 2.5,
-          mb: 3.5,
-        }}
-      >
-        {bentoCategories.map((cat) => (
-          <Card
-            key={cat.tag}
-            sx={{
-              bgcolor: cat.bg,
-              border: `1px solid ${cat.borderColor}`,
-              borderRadius: 4,
-              p: 2,
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              minHeight: 155,
-              position: 'relative',
-              overflow: 'hidden',
-              boxShadow: '0 4px 16px rgba(3, 12, 46, 0.03)',
-              transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-              '&:hover': {
-                transform: 'translateY(-3px)',
-                boxShadow: '0 12px 28px rgba(3, 12, 46, 0.08)',
-              },
-            }}
-          >
-            <Box sx={{ maxWidth: '60%', zIndex: 1 }}>
-              <Typography
-                variant="caption"
-                sx={{
-                  color: cat.tagColor,
-                  fontWeight: 800,
-                  fontSize: '0.74rem',
-                  letterSpacing: '0.04em',
-                  display: 'block',
-                  mb: 0.75,
-                }}
-              >
-                {cat.tag}
-              </Typography>
-              <Typography
-                variant="h6"
-                sx={{
-                  fontWeight: 900,
-                  fontSize: '1.18rem',
-                  color: '#030c2e',
-                  lineHeight: 1.25,
-                  mb: 2.5,
-                }}
-              >
-                {cat.title}
-              </Typography>
-
-              <Button
-                size="small"
-                variant="contained"
-                onClick={() => navigate(`/catalogo?categoria=${encodeURIComponent(cat.categoryName)}`)}
-                sx={{
-                  bgcolor: cat.btnBg,
-                  color: '#ffffff',
-                  borderRadius: '30px',
-                  px: 2.2,
-                  py: 0.65,
-                  fontSize: '0.78rem',
-                  fontWeight: 700,
-                  textTransform: 'none',
-                  boxShadow: 'none',
-                  '&:hover': {
-                    bgcolor: cat.btnHover,
-                    boxShadow: 'none',
-                  },
-                }}
-              >
-                Ver productos →
-              </Button>
-            </Box>
-
-            {/* Imagen flotante en el lateral derecho de cada tarjeta */}
-            <Box
-              component="img"
-              src={cat.image}
-              alt={cat.title}
-              sx={{
-                position: 'absolute',
-                right: 10,
-                bottom: 10,
-                width: 120,
-                height: 120,
-                objectFit: 'contain',
-                transition: 'transform 0.25s ease',
-                '&:hover': {
-                  transform: 'scale(1.06)',
-                },
-              }}
-            />
-          </Card>
-        ))}
-      </Box>
-
-      {/* =========================================================================
-          3. BARRA HORIZONTAL DE CONFIANZA Y BENEFICIOS (5 Pilares Figma P07)
-      ========================================================================= */}
-      <Paper
-        elevation={0}
-        sx={{
-          bgcolor: '#ffffff',
-          borderRadius: 3.5,
-          border: '1px solid #eef0f6',
-          p: { xs: 2, md: 2 },
-          boxShadow: '0 4px 16px rgba(3, 12, 46, 0.03)',
-          mb: 4.5,
-        }}
-      >
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: {
-              xs: '1fr',
-              sm: 'repeat(2, 1fr)',
-              md: 'repeat(3, 1fr)',
-              lg: 'repeat(5, 1fr)',
-            },
-            gap: { xs: 2, lg: 3 },
-            alignItems: 'center',
-          }}
-        >
-          {trustBenefits.map(({ title, detail, Icon }, idx) => (
-            <Stack
-              key={title}
-              direction="row"
-
-              spacing={1.75}
-              sx={[{ alignItems: "center" }, {
-                position: 'relative',
-                ...(idx !== 0 && {
-                  pl: { lg: 2.5 },
-                  borderLeft: { lg: '1px solid #eef0f6' },
-                }),
-              }]}
-            >
-              <Box
-                sx={{
-                  color: '#602ff7',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                }}
-              >
-                <Icon sx={{ fontSize: 26 }} />
-              </Box>
-              <Box>
-                <Typography variant="body2" sx={{ fontWeight: 800, color: '#030c2e', lineHeight: 1.2 }}>
-                  {title}
-                </Typography>
-                <Typography variant="caption" sx={{ color: '#626680', fontWeight: 500, fontSize: '0.78rem' }}>
-                  {detail}
-                </Typography>
-              </Box>
+            {home.maxDiscount > 0 && <Box sx={{ display: 'inline-block', bgcolor: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.28)', borderRadius: 99, px: 1.5, py: 0.5, fontSize: 13, fontWeight: 700, mb: 2 }}>Ofertas de hasta {home.maxDiscount}% de descuento</Box>}
+            <Typography component="h1" sx={{ color: 'white', fontWeight: 900, fontSize: { xs: '2rem', sm: '2.6rem', md: '3.1rem' }, lineHeight: 1.05, letterSpacing: '-0.035em', mb: 1.5 }}>Todo lo que buscas, en un solo lugar</Typography>
+            <Typography sx={{ color: 'rgba(255,255,255,0.86)', fontSize: { xs: '0.98rem', md: '1.1rem' }, maxWidth: 460, mb: 3 }}>Compra productos y contrata servicios directamente a emprendedores.</Typography>
+            <Stack direction="row" spacing={1.5} useFlexGap sx={{ flexWrap: 'wrap' }}>
+              <Button size="large" onClick={() => navigate('/catalogo')} endIcon={<ArrowForwardRounded />} sx={{ bgcolor: 'white', color: 'primary.main', fontWeight: 800, borderRadius: 99, px: 3.5, '&:hover': { bgcolor: '#f1eeff' } }}>Explorar catálogo</Button>
+              <Button size="large" onClick={() => navigate('/catalogo?tipo=Servicios')} sx={{ color: 'white', fontWeight: 700, borderRadius: 99, px: 3, border: '1px solid rgba(255,255,255,0.5)', '&:hover': { bgcolor: 'rgba(255,255,255,0.12)', borderColor: 'white' } }}>Ver servicios</Button>
             </Stack>
-          ))}
-        </Box>
-      </Paper>
-
-      {/* =========================================================================
-          4. SECCIÓN: PRODUCTOS DESTACADOS (Figma P07)
-      ========================================================================= */}
-      <Box sx={{ mb: 5 }}>
-        <Stack
-          direction="row"
-
-
-          sx={[{ justifyContent: "space-between", alignItems: "center" }, { mb: 2.5 }]}
-        >
-          <Typography
-            variant="h5"
-            sx={{
-              fontWeight: 900,
-              fontSize: { xs: '1.4rem', md: '1.75rem' },
-              color: '#030c2e',
-              letterSpacing: '-0.02em',
-            }}
-          >
-            Productos destacados
-          </Typography>
-
-          <Button
-            onClick={() => navigate('/catalogo')}
-            sx={{
-              fontWeight: 800,
-              color: 'primary.main',
-              textTransform: 'none',
-              fontSize: '0.92rem',
-              p: 0.5,
-              '&:hover': {
-                bgcolor: 'transparent',
-                textDecoration: 'underline',
-              },
-            }}
-          >
-            Ver todos los productos →
-          </Button>
-        </Stack>
-
-        {/* Grilla de 5 columnas en Desktop (según diseño exacto de Figma) */}
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: {
-              xs: '1fr',
-              sm: 'repeat(2, 1fr)',
-              md: 'repeat(3, 1fr)',
-              lg: 'repeat(5, 1fr)',
-            },
-            gap: 2.5,
-          }}
-        >
-          {visibleFeatured.map((product) => (
-            <ProductCard
-              key={product.id}
-              product={product}
-              favorite={favorites.includes(product.id)}
-              onToggleFavorite={toggleFavorite}
-              onAddToCart={() => { try { addToCart(asItem(catalog.find(item => item.id === product.id))); navigate('/carrito') } catch (error) { notify(error.message) } }}
-            />
-          ))}
-        </Box>
-      </Box>
-
-      {/* =========================================================================
-          5. SECCIÓN: SERVICIOS CERCA DE TI (Preservada para compatibilidad)
-      ========================================================================= */}
-      <Box sx={{ mt: 2 }}>
-        <Stack
-          direction="row"
-
-
-          sx={[{ justifyContent: "space-between", alignItems: "center" }, { mb: 2.5 }]}
-        >
-          <Box>
-            <Typography
-              variant="h5"
-              sx={{
-                fontWeight: 900,
-                fontSize: { xs: '1.3rem', md: '1.6rem' },
-                color: '#030c2e',
-                letterSpacing: '-0.02em',
-              }}
-            >
-              Servicios cerca de ti
-            </Typography>
-            <Typography variant="body2" sx={{ color: '#626680', mt: 0.25 }}>
-              Consulta los servicios y las ubicaciones registradas por sus vendedores
-            </Typography>
+            <Stack direction="row" spacing={{ xs: 2.5, sm: 4 }} sx={{ mt: { xs: 3, md: 4 } }}>
+              {stats.map(([Icon, value, label]) => <Stack key={label} direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                <Icon sx={{ fontSize: 22, opacity: 0.85, display: { xs: 'none', sm: 'block' } }} />
+                <Box><Typography sx={{ color: 'white', fontWeight: 900, fontSize: { xs: '1.15rem', md: '1.35rem' }, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{value.toLocaleString('es-CL')}</Typography><Typography sx={{ color: 'rgba(255,255,255,0.78)', fontSize: 12.5 }}>{label}</Typography></Box>
+              </Stack>)}
+            </Stack>
           </Box>
-
-          <Button
-            onClick={() => navigate('/servicio/102')}
-            sx={{
-              fontWeight: 800,
-              color: 'primary.main',
-              textTransform: 'none',
-              fontSize: '0.92rem',
-              '&:hover': {
-                bgcolor: 'transparent',
-                textDecoration: 'underline',
-              },
-            }}
-          >
-            Ver todos los servicios →
-          </Button>
-        </Stack>
-
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: {
-              xs: '1fr',
-              sm: 'repeat(2, 1fr)',
-              lg: 'repeat(4, 1fr)',
-            },
-            gap: 2.5,
-          }}
-        >
-          {localServices.map((srv) => (
-            <ServiceCard
-              key={srv.id}
-              service={srv}
-              favorite={favorites.includes(srv.id)}
-              onToggleFavorite={toggleFavorite}
-            />
-          ))}
+          <Box component="img" src={heroDevices} alt="" sx={{ display: { xs: 'none', md: 'block' }, width: '100%', maxWidth: 560, justifySelf: 'center', filter: 'drop-shadow(0 22px 34px rgba(18,2,48,0.4))' }} />
         </Box>
       </Box>
+
+      {/* Categorías */}
+      {categories.length > 0 && <Box component="section" aria-label="Categorías" sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', lg: `repeat(${categories.length}, 1fr)` }, gap: { xs: 1.5, md: 2 }, mb: { xs: 5, md: 7 } }}>
+        {categories.map(category => <Box
+          key={category.name} component="button" type="button" onClick={() => navigate(`/catalogo?categoria=${encodeURIComponent(category.name)}`)}
+          sx={{ position: 'relative', overflow: 'hidden', height: { xs: 96, md: 120 }, borderRadius: 3.5, border: 0, p: 0, cursor: 'pointer', textAlign: 'left', bgcolor: '#4520c7', transition: 'transform 180ms ease, box-shadow 180ms ease', '&:hover, &:focus-visible': { transform: 'translateY(-3px)', boxShadow: '0 14px 30px rgba(96,47,247,0.35)', outline: 'none' }, '&:hover img': { transform: 'scale(1.07)' } }}
+        >
+          <Box component="img" src={category.image} alt="" loading="lazy" sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.6, transition: 'transform 350ms ease' }} />
+          <Box sx={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(69,32,199,0.10) 0%, rgba(69,32,199,0.92) 100%)' }} />
+          <Typography sx={{ position: 'absolute', left: 14, right: 14, bottom: 12, color: 'white', fontWeight: 800, fontSize: { xs: '0.85rem', md: '0.95rem' }, lineHeight: 1.2 }}>{category.name}</Typography>
+        </Box>)}
+      </Box>}
+
+      <Rail title="Ofertas del momento" subtitle="Publicaciones con precio rebajado" items={home.offers} favorites={favorites} onAdd={add} onSeeAll={() => navigate('/catalogo?tipo=Productos')} />
+      <Rail title="Productos destacados" subtitle="Los mejor valorados por los compradores" items={home.featured} favorites={favorites} onAdd={add} onSeeAll={() => navigate('/catalogo?tipo=Productos')} />
+      <Rail title="Servicios" subtitle="Profesionales y emprendedores disponibles" items={home.services} favorites={favorites} onAdd={add} onSeeAll={() => navigate('/catalogo?tipo=Servicios')} />
     </Box>
   )
 }

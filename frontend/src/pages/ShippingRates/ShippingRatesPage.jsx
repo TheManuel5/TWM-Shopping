@@ -37,6 +37,8 @@ import {
 import { useState } from 'react'
 import StatusChip from '../../components/atoms/StatusChip/StatusChip'
 import { formatCLP } from '../../utils/taxonomyData'
+import ShowMore from '../../components/molecules/ShowMore/ShowMore'
+import useBlocks from '../../hooks/useBlocks'
 
 const INITIAL_ZONES = [
   { id: 1, region: 'Los Lagos', provincia: 'Osorno', comuna: 'Osorno', rate: 3570 },
@@ -51,6 +53,7 @@ export default function ShippingRatesPage() {
   const [tab, setTab] = useState('Tarifas')
   const [editingId, setEditingId] = useState(null)
   const [orders] = useCollection('orders', [])
+  const shipments = useBlocks(orders.filter(order => order.dispatch), 15)
   const [calcMethod, setCalcMethod] = useCollection('shippingMethod', 'zona')
   const [zones, setZones] = useSellerCollection('zones', INITIAL_ZONES)
 
@@ -314,7 +317,7 @@ export default function ShippingRatesPage() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {orders.filter(order => order.dispatch).map(order => ({ id: order.id, date: order.date.replace('\n', ' '), carrier: order.dispatch.carrier, tracking: order.dispatch.tracking, status: order.status })).map((sh) => (
+            {shipments.visible.map(order => ({ id: order.id, date: order.date.replace('\n', ' '), carrier: order.dispatch.carrier, tracking: order.dispatch.tracking, status: order.status })).map((sh) => (
               <TableRow key={sh.id}>
                 <TableCell sx={{ fontWeight: 800 }}>{sh.id}</TableCell>
                 <TableCell>{sh.date}</TableCell>
@@ -328,6 +331,7 @@ export default function ShippingRatesPage() {
             ))}
           </TableBody>
         </Table>
+        <ShowMore {...shipments} label="despachos" />
 
         <Stack direction="row"  sx={[{ justifyContent: "flex-end" }, { mt: 2.5 }]}>
           <Button onClick={() => { logEvent('Guardar configuración de despacho', { calcMethod, zones }); notify('Configuración de despacho guardada.') }} variant="contained" startIcon={<SaveOutlined />}>

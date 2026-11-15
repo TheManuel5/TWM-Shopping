@@ -15,6 +15,13 @@ function emitStatus() { status = { pending, completed, total, error: persistence
 export const subscribePersistence = listener => { statusListeners.add(listener); return () => statusListeners.delete(listener) }
 export const getPersistenceStatus = () => status
 export function hydrateState(snapshot) {
+  if (snapshot.partial) {
+    // Guardado rápido: el servidor devuelve solo las colecciones que cambió.
+    Object.entries(snapshot.collections).forEach(([key, value]) => cache.set(key, value))
+    revision = snapshot.revision
+    listeners.forEach(listener => listener())
+    return
+  }
   authenticated = snapshot.isAuthenticated
   cache.clear()
   Object.entries(snapshot.collections).forEach(([key, value]) => cache.set(key, value))
@@ -25,9 +32,9 @@ export function hydrateState(snapshot) {
   revision = snapshot.revision
   listeners.forEach(listener => listener())
 }
-export async function loadRemoteState() {
+export async function loadRemoteState(onProgress) {
   await queue
-  const snapshot = await apiService.getState()
+  const snapshot = await apiService.getState(typeof onProgress === 'function' ? onProgress : undefined)
   if (snapshot.source !== 'public' || snapshot.dataMode !== 'relational') throw new Error('La API activa no usa la base importada. Inicia la versión relacional del backend.')
   generation += 1
   hydrateState(snapshot)

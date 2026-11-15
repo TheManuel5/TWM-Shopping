@@ -20,6 +20,16 @@
     {
       "key": "queryId",
       "value": ""
+    },
+    {
+      "key": "revision",
+      "value": "0",
+      "description": "Se completa sola al ejecutar «Estado completo»."
+    },
+    {
+      "key": "recursoId",
+      "value": "",
+      "description": "ID del registro creado en «Crear producto»; se usa en actualizar y eliminar."
     }
   ],
   "item": [
@@ -45,7 +55,20 @@
         "method": "GET",
         "header": [],
         "url": "{{baseUrl}}/state"
-      }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const data = pm.response.json();",
+              "if (data && data.revision !== undefined) pm.collectionVariables.set('revision', String(data.revision));",
+              "pm.test('Respuesta correcta', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 204]));"
+            ]
+          }
+        }
+      ]
     },
     {
       "name": "Catálogo",
@@ -183,6 +206,219 @@
         "header": [],
         "url": "{{baseUrl}}/auth/logout"
       }
+    },
+    {
+      "name": "CRUD con PUT y DELETE (base de pruebas)",
+      "description": "Operaciones de escritura. Ejecútalas contra la API aislada (puerto 5157, base shopping_verificacion_v2) cambiando la variable baseUrl. Orden: Iniciar sesión → Estado completo → Crear → Actualizar → Eliminar. Cada escritura devuelve una revisión nueva, que se guarda sola.",
+      "item": [
+        {
+          "name": "Estado completo (guarda la revisión)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data && data.revision !== undefined) pm.collectionVariables.set('revision', String(data.revision));",
+                  "pm.test('Respuesta correcta', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 204]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/state"
+          }
+        },
+        {
+          "name": "Crear producto (POST)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data && data.revision !== undefined) pm.collectionVariables.set('revision', String(data.revision));",
+                  "pm.test('Respuesta correcta', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 204]));",
+                  "const created = (pm.response.json().collections.catalog || []).find(item => item.nombre === 'Producto de prueba Postman');",
+                  "if (created) pm.collectionVariables.set('recursoId', created.id);",
+                  "pm.test('El producto quedó en el catálogo', () => pm.expect(created).to.be.an('object'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "If-Match",
+                "value": "{{revision}}",
+                "description": "Revisión obtenida en «Estado completo»."
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Producto de prueba Postman\",\n  \"categoria\": \"Accesorios informaticos\",\n  \"precio\": 9990,\n  \"stock\": 5,\n  \"estado\": \"Borrador\",\n  \"descripcion\": \"Creado desde Postman para probar el CRUD.\",\n  \"material\": \"Algodon\",\n  \"marca\": \"Marca Demo\",\n  \"color\": \"Verde\",\n  \"talla\": \"L\",\n  \"peso\": 500\n}"
+            },
+            "url": "{{baseUrl}}/productos"
+          }
+        },
+        {
+          "name": "Actualizar producto (PUT)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data && data.revision !== undefined) pm.collectionVariables.set('revision', String(data.revision));",
+                  "pm.test('Respuesta correcta', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 204]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "If-Match",
+                "value": "{{revision}}",
+                "description": "Revisión obtenida en «Estado completo»."
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Producto de prueba Postman (editado)\",\n  \"categoria\": \"Accesorios informaticos\",\n  \"precio\": 9990,\n  \"stock\": 5,\n  \"estado\": \"Borrador\",\n  \"descripcion\": \"Actualizado desde Postman.\",\n  \"material\": \"Algodon\",\n  \"marca\": \"Marca Demo\",\n  \"color\": \"Verde\",\n  \"talla\": \"L\",\n  \"peso\": 500\n}"
+            },
+            "url": "{{baseUrl}}/productos/{{recursoId}}"
+          }
+        },
+        {
+          "name": "Eliminar producto (DELETE)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data && data.revision !== undefined) pm.collectionVariables.set('revision', String(data.revision));",
+                  "pm.test('Respuesta correcta', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 204]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "If-Match",
+                "value": "{{revision}}",
+                "description": "Revisión obtenida en «Estado completo»."
+              }
+            ],
+            "url": "{{baseUrl}}/productos/{{recursoId}}",
+            "description": "Retira la publicación. El registro se conserva sin publicar para no perder el historial de ventas."
+          }
+        },
+        {
+          "name": "Cambiar contraseña (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current\": \"{{password}}\",\n  \"next\": \"NuevaClaveDePrueba2026!\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/password",
+            "description": "Cambia la contraseña de la cuenta en sesión. Úsalo solo en la base de pruebas."
+          }
+        },
+        {
+          "name": "Guardar carrito (PUT transacción)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data && data.revision !== undefined) pm.collectionVariables.set('revision', String(data.revision));",
+                  "pm.test('Respuesta correcta', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 204]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"revision\": 0,\n  \"changes\": {\n    \"cart\": []\n  },\n  \"delta\": true,\n  \"deleted\": {}\n}"
+            },
+            "url": "{{baseUrl}}/state/transaction",
+            "description": "Reemplaza \"revision\": 0 por el valor de la variable revision antes de enviar."
+          }
+        },
+        {
+          "name": "Administración: actualizar fila (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fields\": {\n    \"nombre\": \"Categoria vacia A\"\n  },\n  \"key\": {\n    \"id\": 0\n  }\n}"
+            },
+            "url": "{{baseUrl}}/admin/database/tables/categoría",
+            "description": "Solo administrador. Indica en key la clave primaria real de la fila."
+          }
+        },
+        {
+          "name": "Administración: eliminar fila (DELETE)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fields\": {},\n  \"key\": {\n    \"id\": 0\n  }\n}"
+            },
+            "url": "{{baseUrl}}/admin/database/tables/categoría",
+            "description": "Solo administrador. Indica en key la clave primaria real de la fila."
+          }
+        }
+      ]
     }
   ]
 }

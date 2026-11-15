@@ -64,3 +64,13 @@ export function requestQuote(items) {
   logEvent('Solicitar cotización', quote)
   return quote
 }
+
+/** Rebaja vigente de una publicación según sus variantes: { regularPrice, discount } o null. */
+export function offerOf(product) {
+  const variants = product.variantes || []
+  const variant = variants.find(row => row.price === product.precio && row.regularPrice > row.price) || variants.find(row => row.regularPrice > row.price)
+  if (!variant) return null
+  return { regularPrice: variant.regularPrice, discount: Math.floor(100 * (1 - variant.price / variant.regularPrice)) }
+}
+/** Orden natural por nombre: «Producto 2» antes que «Producto 10». */
+export const byName = (a, b) => String(a.nombre ?? a.name).localeCompare(String(b.nombre ?? b.name), 'es', { numeric: true, sensitivity: 'base' })

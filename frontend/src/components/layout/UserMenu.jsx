@@ -1,6 +1,7 @@
 import { notify } from '../../utils/feedback'
 import {
   AccountCircleOutlined,
+  DashboardOutlined,
   ExpandMoreOutlined,
   LogoutOutlined,
   SettingsOutlined,
@@ -22,7 +23,7 @@ import useAuth from '../../contexts/AuthContext/useAuth'
 export default function UserMenu() {
   const [anchorElement, setAnchorElement] = useState(null)
   const navigate = useNavigate()
-  const { user, isAuthenticated, logout } = useAuth()
+  const { user, isAuthenticated, logout, switchRole } = useAuth()
   const menuOpen = Boolean(anchorElement)
 
   const closeMenu = () => setAnchorElement(null)
@@ -65,7 +66,7 @@ export default function UserMenu() {
   const nombreReal = userData.nombre || userData.Nombre || userData.name || ''
   const apellidoReal = userData.apellido || userData.Apellido || ''
   const rutReal = userData.run || userData.Run || userData.rut || userData.Rut || ''
-  const rolReal = userData.rol || userData.Role || userData.role || 'Usuario'
+  const rolReal = userData.role === 'Admin' ? 'Administrador' : userData.role || userData.rol || userData.Role || 'Usuario'
 
   const fullName = nombreReal ? `${nombreReal} ${apellidoReal}`.trim() : 'Usuario'
 
@@ -143,6 +144,14 @@ export default function UserMenu() {
           </Typography>
         </Box>
         <Divider />
+        <MenuItem onClick={() => navigateFromMenu('/mi-panel')}>
+          <ListItemIcon><DashboardOutlined fontSize="small" /></ListItemIcon>
+          Panel de mi cuenta
+        </MenuItem>
+        {user.canAdmin && <MenuItem onClick={() => { closeMenu(); switchRole('Admin'); navigate('/admin/dashboard') }}>
+          <ListItemIcon><DashboardOutlined fontSize="small" /></ListItemIcon>
+          Administración general
+        </MenuItem>}
         <MenuItem onClick={() => navigateFromMenu('/perfil')}>
           <ListItemIcon>
             <AccountCircleOutlined fontSize="small" />

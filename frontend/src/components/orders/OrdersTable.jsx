@@ -1,5 +1,6 @@
 import { formatCLP } from '../../utils/taxonomyData'
 import { money } from '../../data/commerce'
+import { catalogImage } from '../../utils/catalogImages'
 import {
   Chip,
   IconButton,
@@ -58,7 +59,7 @@ export default function OrdersTable({ orders, selectedId, onSelect, onEdit, onDe
                 <div className="product-stack">
                   {order.products.slice(0, 2).map((product) => (
                     <span key={product.name} className="product-thumb" title={product.name}>
-                      {product.emoji}
+                      {product.emoji || <img src={catalogImage(product)} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 4 }} />}
                     </span>
                   ))}
                   {order.products.length > 2 && <span className="product-more">+{order.products.length - 2}</span>}

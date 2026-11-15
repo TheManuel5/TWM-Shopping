@@ -7,11 +7,11 @@ export default function StatMetricCard({
   trendText,
   trendColor = 'success.main',
   icon,
-  iconBg = 'secondary.light',
+  iconBg = 'secondary.main',
   iconColor = 'primary.main',
 }) {
   return (
-    <Card sx={{ p: 2.25, display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+    <Card sx={{ p: 2.25, display: 'flex', alignItems: 'flex-start', gap: 2, borderTop: '3px solid', borderTopColor: 'primary.main' }}>
       {icon && (
         <Box
           sx={{
