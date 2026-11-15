@@ -1,45 +1,47 @@
-import { catalogImage } from '../../utils/catalogImages'
-import { API_MODE, apiService } from '../../services/api'
-import { catalogSeed } from '../../data/catalog'
-import useCollection from '../../hooks/useCollection'
-import { checkout } from '../../data/commerce'
-import {
-  AccountBalanceOutlined,
-  AddOutlined,
-  CreditCardOutlined,
-  HomeOutlined,
-  LocalShippingOutlined,
-  LockOutlined,
-  StorefrontOutlined,
-  VerifiedUserOutlined,
-} from '@mui/icons-material'
-import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  Checkbox,
-  Chip,
-  Skeleton,
-  Divider,
-  FormControlLabel,
-  Grid,
-  Paper,
-  Radio,
-  Stack,
-  Step,
-  StepLabel,
-  Stepper,
-  TextField,
-  Typography,
-} from '@mui/material'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-
-
-import useAuth from '../../contexts/AuthContext/useAuth' // <-- IMPORTANTE: Importamos el contexto
-
+import { AccountBalanceOutlined, AddOutlined, CreditCardOutlined, LocalShippingOutlined, LockOutlined, PlaceOutlined, StorefrontOutlined } from '@mui/icons-material'
+import { Alert, Box, Button, Card, Checkbox, Chip, Divider, FormControlLabel, LinearProgress, Radio, Skeleton, Stack, TextField, Typography } from '@mui/material'
+import useAuth from '../../contexts/AuthContext/useAuth'
+import { catalogSeed } from '../../data/catalog'
+import { checkout } from '../../data/commerce'
+import useCollection from '../../hooks/useCollection'
+import { API_MODE, apiService } from '../../services/api'
+import { catalogImage } from '../../utils/catalogImages'
 import { formatCLP } from '../../utils/taxonomyData'
+
+function Section({ step, title, children }) {
+  return <Card component="section" sx={{ p: { xs: 2, sm: 3 } }}>
+    <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', mb: 2.5 }}>
+      <Box sx={{ display: 'grid', placeItems: 'center', width: 30, height: 30, borderRadius: '50%', bgcolor: 'primary.main', color: 'white', fontWeight: 800, fontSize: 14, flexShrink: 0 }}>{step}</Box>
+      <Typography variant="h6" component="h2">{title}</Typography>
+    </Stack>
+    {children}
+  </Card>
+}
+
+/** Opción seleccionable con apariencia de tarjeta (entrega, dirección, medio de pago). */
+function Option({ selected, onSelect, icon, title, detail, action, label }) {
+  return <Stack
+    direction="row" spacing={1.25} component="label"
+    sx={{ alignItems: 'center', p: 1.5, pr: 2, borderRadius: 2.5, cursor: 'pointer', border: '1px solid', borderColor: selected ? 'primary.main' : 'divider', bgcolor: selected ? 'secondary.light' : 'background.paper', boxShadow: selected ? '0 0 0 1px #602ff7' : 'none', transition: 'border-color 150ms ease, background-color 150ms ease', minWidth: 0 }}
+  >
+    <Radio size="small" checked={selected} onChange={onSelect} slotProps={{ input: { 'aria-label': label || title } }} />
+    <Box sx={{ color: 'primary.main', display: 'flex' }}>{icon}</Box>
+    <Box sx={{ flex: 1, minWidth: 0 }}>
+      <Typography component="div" sx={{ fontWeight: 700, lineHeight: 1.3 }}>{title}</Typography>
+      {detail && <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{detail}</Typography>}
+    </Box>
+    {action}
+  </Stack>
+}
+
+function Row({ label, value, strong, busy }) {
+  return <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 2 }}>
+    <Typography variant="body2" color={strong ? 'text.primary' : 'text.secondary'} sx={{ fontWeight: strong ? 700 : 400 }}>{label}</Typography>
+    {busy ? <Skeleton width={70} /> : <Typography variant="body2" sx={{ fontWeight: strong ? 800 : 600 }}>{value}</Typography>}
+  </Stack>
+}
 
 export default function CheckoutPage() {
   const navigate = useNavigate()
@@ -108,283 +110,96 @@ export default function CheckoutPage() {
     } catch (error) { setError(error.message) }
     finally { setIsProcessing(false) }
   }
+  const loadingTotals = API_MODE && items.length > 0 && (previewBusy || (!preview && !error))
+  const twoColumns = { display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }
+
   return (
-    <Box sx={{ maxWidth: 1320, mx: 'auto' }}>
-      <Stack direction="row"   sx={[{ justifyContent: "space-between", alignItems: "center" }, { mb: 2 }]}>
-        <Typography variant="h5" sx={{ fontWeight: 900 }}>
-          Shopping &nbsp;/&nbsp; Confirmar compra
-        </Typography>
-        <Stack direction="row" spacing={1}  sx={[{ alignItems: "center" }, { color: 'text.secondary' }]}>
-          <VerifiedUserOutlined color="primary" fontSize="small" />
-          <Typography variant="caption">Registro de compra en el sistema</Typography>
-        </Stack>
-      </Stack>
+    <Box sx={{ maxWidth: 1240, mx: 'auto' }}>
+      <Typography variant="h4" component="h1" sx={{ fontSize: { xs: '1.6rem', md: '2rem' } }}>Confirmar compra</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>Revisa la entrega y el pago antes de registrar tu pedido.</Typography>
 
-      <Stepper activeStep={1} sx={{ mb: 3 }}>
-        <Step completed>
-          <StepLabel>1. Entrega</StepLabel>
-        </Step>
-        <Step>
-          <StepLabel>2. Pago</StepLabel>
-        </Step>
-        <Step>
-          <StepLabel>3. Confirmación</StepLabel>
-        </Step>
-      </Stepper>
-
-      {API_MODE && preview?.discount > 0 && <Alert severity="info" sx={{ mb: 2 }}>Descuento aplicado por PostgreSQL: {formatCLP(preview.discount)}</Alert>}
-      {previewBusy && <Skeleton variant="rounded" height={64} sx={{ mb: 2 }} />}
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {!items.length && <Alert severity="info" sx={{ mb: 2 }}>Tu carrito está vacío. Agrega artículos desde el catálogo.</Alert>}
-      <Grid container spacing={3}>
-        {/* Columna Izquierda: Dirección y Medio de Pago (P07) */}
-        <Grid size={{ xs: 12, lg: 7.5 }}>
-          <Stack spacing={2.5}>
-            <Card sx={{ p: 3 }}>
-              <Typography variant="h6" sx={{ mb: 2 }}>
-                Dirección de entrega
-              </Typography>
+      {!items.length && <Alert severity="info" sx={{ mb: 2 }} action={<Button color="inherit" size="small" onClick={() => navigate('/catalogo')}>Ir al catálogo</Button>}>Tu carrito está vacío. Agrega artículos desde el catálogo.</Alert>}
 
-              <Stack direction="row" spacing={1.5} sx={{ mb: 2.5 }}>
-                <Button
-                  fullWidth
-                  variant={deliveryMode === 'Despacho' ? 'contained' : 'outlined'}
-                  startIcon={<LocalShippingOutlined />}
-                  onClick={() => setDeliveryMode('Despacho')}
-                >
-                  Despacho a domicilio
-                </Button>
-                <Button
-                  fullWidth
-                  variant={deliveryMode === 'Retiro' ? 'contained' : 'outlined'}
-                  startIcon={<StorefrontOutlined />}
-                  onClick={() => setDeliveryMode('Retiro')}
-                >
-                  Retiro en tienda (Osorno)
-                </Button>
-              </Stack>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) 400px' }, gap: 3, alignItems: 'start' }}>
+        <Stack spacing={2.5}>
+          <Section step={1} title="Entrega">
+            <Box sx={twoColumns}>
+              <Option selected={deliveryMode === 'Despacho'} onSelect={() => setDeliveryMode('Despacho')} icon={<LocalShippingOutlined />} title="Despacho a domicilio" detail="Según las tarifas del vendedor" />
+              <Option selected={deliveryMode === 'Retiro'} onSelect={() => setDeliveryMode('Retiro')} icon={<StorefrontOutlined />} title="Retiro con el vendedor" detail="Sin costo de despacho" />
+            </Box>
 
-              {deliveryMode === 'Despacho' && (
-                <Stack spacing={1.5}>
-                  {addresses.map(row => ({ id: row.id, label: row.name, detail: [row.street, row.number, row.commune, row.region].filter(Boolean).join(', '), main: row.primary })).map((addr) => (
-                    <Paper
-                      key={addr.id}
-                      variant="outlined"
-                      onClick={() => setSelectedAddress(addr.id)}
-                      sx={{
-                        p: 2,
-                        cursor: 'pointer',
-                        borderColor: selectedAddress === addr.id ? 'primary.main' : 'divider',
-                        bgcolor: selectedAddress === addr.id ? 'secondary.light' : 'background.paper',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <Stack direction="row" spacing={1.5}  sx={{ alignItems: "center" }}>
-                        <Radio checked={selectedAddress === addr.id} />
-                        <HomeOutlined color="primary" />
-                        <Box>
-                          <Stack direction="row" spacing={1}  sx={{ alignItems: "center" }}>
-                            <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                              {addr.label} ({addr.id})
-                            </Typography>
-                            {addr.main && (
-                              <Chip label="Dirección principal" size="small" color="secondary" />
-                            )}
-                          </Stack>
-                          <Typography variant="caption" color="text.secondary">
-                            {addr.detail}
-                          </Typography>
-                        </Box>
-                      </Stack>
-                      <Button size="small" onClick={() => navigate('/perfil')}>
-                        Editar
-                      </Button>
-                    </Paper>
-                  ))}
+            {deliveryMode === 'Despacho' && <Stack spacing={1.5} sx={{ mt: 2.5 }}>
+              <Typography sx={{ fontWeight: 800, fontSize: '0.92rem' }}>Dirección de despacho</Typography>
+              {addresses.map(row => <Option
+                key={row.id} selected={String(address?.id) === String(row.id)} onSelect={() => setSelectedAddress(row.id)} icon={<PlaceOutlined />}
+                label={`Enviar a ${row.name}`}
+                title={<>{row.name}{row.primary && <Chip label="Principal" size="small" color="secondary" sx={{ ml: 1, height: 20, color: 'primary.dark' }} />}</>}
+                detail={[row.street, row.number, row.commune, row.region].filter(Boolean).join(', ')}
+                action={<Button size="small" onClick={() => navigate('/perfil')}>Editar</Button>}
+              />)}
+              <Button variant="outlined" startIcon={<AddOutlined />} onClick={() => navigate('/perfil')} sx={{ borderStyle: 'dashed', py: 1.25 }}>Agregar una dirección</Button>
+            </Stack>}
+          </Section>
 
-                  <Button
-                    variant="outlined"
-                    startIcon={<AddOutlined />}
-                    onClick={() => navigate('/perfil')}
-                    sx={{ borderStyle: 'dashed', py: 1.25 }}
-                  >
-                    Agregar nueva dirección
-                  </Button>
+          <Section step={2} title="Medio de pago">
+            <Box sx={twoColumns}>
+              <Option selected={paymentMethod === 'Tarjeta'} onSelect={() => setPaymentMethod('Tarjeta')} icon={<CreditCardOutlined />} title="Tarjeta" detail="Crédito o débito" />
+              <Option selected={paymentMethod === 'Transferencia'} onSelect={() => setPaymentMethod('Transferencia')} icon={<AccountBalanceOutlined />} title="Transferencia" detail="Con código de comprobante" />
+            </Box>
+            <Box sx={{ mt: 2.5 }}>
+              {paymentMethod === 'Tarjeta'
+                ? <TextField label="Últimos 4 dígitos de la tarjeta" required value={cardLast4} onChange={event => setCardLast4(event.target.value.replace(/\D/g, '').slice(0, 4))} helperText="Solo se registran los últimos cuatro dígitos; no se guarda el número completo." sx={{ width: { xs: '100%', sm: 320 } }} slotProps={{ htmlInput: { inputMode: 'numeric', maxLength: 4, autoComplete: 'off' } }} />
+                : <TextField label="Código del comprobante de transferencia" required fullWidth value={transferCode} onChange={event => setTransferCode(event.target.value)} helperText="Transfiere al vendedor y registra aquí el código de tu comprobante." slotProps={{ htmlInput: { autoComplete: 'off' } }} />}
+            </Box>
+          </Section>
+        </Stack>
 
-                  <Paper elevation={0} sx={{ p: 2, bgcolor: '#f7f6ff', display: 'flex', justifyContent: 'space-between' }}>
-                    <Stack direction="row" spacing={1.5}  sx={{ alignItems: "center" }}>
-                      <LocalShippingOutlined color="primary" />
-                      <Box>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                          Despacho por {vendor}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Entrega estimada: 2 a 3 días hábiles
-                        </Typography>
-                      </Box>
-                    </Stack>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>
-                      {formatCLP(shippingCost)}
-                    </Typography>
-                  </Paper>
-                </Stack>
-              )}
-            </Card>
-
-            {/* Medio de Pago */}
-            <Card sx={{ p: 3 }}>
-              <Typography variant="h6" sx={{ mb: 2 }}>
-                Medio de pago
-              </Typography>
-
-              <Grid container spacing={1.5} sx={{ mb: 2.5 }}>
-                {[
-                  { id: 'Tarjeta', title: 'Tarjeta', sub: 'Crédito o Débito', Icon: CreditCardOutlined },
-                  { id: 'Transferencia', title: 'Transferencia', sub: 'Pago por banco', Icon: AccountBalanceOutlined },
-                ].map((m) => (
-                  <Grid key={m.id} size={{ xs: 12, sm: 6 }}>
-                    <Paper
-                      variant="outlined"
-                      onClick={() => setPaymentMethod(m.id)}
-                      sx={{
-                        p: 2,
-                        cursor: 'pointer',
-                        borderColor: paymentMethod === m.id ? 'primary.main' : 'divider',
-                        bgcolor: paymentMethod === m.id ? 'secondary.light' : 'background.paper',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1.5,
-                      }}
-                    >
-                      <Radio checked={paymentMethod === m.id} />
-                      <m.Icon color="primary" />
-                      <Box>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                          {m.title}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {m.sub}
-                        </Typography>
-                      </Box>
-                    </Paper>
-                  </Grid>
-                ))}
-              </Grid>
-
-              {paymentMethod === 'Tarjeta' ? (
-                <Paper variant="outlined" sx={{ p: 2 }}>
-                  <Stack direction="row"   sx={{ justifyContent: "space-between", alignItems: "center" }}>
-                    <Stack direction="row" spacing={1.5}  sx={{ alignItems: "center" }}>
-                      <Radio checked />
-                      <Chip label="Tarjeta" size="small" color="primary" />
-                      <Box>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                          Visa terminada en {cardLast4}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                           · Últimos 4 dígitos registrados
-                        </Typography>
-                      </Box>
-                    </Stack>
-                    <TextField
-                      size="small"
-                      label="Últimos 4 dígitos"
-                      value={cardLast4}
-                      onChange={(e) => setCardLast4(e.target.value.slice(0, 4))}
-                      sx={{ width: 140 }}
-                    />
-                  </Stack>
-                </Paper>
-              ) : (
-                <Paper variant="outlined" sx={{ p: 2, bgcolor: '#f7f6ff' }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>
-                    Datos de Transferencia Electrónica
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
-                    Banco Estado · Cuenta Corriente N° 82736451 · RUT 76.123.456-7 (Tienda Sur)
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Código de comprobante de transferencia *"
-                    value={transferCode}
-                    onChange={(e) => setTransferCode(e.target.value)}
-                  />
-                </Paper>
-              )}
-            </Card>
+        <Card component="aside" aria-label="Resumen de la compra" sx={{ p: { xs: 2, sm: 3 }, position: { xs: 'relative', lg: 'sticky' }, top: { lg: 88 }, overflow: 'hidden' }}>
+          {(previewBusy || isProcessing) && <LinearProgress aria-label={isProcessing ? 'Registrando la compra' : 'Calculando totales'} sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, borderRadius: 0 }} />}
+          <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', mb: 2 }}>
+            <Box sx={{ display: 'grid', placeItems: 'center', width: 30, height: 30, borderRadius: '50%', bgcolor: 'primary.main', color: 'white', fontWeight: 800, fontSize: 14 }}>3</Box>
+            <Typography variant="h6" component="h2">Resumen</Typography>
           </Stack>
-        </Grid>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 2, color: 'text.secondary' }}><StorefrontOutlined fontSize="small" /><Typography variant="body2" noWrap>{vendor}</Typography></Stack>
 
-        {/* Columna Derecha: Resumen con Neto + IVA 19% + Total (P07) */}
-        <Grid size={{ xs: 12, lg: 4.5 }}>
-          <Card sx={{ p: 3 }}>
-            <Typography variant="h6" sx={{ mb: 1.5 }}>
-              Resumen de tu compra
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Vendedor: <strong>{vendor}</strong>
-            </Typography>
+          <Stack spacing={1.5} sx={{ mb: 2 }}>
+            {items.map(item => <Stack key={item.key} direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+              <Box component="img" src={catalogImage(item)} alt="" sx={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 2, bgcolor: '#f4f2ff', flexShrink: 0 }} />
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography variant="body2" noWrap sx={{ fontWeight: 700 }}>{item.name}</Typography>
+                <Typography variant="caption" color="text.secondary">{item.qty} × {formatCLP(item.price)}</Typography>
+              </Box>
+              <Typography variant="body2" sx={{ fontWeight: 700 }}>{formatCLP(item.price * item.qty)}</Typography>
+            </Stack>)}
+          </Stack>
+          <Divider sx={{ mb: 2 }} />
 
-            <Stack spacing={2} sx={{ mb: 2.5 }}>{items.map(item => <Stack key={item.key} direction="row" spacing={2}  sx={{ alignItems: "center" }}><Box component="img" src={catalogImage(item)} alt={item.name} sx={{ width: 56, height: 56, objectFit: 'contain', borderRadius: 2 }} /><Box sx={{ flex: 1 }}><Typography  sx={{ fontWeight: 700 }}>{item.name}</Typography><Typography variant="caption">Cantidad: {item.qty} · {item.sku || item.talla}</Typography></Box><Typography>{formatCLP(item.price * item.qty)}</Typography></Stack>)}</Stack>
-            <Divider sx={{ my: 2 }} />
+          <Stack spacing={1}>
+            <Row label="Subtotal" value={formatCLP(API_MODE ? preview?.subtotal || 0 : subtotalProducts)} busy={loadingTotals} />
+            <Row label={deliveryMode === 'Despacho' ? `Despacho${address?.commune ? ` a ${address.commune}` : ''}` : 'Retiro con el vendedor'} value={shippingCost ? formatCLP(shippingCost) : 'Sin costo'} busy={loadingTotals} />
+            {API_MODE && preview?.discount > 0 && <Row label="Descuento" value={`– ${formatCLP(preview.discount)}`} busy={loadingTotals} />}
+            <Divider />
+            <Row label="Valor neto" value={formatCLP(valorNeto)} busy={loadingTotals} />
+            <Row label="IVA (19 %)" value={formatCLP(valorIva)} busy={loadingTotals} />
+          </Stack>
 
-            <Stack spacing={1} sx={{ mb: 2 }}>
-              <Stack direction="row"  sx={{ justifyContent: "space-between" }}>
-                <Typography variant="body2" color="text.secondary">Subtotal productos</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>{formatCLP(API_MODE ? preview?.subtotal || 0 : subtotalProducts)}</Typography>
-              </Stack>
-              <Stack direction="row"  sx={{ justifyContent: "space-between" }}>
-                <Typography variant="body2" color="text.secondary">Costo de despacho</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>{formatCLP(shippingCost)}</Typography>
-              </Stack>
-              <Divider />
-              <Stack direction="row"  sx={{ justifyContent: "space-between" }}>
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>Valor Neto (sin IVA)</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 800 }}>{formatCLP(valorNeto)}</Typography>
-              </Stack>
-              <Stack direction="row"  sx={{ justifyContent: "space-between" }}>
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>IVA (19%)</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 800 }}>{formatCLP(valorIva)}</Typography>
-              </Stack>
-            </Stack>
+          <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'baseline', mt: 2, p: 2, borderRadius: 2.5, bgcolor: 'secondary.light' }}>
+            <Typography sx={{ fontWeight: 800 }}>Total</Typography>
+            {loadingTotals ? <Skeleton width={120} height={36} /> : <Typography sx={{ fontWeight: 900, fontSize: '1.7rem', letterSpacing: '-0.02em', color: 'primary.main' }}>{formatCLP(totalBruto)}</Typography>}
+          </Stack>
 
-            <Paper elevation={0} sx={{ p: 2, bgcolor: 'secondary.light', borderRadius: 2.5, mb: 2 }}>
-              <Stack direction="row"   sx={{ justifyContent: "space-between", alignItems: "center" }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>
-                  Total a pagar
-                </Typography>
-                <Typography variant="h5" sx={{ fontWeight: 900, color: 'primary.main' }}>
-                  {formatCLP(totalBruto)}
-                </Typography>
-              </Stack>
-            </Paper>
-
-            <FormControlLabel
-              control={<Checkbox checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} />}
-              label={
-                <Typography variant="caption" color="text.secondary">
-                  Acepto los Términos y Condiciones y la Política de Privacidad de Shopping.
-                </Typography>
-              }
-              sx={{ mb: 2 }}
-            />
-
-            <Button
-              variant="contained"
-              size="large"
-              fullWidth
-              disabled={!acceptedTerms || isProcessing || !items.length || (API_MODE && (!preview || previewBusy))}
-              startIcon={isProcessing ? <Skeleton variant="rounded" width={20} height={20} /> : <LockOutlined />}
-              onClick={handlePayment}
-            >
-              {isProcessing ? 'Procesando pago...' : `Pagar ${formatCLP(totalBruto)}`}
-            </Button>
-          </Card>
-        </Grid>
-      </Grid>
+          <FormControlLabel
+            control={<Checkbox checked={acceptedTerms} onChange={event => setAcceptedTerms(event.target.checked)} />}
+            label={<Typography variant="body2" color="text.secondary">Confirmo que los datos de entrega y pago son correctos.</Typography>}
+            sx={{ my: 1.5, alignItems: 'flex-start', '& .MuiCheckbox-root': { pt: 0.25 } }}
+          />
+          <Button variant="contained" size="large" fullWidth disabled={!acceptedTerms || isProcessing || !items.length || (API_MODE && (!preview || previewBusy))} startIcon={<LockOutlined />} onClick={handlePayment} sx={{ minHeight: 50 }}>
+            {isProcessing ? 'Registrando compra…' : loadingTotals ? 'Calculando total…' : `Confirmar y pagar ${formatCLP(totalBruto)}`}
+          </Button>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5, textAlign: 'center' }}>El pago queda registrado en el sistema; no se cobra a través de una pasarela bancaria.</Typography>
+        </Card>
+      </Box>
     </Box>
   )
 }

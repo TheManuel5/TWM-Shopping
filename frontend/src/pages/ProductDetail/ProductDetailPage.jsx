@@ -1,365 +1,161 @@
-import { catalogGallery } from '../../utils/catalogImages'
-import ReferenceBadge from '../../components/atoms/ReferenceBadge'
-import { notify } from '../../utils/feedback'
-import useCollection from '../../hooks/useCollection'
-import { catalogSeed, asItem, effectivePrice, addToCart, requestQuote, toggleFavorite } from '../../data/catalog'
-import {
-  ChatOutlined,
-  DescriptionOutlined,
-  FavoriteBorderOutlined,
-  LocalOfferOutlined,
-  LocalShippingOutlined,
-  ShoppingCartOutlined,
-  StraightenOutlined,
-  VerifiedUserOutlined,
-  WorkspacePremiumOutlined,
-} from '@mui/icons-material'
-import {
-  Box,
-  Breadcrumbs,
-  Button,
-  Card,
-  Chip,
-  Grid,
-  IconButton,
-  Link,
-  Paper,
-  Rating,
-  Stack,
-  Typography,
-} from '@mui/material'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import PriceTag from '../../components/atoms/PriceTag/PriceTag'
+import { AddShoppingCartOutlined, ChatOutlined, DescriptionOutlined, Favorite, FavoriteBorderOutlined, LocalShippingOutlined, StorefrontOutlined } from '@mui/icons-material'
+import { Box, Breadcrumbs, Button, Card, Divider, IconButton, Link, Rating, Skeleton, Stack, Tooltip, Typography } from '@mui/material'
 import QuantityInput from '../../components/atoms/QuantityInput/QuantityInput'
+import ReferenceBadge from '../../components/atoms/ReferenceBadge'
+import ProductCard from '../../components/molecules/ProductCard/ProductCard'
+import { productGrid } from '../../components/molecules/ProductCard/productGrid'
 import ReviewsAndQASection from '../../components/organisms/ReviewsAndQASection/ReviewsAndQASection'
+import { catalogSeed, asItem, effectivePrice, addToCart, requestQuote, toggleFavorite } from '../../data/catalog'
+import useCollection from '../../hooks/useCollection'
+import { catalogGallery } from '../../utils/catalogImages'
+import { notify } from '../../utils/feedback'
 import { formatCLP } from '../../utils/taxonomyData'
+
+function Gallery({ images, name }) {
+  const [active, setActive] = useState(0)
+  const [loaded, setLoaded] = useState(false)
+  const current = images[active] || images[0]
+  return <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={1.5}>
+    {images.length > 1 && <Stack direction={{ xs: 'row', sm: 'column' }} spacing={1}>
+      {images.map((image, index) => <Box
+        key={image} component="button" type="button" aria-label={`Ver imagen ${index + 1}`} aria-pressed={active === index}
+        onClick={() => { setActive(index); setLoaded(false) }}
+        sx={{ width: 68, height: 68, p: 0, borderRadius: 2, overflow: 'hidden', cursor: 'pointer', bgcolor: '#f4f2ff', border: '2px solid', borderColor: active === index ? 'primary.main' : 'transparent', outline: '1px solid', outlineColor: 'divider' }}
+      ><Box component="img" src={image} alt="" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} /></Box>)}
+    </Stack>}
+    <Box sx={{ position: 'relative', flex: 1, aspectRatio: { xs: '4 / 3', md: '1 / 1' }, maxHeight: 520, borderRadius: 3, overflow: 'hidden', bgcolor: '#f4f2ff' }}>
+      {!loaded && <Skeleton variant="rectangular" sx={{ position: 'absolute', inset: 0, height: '100%' }} />}
+      <Box component="img" src={current} alt={name} onLoad={() => setLoaded(true)} onError={() => setLoaded(true)} sx={{ width: '100%', height: '100%', objectFit: 'cover', opacity: loaded ? 1 : 0, transition: 'opacity 250ms ease' }} />
+      <ReferenceBadge image={current} />
+    </Box>
+  </Stack>
+}
 
 function ProductDetailContent() {
   const navigate = useNavigate()
   const { id } = useParams()
   const [catalog] = useCollection('catalog', catalogSeed)
+  const [wishlist] = useCollection('wishlist', [])
   const product = catalog.find(item => String(item.id) === id)
-  const variants = product?.variantes?.length ? product.variantes : [{ sku: `PRD-${id}`, size: product?.talla || 'Única', color: product?.color || 'Gris', price: product?.precio || 0, stock: product?.stock || 0 }]
-  const gallery = catalogGallery(product)
-  const [activeImg, setActiveImg] = useState(0)
-  const [selectedSize, setSelectedSize] = useState('')
-  const [selectedColor, setSelectedColor] = useState(product?.color || 'Gris')
+  const variants = useMemo(() => product?.variantes?.length ? product.variantes : [{ sku: `PRD-${id}`, size: product?.talla || 'Única', color: product?.color || '', price: product?.precio || 0, stock: product?.stock || 0 }], [product, id])
+  const [sku, setSku] = useState(() => (variants.find(variant => variant.stock > 0) || variants[0]).sku)
   const [qty, setQty] = useState(1)
+  const related = useMemo(() => product ? catalog.filter(item => item.id !== product.id && item.tipo !== 'Servicio' && item.estado !== 'Borrador' && (product.relacionados?.length ? product.relacionados.includes(item.id) : item.categoria === product.categoria)).slice(0, 4).map(asItem) : [], [catalog, product])
 
-  const currentVariant = variants.find(variant => variant.size === selectedSize) || variants[0]
-  const relatedProducts = catalog.filter(item => item.id !== product?.id && item.tipo !== 'Servicio' && item.estado !== 'Borrador' && (!product?.relacionados?.length || product.relacionados.includes(item.id))).slice(0, 6).map(asItem)
-  const item = product ? { ...asItem(product), sku: currentVariant.sku, size: currentVariant.size, price: product.oferta && effectivePrice(product) !== product.precio ? effectivePrice(product) : currentVariant.price, stock: currentVariant.stock, color: currentVariant.color } : null
-  if (!product || product.estado === 'Borrador' || product.tipo === 'Servicio') return <Card sx={{ p: 5 }}><Typography variant="h5">Producto no encontrado</Typography><Button onClick={() => navigate('/catalogo')}>Volver al catálogo</Button></Card>
+  if (!product || product.estado === 'Borrador' || product.tipo === 'Servicio') return <Card sx={{ p: 5, textAlign: 'center', maxWidth: 560, mx: 'auto' }}><Typography variant="h5" sx={{ mb: 2 }}>Producto no encontrado</Typography><Button variant="contained" onClick={() => navigate('/catalogo')}>Volver al catálogo</Button></Card>
+
+  const variant = variants.find(row => row.sku === sku) || variants[0]
+  const onOffer = product.oferta && effectivePrice(product) !== product.precio
+  const price = onOffer ? effectivePrice(product) : variant.price
+  const regular = onOffer ? product.precio : variant.regularPrice > variant.price ? variant.regularPrice : null
+  const item = { ...asItem(product), sku: variant.sku, size: variant.size, price, stock: variant.stock, color: variant.color }
+  const favorite = wishlist.some(row => row.id === product.id)
+  const soldOut = variant.stock <= 0
+  const add = () => { try { addToCart(item, Math.min(qty, variant.stock)); notify(`«${product.nombre}» se agregó al carrito.`) } catch (error) { notify(error.message, 'error') } }
+  const buy = () => { try { addToCart(item, Math.min(qty, variant.stock)); navigate('/carrito') } catch (error) { notify(error.message, 'error') } }
+  const quote = () => { try { requestQuote([{ ...item, qty }]); navigate('/cotizaciones') } catch (error) { notify(error.message, 'error') } }
+  const specs = [
+    ['Talla', variant.size || product.tamano], ['Color', variant.color || product.color], ['Material principal', product.material], ['Marca', product.marca],
+    ['Peso', product.peso ? `${Number(product.peso).toLocaleString('es-CL')} g` : ''], ['Medidas', product.tamano], ['Edad mínima', product.edad ? `${product.edad} años` : ''], ['SKU', variant.sku],
+  ].filter(([, value]) => value)
 
   return (
-    <Box sx={{ maxWidth: 1380, mx: 'auto' }}>
+    <Box sx={{ maxWidth: 1280, mx: 'auto' }}>
       <Breadcrumbs sx={{ mb: 2, fontSize: '0.85rem' }}>
-        <Link underline="hover" color="inherit" onClick={() => navigate('/inicio')} sx={{ cursor: 'pointer' }}>
-          Inicio
-        </Link>
-        <Link underline="hover" color="inherit" onClick={() => navigate('/catalogo')} sx={{ cursor: 'pointer' }}>
-          {product.categoria}
-        </Link>
-        <Link underline="hover" color="inherit" onClick={() => navigate('/catalogo')} sx={{ cursor: 'pointer' }}>
-          {product.subcategoria || product.tipo}
-        </Link>
-        <Typography variant="caption" color="text.primary" sx={{ fontWeight: 700 }}>
-          {product.nombre}
-        </Typography>
+        <Link component="button" underline="hover" color="inherit" onClick={() => navigate('/inicio')}>Inicio</Link>
+        <Link component="button" underline="hover" color="inherit" onClick={() => navigate(`/catalogo?categoria=${encodeURIComponent(product.categoria)}`)}>{product.categoria}</Link>
+        <Typography variant="caption" color="text.primary" sx={{ fontWeight: 700 }}>{product.nombre}</Typography>
       </Breadcrumbs>
 
-      {/* Ficha Principal P04 */}
-      <Card sx={{ p: { xs: 2, md: 3.5 }, mb: 3 }}>
-        <Grid container spacing={4}>
-          {/* Galería Izquierda */}
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={2}>
-              <Stack direction={{ xs: 'row', sm: 'column' }} spacing={1.25}>
-                {gallery.map((img, idx) => (
-                  <Box
-                    key={idx}
-                    component="img"
-                    src={img}
-                    alt={`Vista ${idx + 1}`}
-                    onClick={() => setActiveImg(idx)}
-                    sx={{
-                      width: 72,
-                      height: 72,
-                      objectFit: 'contain',
-                      borderRadius: 2,
-                      cursor: 'pointer',
-                      border: activeImg === idx ? '2px solid #602ff7' : '1px solid #e5e7f0',
-                    }}
-                  />
-                ))}
-              </Stack>
+      <Card sx={{ p: { xs: 2, md: 3.5 }, mb: 4 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1.05fr) minmax(0, 1fr)' }, gap: { xs: 3, md: 5 }, alignItems: 'start' }}>
+          <Gallery images={catalogGallery(product)} name={product.nombre} />
 
-              <Box
-                sx={{
-                  position: 'relative',
-                  flexGrow: 1,
-                  height: { xs: 280, sm: 420 },
-                  borderRadius: 3,
-                  overflow: 'hidden',
-                  bgcolor: '#f7f6ff',
-                }}
-              >
-                <Box
-                  component="img"
-                  src={gallery[activeImg] || gallery[0]}
-                  alt={product.nombre}
-                  sx={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                />
-                <ReferenceBadge image={gallery[activeImg] || gallery[0]} />
-              </Box>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 700 }}>{product.categoria}</Typography>
+            <Stack direction="row" spacing={1} sx={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <Typography variant="h4" component="h1" sx={{ fontSize: { xs: '1.5rem', md: '1.9rem' } }}>{product.nombre}</Typography>
+              <Tooltip title={favorite ? 'Quitar de favoritos' : 'Guardar en favoritos'}>
+                <IconButton aria-label={favorite ? 'Quitar de favoritos' : 'Guardar en favoritos'} aria-pressed={favorite} onClick={() => toggleFavorite(item)} sx={{ border: '1px solid', borderColor: 'divider' }}>
+                  {favorite ? <Favorite sx={{ color: 'error.main' }} /> : <FavoriteBorderOutlined />}
+                </IconButton>
+              </Tooltip>
             </Stack>
-          </Grid>
-
-          {/* Detalles y Variantes Derecha */}
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Chip
-              label={product.oferta ? 'Oferta temporal' : 'Disponible'}
-              size="small"
-              sx={{ bgcolor: 'secondary.main', color: 'primary.main', mb: 1 }}
-            />
-            <Typography variant="h4" sx={{ mb: 0.5 }}>
-              {product.nombre}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-              {product.descripcion} · SKU: {currentVariant.sku}
-            </Typography>
-
-            <Stack direction="row" spacing={2}  sx={[{ alignItems: "center" }, { mb: 2 }]}>
-              <Typography variant="body2">
-                Vendido por{' '}
-                <Typography component="span" color="primary.main" sx={{ fontWeight: 700 }}>
-                  {item.seller}
-                </Typography>
-              </Typography>
-              <Stack direction="row"  spacing={0.5} sx={{ alignItems: "center" }}>
+            <Stack direction="row" spacing={2} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap', mt: 1, color: 'text.secondary' }}>
+              <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
                 <Rating value={Number(product.rating) || 0} precision={0.1} size="small" readOnly />
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                  {item.rating}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  ({item.reviews} reseñas)
-                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary' }}>{item.rating}</Typography>
+                <Typography variant="body2">({item.reviews} {item.reviews === 1 ? 'reseña' : 'reseñas'})</Typography>
               </Stack>
+              <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}><StorefrontOutlined sx={{ fontSize: 18 }} /><Typography variant="body2">Vendido por <Box component="span" sx={{ color: 'primary.main', fontWeight: 700 }}>{item.seller}</Box></Typography></Stack>
             </Stack>
 
-            <Stack direction="row" spacing={2}  sx={[{ alignItems: "baseline" }, { mb: 1 }]}>
-              <PriceTag price={item.price} originalPrice={product.oferta ? product.precio : undefined} size="lg" />
-            </Stack>
-
-            <Chip
-              icon={<LocalOfferOutlined sx={{ fontSize: 15 }} />}
-              label={product.oferta ? `Oferta hasta ${product.oferta.fin}` : 'Precios en pesos chilenos · IVA incluido'}
-              size="small"
-              sx={{ bgcolor: 'error.light', color: 'error.main', mb: 2.5 }}
-            />
-
-            {/* Selector de Tallas (Variantes RF27) */}
-            <Stack direction="row"   sx={[{ justifyContent: "space-between", alignItems: "center" }, { mb: 1 }]}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                Talla
-              </Typography>
-              <Button size="small" onClick={() => notify("Comprueba las medidas indicadas por el vendedor. Tallas EU: 38 = 24 cm; 39 = 25 cm; 40 = 25,5 cm; 41 = 26 cm; 42 = 27 cm.")} startIcon={<StraightenOutlined fontSize="small" />}>
-                Guía de tallas
-              </Button>
-            </Stack>
-
-            <Stack direction="row" spacing={1} sx={[{ flexWrap: "wrap" }, { mb: 2.5 }]}  useFlexGap>
-              {variants.map(data => {
-                const sz = data.size
-                const disabled = data.stock === 0
-                const active = selectedSize === sz
-                return (
-                  <Button
-                    key={sz}
-                    disabled={disabled}
-                    variant={active ? 'contained' : 'outlined'}
-                    onClick={() => { setSelectedSize(sz); setSelectedColor(data.color || product.color); setQty(1) }}
-                    sx={{ minWidth: 52, borderColor: 'divider' }}
-                  >
-                    {sz}
-                  </Button>
-                )
-              })}
-            </Stack>
-
-            {/* Selector de Color */}
-            <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>
-              Color:{' '}
-              <Typography component="span" variant="body2" color="text.secondary">
-                {selectedColor}
-              </Typography>
-            </Typography>
-            <Stack direction="row" useFlexGap spacing={1} sx={{ mb: 2, flexWrap: 'wrap' }}>{[...new Set(variants.map(variant => variant.color || product.color))].map(color => <Button key={color} variant={(currentVariant.color || product.color) === color ? 'contained' : 'outlined'} onClick={() => { const variant = variants.find(item => item.color === color && item.stock > 0) || variants.find(item => item.color === color); if (variant) { setSelectedSize(variant.size); setSelectedColor(color); setQty(1) } }}>{color}</Button>)}</Stack>
-
-            <Typography variant="body2" sx={{ mb: 2 }}>
-              Material: <strong>{product.material}</strong> &nbsp;|&nbsp; Stock:{' '}
-              <Typography component="span" sx={{ color: 'success.main', fontWeight: 800 }}>
-                {currentVariant.stock} unidades disponibles
-              </Typography>
-            </Typography>
-
-            {/* Cantidad + Costo de Envío a Osorno */}
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}  sx={[{ alignItems: "stretch" }, { mb: 2.5 }]}>
-              <QuantityInput value={qty} max={currentVariant.stock} onChange={setQty} size="medium" />
-
-              <Paper
-                variant="outlined"
-                sx={{
-                  px: 2,
-                  py: 1,
-                  position: 'relative',
-                  flexGrow: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  bgcolor: '#f7f6ff',
-                }}
-              >
-                <Stack direction="row" spacing={1.25}  sx={{ alignItems: "center" }}>
-                  <LocalShippingOutlined color="primary" />
-                  <Box>
-                    <Typography variant="caption" sx={{ fontWeight: 800, display: 'block' }}>
-                      Consulta el despacho en tu compra
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Según el destino y las condiciones del vendedor
-                    </Typography>
-                  </Box>
-                </Stack>
-                <Box sx={{ textAlign: 'right' }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                    Costo de envío
-                  </Typography>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                    Por calcular
-                  </Typography>
-                </Box>
-              </Paper>
-            </Stack>
-
-            {/* Botones de Acción P04 */}
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.25, mb: 2, '& .MuiButton-root': { minHeight: 44 } }}>
-              <Button
-                variant="contained"
-                size="large"
-                startIcon={<ShoppingCartOutlined />}
-                disabled={currentVariant.stock === 0} onClick={() => { try { addToCart(item, Math.min(qty, currentVariant.stock)); navigate('/carrito') } catch (error) { notify(error.message) } }}
-                sx={{ flexGrow: 1 }}
-              >
-                Agregar al carrito
-              </Button>
-              <Button
-                variant="outlined"
-                size="large"
-                startIcon={<DescriptionOutlined />}
-                onClick={() => { requestQuote([{ ...item, qty }]); navigate('/cotizaciones') }}
-              >
-                Solicitar cotización
-              </Button>
-              <IconButton
-                aria-label="Guardar en favoritos" onClick={() => { toggleFavorite(item); navigate('/favoritos') }}
-                sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5 }}
-              >
-                <FavoriteBorderOutlined color="primary" />
-              </IconButton>
-              <Button
-                variant="outlined"
-                startIcon={<ChatOutlined />}
-                onClick={() => navigate('/mensajes?vendedor=' + encodeURIComponent(product.ownerRut))}
-              >
-                Contactar vendedor
-              </Button>
+            <Box sx={{ my: 2.5 }}>
+              {regular && <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 0.25 }}>
+                <Typography sx={{ textDecoration: 'line-through', color: 'text.disabled' }}>{formatCLP(regular)}</Typography>
+                <Box sx={{ bgcolor: 'error.main', color: 'white', fontWeight: 800, fontSize: 12, px: 1, py: 0.25, borderRadius: 1.5 }}>-{Math.floor(100 * (1 - price / regular))}%</Box>
+              </Stack>}
+              <Typography sx={{ fontWeight: 900, fontSize: { xs: '2rem', md: '2.4rem' }, lineHeight: 1.1, letterSpacing: '-0.03em', color: 'primary.main' }}>{formatCLP(price)}</Typography>
+              <Typography variant="caption" color="text.secondary">IVA incluido{onOffer && product.oferta?.fin ? ` · Oferta hasta ${product.oferta.fin}` : ''}</Typography>
             </Box>
 
-            <Stack direction="row"  sx={[{ justifyContent: "space-between" }, { color: 'text.secondary', pt: 1 }]}>
-              <Stack direction="row" spacing={0.75}  sx={{ alignItems: "center" }}>
-                <VerifiedUserOutlined fontSize="small" color="primary" />
-                <Typography variant="caption">Compra segura en Shopping</Typography>
-              </Stack>
-              <Stack direction="row" spacing={0.75}  sx={{ alignItems: "center" }}>
-                <WorkspacePremiumOutlined fontSize="small" color="primary" />
-                <Typography variant="caption">Una tienda de confianza</Typography>
-              </Stack>
-            </Stack>
-          </Grid>
-        </Grid>
+            {product.descripcion && <Typography color="text.secondary" sx={{ mb: 2.5, whiteSpace: 'pre-line' }}>{product.descripcion}</Typography>}
 
-        {/* Tabla de Características mínimas (RF08 - P04) */}
-        <Box sx={{ mt: 4, pt: 3, borderTop: '1px solid', borderColor: 'divider' }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1.5, color: 'primary.main' }}>
-            Características principales
-          </Typography>
-          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2.5 }}>
-            <Grid container spacing={2}>
-              {[
-                { label: 'Tamaño / Talla', value: currentVariant.size || product.tamano },
-                { label: 'Peso', value: `${product.peso} g` },
-                { label: 'Color', value: selectedColor },
-                { label: 'Material principal', value: product.material },
-              ].map((attr) => (
-                <Grid key={attr.label} size={{ xs: 6, md: 3 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                    {attr.label}
-                  </Typography>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                    {attr.value}
-                  </Typography>
-                </Grid>
-              ))}
-            </Grid>
-          </Paper>
+            <Typography sx={{ fontWeight: 800, fontSize: '0.92rem', mb: 1 }}>Variante</Typography>
+            <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', mb: 2.5 }}>
+              {variants.map(row => <Button
+                key={row.sku} disabled={row.stock <= 0} aria-pressed={row.sku === variant.sku}
+                variant={row.sku === variant.sku ? 'contained' : 'outlined'} onClick={() => { setSku(row.sku); setQty(1) }}
+                sx={{ borderColor: 'divider', color: row.sku === variant.sku ? undefined : 'text.primary', px: 2 }}
+              >{[row.size, row.color].filter(Boolean).join(' · ') || 'Única'}</Button>)}
+            </Stack>
+
+            <Stack direction="row" spacing={2} sx={{ alignItems: 'center', mb: 2.5 }}>
+              <QuantityInput value={qty} max={Math.max(1, variant.stock)} onChange={setQty} size="medium" />
+              <Typography variant="body2" sx={{ fontWeight: 700, color: soldOut ? 'error.main' : variant.stock < 10 ? 'warning.dark' : 'success.dark' }}>
+                {soldOut ? 'Sin stock' : variant.stock < 10 ? `Quedan ${variant.stock} unidades` : `${variant.stock.toLocaleString('es-CL')} unidades disponibles`}
+              </Typography>
+            </Stack>
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.25, '& .MuiButton-root': { minHeight: 48 } }}>
+              <Button variant="contained" size="large" disabled={soldOut} onClick={buy}>Comprar ahora</Button>
+              <Button variant="outlined" size="large" disabled={soldOut} startIcon={<AddShoppingCartOutlined />} onClick={add}>Agregar al carrito</Button>
+              <Button startIcon={<DescriptionOutlined />} onClick={quote}>Solicitar cotización</Button>
+              <Button startIcon={<ChatOutlined />} onClick={() => navigate('/mensajes?vendedor=' + encodeURIComponent(product.ownerRut))}>Contactar vendedor</Button>
+            </Box>
+
+            <Stack direction="row" spacing={1.25} sx={{ alignItems: 'center', mt: 2.5, p: 1.5, borderRadius: 2.5, bgcolor: 'secondary.light' }}>
+              <LocalShippingOutlined color="primary" />
+              <Typography variant="body2" color="text.secondary">El costo de despacho se calcula al confirmar la compra, según tu comuna y las tarifas del vendedor.</Typography>
+            </Stack>
+          </Box>
+        </Box>
+
+        <Divider sx={{ my: { xs: 3, md: 4 } }} />
+        <Typography variant="h6" component="h2" sx={{ mb: 2 }}>Características</Typography>
+        <Box component="dl" sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, columnGap: 4, m: 0 }}>
+          {specs.map(([label, value]) => <Stack key={label} direction="row" sx={{ justifyContent: 'space-between', gap: 2, py: 1.25, borderBottom: '1px solid', borderColor: 'divider' }}>
+            <Typography component="dt" variant="body2" color="text.secondary">{label}</Typography>
+            <Typography component="dd" variant="body2" sx={{ fontWeight: 700, m: 0, textAlign: 'right' }}>{value}</Typography>
+          </Stack>)}
         </Box>
       </Card>
 
-      {/* Productos Relacionados (RF28: "También te puede gustar") */}
-      <Box sx={{ mb: 4 }}>
-        <Stack direction="row"   sx={[{ justifyContent: "space-between", alignItems: "center" }, { mb: 1.5 }]}>
-          <Typography variant="h6">También te puede gustar (Productos relacionados)</Typography>
-          <Button size="small" onClick={() => navigate('/catalogo')}>
-            Ver más productos →
-          </Button>
+      {related.length > 0 && <Box component="section" sx={{ mb: 5 }}>
+        <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography component="h2" sx={{ fontWeight: 900, fontSize: { xs: '1.3rem', md: '1.6rem' }, letterSpacing: '-0.02em' }}>También te puede interesar</Typography>
+          <Button onClick={() => navigate(`/catalogo?categoria=${encodeURIComponent(product.categoria)}`)}>Ver más</Button>
         </Stack>
-        <Grid container spacing={1.5}>
-          {relatedProducts.map((rel) => (
-            <Grid key={rel.id} size={{ xs: 6, sm: 4, md: 2 }}>
-              <Card
-                onClick={() => navigate(`/producto/${rel.id}`)}
-                sx={{ p: 1.5, cursor: 'pointer', height: '100%' }}
-              >
-                <Box
-                  component="img"
-                  src={rel.image}
-                  alt={rel.name}
-                  sx={{ width: '100%', height: 110, objectFit: 'contain', borderRadius: 2, mb: 1 }}
-                />
-                <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 0.5 }} noWrap>
-                  {rel.name}
-                </Typography>
-                <Stack direction="row"   sx={{ justifyContent: "space-between", alignItems: "center" }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 900, color: 'primary.main' }}>
-                    {formatCLP(rel.price)}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    ★ {rel.rating}
-                  </Typography>
-                </Stack>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-      </Box>
+        <Box sx={productGrid}>{related.map(row => <ProductCard key={row.id} item={row} favorite={wishlist.some(saved => saved.id === row.id)} onToggleFavorite={toggleFavorite} />)}</Box>
+      </Box>}
 
-      {/* Sección integrada P23: Reseñas y Preguntas Públicas */}
       <ReviewsAndQASection key={id} entityId={id} sellerName={item.seller} />
     </Box>
   )
 }
+
 export default function ProductDetailPage() {
   const { id } = useParams()
   return <ProductDetailContent key={id} />

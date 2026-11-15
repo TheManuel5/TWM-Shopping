@@ -7,7 +7,7 @@ async function derive(password, salt) {
   return Array.from(new Uint8Array(bits)).map(byte => byte.toString(16).padStart(2, '0')).join('')
 }
 export async function registerLocal(values) {
-  if (API_MODE) { const profile = await apiService.register(values); logEvent('Registro de cuenta', { rut: profile.rut, role: profile.role }); return profile }
+  if (API_MODE) { const profile = await apiService.register(values); logEvent('Registro de cuenta', { rut: profile.rut, role: profile.role, proteccion: profile.credentialProtection }); return profile }
   if (!isValidRut(values.rut) || !emailPattern.test(values.email.trim()) || !phonePattern.test(values.telefono) || values.nombre.trim().length < 3 || values.direccion.trim().length < 5 || values.password.length < 8 || !values.fechaNacimiento || !Number.isFinite(new Date(values.fechaNacimiento).getTime()) || new Date(values.fechaNacimiento) > new Date()) throw new Error('Revisa los datos obligatorios del registro.')
   const users = readCollection('accounts', [])
   const rut = normalizeRut(values.rut)
@@ -22,7 +22,7 @@ export async function registerLocal(values) {
   logEvent('Registro de cuenta', { rut, role: account.role })
 }
 export async function loginLocal(rut, password, remember = false) {
-  if (API_MODE) { const profile = await apiService.login({ rut, password, remember }); logEvent('Inicio de sesión', { rut: profile.rut, role: profile.role }); return profile }
+  if (API_MODE) { const profile = await apiService.login({ rut, password, remember }); logEvent('Inicio de sesión', { rut: profile.rut, role: profile.role, proteccion: profile.credentialProtection }); return profile }
   const normalized = normalizeRut(rut)
   const account = readCollection('accounts', []).find(user => user.rut === normalized)
   if (!account || await derive(password, account.salt) !== account.passwordHash) throw new Error('RUT o contraseña incorrectos.')

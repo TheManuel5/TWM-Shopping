@@ -10,8 +10,8 @@ Base `http://localhost:5156/api`. JSON UTF-8, cookie HttpOnly `shopping.session`
 | GET | `/auth/me` | Perfil público, sin hash |
 | POST | `/auth/logout` | 204 |
 | PUT | `/auth/password` | current, next; bcrypt y revocación de otras sesiones |
-| GET | `/state` | revision, source=`public`, dataMode=`relational`, collections filtradas por identidad |
-| PUT | `/state/transaction` | revision, changes, delta opcional y deleted opcional; validación y transacción |
+| GET | `/state` | revision, source=`public`, dataMode=`relational`, collections filtradas por identidad. Envía Content-Length y se sirve desde memoria mientras la base no cambie |
+| PUT | `/state/transaction` | revision, changes, delta opcional y deleted opcional; validación y transacción. Si solo cambian cart, wishlist, selectedVendor o comuna responde `partial: true` con esas colecciones y la nueva revisión |
 | GET | `/{recurso}` o `/{recurso}/{id}` | revision e items/item |
 | POST | `/{recurso}` | Objeto de creación; If-Match con revision |
 | PUT | `/{recurso}/{id}` | Objeto actualizado completo; If-Match |
@@ -34,3 +34,7 @@ El cuerpo de checkout utiliza `items:[{id,dbId,sku,qty,price}]`, `vendor`, `addr
 ## Actualización para entrega_mejorada
 
 API v4. La base de entrega local es shopping_twm_local; las pruebas usan shopping_verificacion_v2. GET /admin/database/queries devuelve parameters con name, type y optional. POST recibe un array posicional: los filtros jsonb se envían como objetos, el límite como entero o null. Por ejemplo fn_catalogo_unificado: [null,{},10]. Un parámetro opcional null/vacío omite el argumento y utiliza DEFAULT de PostgreSQL. Las listas como p_marcas se envían como arrays JSON, por ejemplo ["Visa","MasterCard"]. Las funciones conservan las reglas de negocio del SQL mejorado. Los errores de concurrencia 409 requieren recuperar revision antes de reintentar.
+
+## Evidencia de protección de credenciales
+
+POST `/auth/login` y POST `/auth/register` incluyen en el perfil `credentialProtection` con `algorithm: bcrypt`, `cost`, `format` (por ejemplo `$2a$12$[contenido oculto]`) y `valueExposed: false`. Es metadata de la verificación/generación ejecutada en servidor; no es el hash almacenado. No se devuelve el secreto ni el hash completo. El directorio de usuarios incluye el booleano `canAdmin`, sin permitir que una cuenta común se conceda ese permiso.

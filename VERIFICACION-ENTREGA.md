@@ -48,3 +48,9 @@ Carga y guardado: `frontend/test-results/loading-polish.json` registra cinco com
 ## Fotografías referenciales
 
 `frontend/test-results/catalog-photos.json`: 3004 publicaciones leídas de la API local, 3004 cubiertas con fotografías (3002 referencias y 2 imágenes propias conservadas), siete categorías. Navegador con la instantánea real de PostgreSQL, sin escrituras. Comprobados catálogo, ficha de producto, ficha de servicio, etiqueta referencial y vista móvil; cero errores JavaScript. Contacto visual de las siete fotos: fotos-paquete.png. Lint, 14 pruebas de dominio y compilación aprobados.
+
+## Verificación de paneles y evidencia bcrypt
+
+15 pruebas de dominio, lint, compilación frontend y compilación .NET sin errores. `frontend/test-results/account-admin.json` comprueba cuentas existentes de comprador, vendedor y administrador: panel propio, ausencia de operaciones ajenas en respuestas normales, 403 para administración general, estadísticas globales y lista de usuarios solo para el administrador, marca Shopping y metadatos bcrypt sin hashes completos. Capturas: panel-comprador/vendedor(-mobile).png, panel-administracion-general.png y lista-usuarios-admin.png. Sin altas ni operaciones de negocio de prueba en la base activa.
+
+La migración y la asignación de administrador fueron acciones autorizadas separadas de las pruebas: respaldo previo de proyectobd, 1994 conversiones reconocidas y cero cuentas creadas. La consulta posterior verificó 1001 clientes y 1000 emprendedores con bcrypt y un único administrador, 20000001-3. Esto actualiza el estado de la base activa; las evidencias anteriores de shopping_twm_local corresponden a ejecuciones previas.

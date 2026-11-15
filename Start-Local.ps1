@@ -38,7 +38,12 @@ if (!(Get-NetTCPConnection -State Listen -LocalPort 5173 -ErrorAction SilentlyCo
     $shoppingProcesses += @{ id = $webProcess.Id; command = $viteScript }
 }
 $statePath = Join-Path $shoppingRoot '.local-processes.json'
-if (Test-Path -LiteralPath $statePath) { $shoppingProcesses += @(Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json) }
+if (Test-Path -LiteralPath $statePath) {
+    # Conserva solo los registros anteriores válidos y que sigan vivos; así Stop-Local.ps1 siempre puede leer el archivo.
+    foreach ($previous in (Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json)) {
+        if ($previous.id -is [ValueType] -and $previous.command -and (Get-Process -Id $previous.id -ErrorAction SilentlyContinue)) { $shoppingProcesses += @{ id = [int]$previous.id; command = [string]$previous.command } }
+    }
+}
 ConvertTo-Json -InputObject @($shoppingProcesses) | Set-Content -LiteralPath $statePath -Encoding utf8
 Write-Host 'Shopping: http://localhost:5173'
 Write-Host 'API:      http://localhost:5156/api/health'

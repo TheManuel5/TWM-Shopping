@@ -32,6 +32,7 @@ import { desktopHeaderHeight, headerOffset } from './layoutConstants'
 export const drawerWidth = 232
 
 const CLIENT_ITEMS = [
+  { label: 'Panel de mi cuenta', path: '/mi-panel', icon: <DashboardOutlined /> },
   { label: 'Compras y devoluciones', path: '/mis-compras', icon: <ShoppingBagOutlined /> },
   { label: 'Cotizaciones', path: '/cotizaciones', icon: <DescriptionOutlined /> },
   { label: 'Favoritos', path: '/favoritos', icon: <FavoriteBorderOutlined /> },
@@ -40,10 +41,11 @@ const CLIENT_ITEMS = [
 ]
 
 const SELLER_ADMIN_ITEMS = [
+  { label: 'Estadísticas generales', path: '/admin/dashboard', icon: <AnalyticsOutlined /> },
   { label: 'Mi empresa', path: '/vendedor/empresa', icon: <BusinessOutlined /> },
   { label: 'Panel de control', path: '/vendedor/dashboard', icon: <DashboardOutlined /> },
-  { label: 'Usuarios (Admin)', path: '/admin/usuarios', icon: <GroupOutlined /> },
-  { label: 'Empresas (Admin)', path: '/admin/empresas', icon: <BusinessOutlined /> },
+  { label: 'Lista de usuarios', path: '/admin/usuarios', icon: <GroupOutlined /> },
+  { label: 'Empresas registradas', path: '/admin/empresas', icon: <BusinessOutlined /> },
   { label: 'Publicar producto', path: '/vendedor/publicar-producto', icon: <LocalOfferOutlined /> },
   { label: 'Publicar servicio', path: '/vendedor/publicar-servicio', icon: <StorefrontOutlined /> },
   { label: 'Ventas y pedidos', path: '/crud-1', icon: <ShoppingBagOutlined /> },
@@ -77,10 +79,10 @@ function SidebarContent({ includeHeaderSpacer = true, onNavigate }) {
         color="text.secondary"
         sx={{ px: 2.5, fontWeight: 800, display: 'block' }}
       >
-        Mi cuenta (Cliente)
+        Cuenta y actividad
       </Typography>
       <List sx={{ px: 1.5 }} dense>
-        {CLIENT_ITEMS.map((item) => (
+        {CLIENT_ITEMS.filter(item => item.path !== '/mis-compras' || user?.canBuy !== false).map((item) => (
           <ListItemButton
             key={item.path}
             component={NavLink}
@@ -90,10 +92,12 @@ function SidebarContent({ includeHeaderSpacer = true, onNavigate }) {
               mb: 0.5,
               borderRadius: 2,
               color: 'text.secondary',
+              '&:hover': { bgcolor: 'secondary.light' },
               '&.active': {
                 bgcolor: 'secondary.main',
                 color: 'primary.main',
                 fontWeight: 700,
+                boxShadow: 'inset 4px 0 0 #602ff7',
               },
               '&.active .MuiListItemIcon-root': {
                 color: 'primary.main',
@@ -127,10 +131,12 @@ function SidebarContent({ includeHeaderSpacer = true, onNavigate }) {
               mb: 0.5,
               borderRadius: 2,
               color: 'text.secondary',
+              '&:hover': { bgcolor: 'secondary.light' },
               '&.active': {
                 bgcolor: 'secondary.main',
                 color: 'primary.main',
                 fontWeight: 700,
+                boxShadow: 'inset 4px 0 0 #602ff7',
               },
               '&.active .MuiListItemIcon-root': {
                 color: 'primary.main',

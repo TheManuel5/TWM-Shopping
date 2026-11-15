@@ -43,6 +43,8 @@ import QuantityInput from '../../components/atoms/QuantityInput/QuantityInput'
 import StatusChip from '../../components/atoms/StatusChip/StatusChip'
 import StatMetricCard from '../../components/molecules/StatMetricCard/StatMetricCard'
 import { formatCLP } from '../../utils/taxonomyData'
+import ShowMore from '../../components/molecules/ShowMore/ShowMore'
+import useBlocks from '../../hooks/useBlocks'
 
 export default function InventoryOffersPage() {
   const navigate = useNavigate()
@@ -88,6 +90,7 @@ export default function InventoryOffersPage() {
     return matchLow && matchQuery && (tab !== 'Ofertas' || Boolean(r.offerPrice))
   })
 
+  const inventory = useBlocks(filteredRows, 25, search + onlyLowStock + tab)
   const lowStockCount = rows.filter((r) => r.stock > 0 && r.stock < 10).length
 
   if (!activeItem) return <Card sx={{ p: 4 }}><Typography variant="h5">Aún no hay productos en el inventario</Typography><Button onClick={() => navigate('/vendedor/publicar-producto')}>Publicar producto</Button></Card>
@@ -120,7 +123,7 @@ export default function InventoryOffersPage() {
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatMetricCard
             title="Productos"
-            value="12"
+            value={new Set(rows.map(row => row.id)).size.toLocaleString('es-CL')}
             subtitle="Publicados en tu catálogo"
             icon={<Inventory2Outlined />}
           />
@@ -128,7 +131,7 @@ export default function InventoryOffersPage() {
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatMetricCard
             title="Variantes"
-            value="38"
+            value={rows.length.toLocaleString('es-CL')}
             subtitle="Total de variantes activas"
             icon={<HubOutlined />}
           />
@@ -146,8 +149,8 @@ export default function InventoryOffersPage() {
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatMetricCard
             title="Ofertas activas"
-            value="3"
-            subtitle="Productos en promoción"
+            value={rows.filter(row => row.offerPrice).length.toLocaleString('es-CL')}
+            subtitle="Variantes en promoción"
             icon={<LocalOfferOutlined />}
           />
         </Grid>
@@ -198,7 +201,8 @@ export default function InventoryOffersPage() {
               />
             </Stack>
 
-            <Table size="small">
+            <Box sx={{ overflowX: 'auto' }}>
+            <Table size="small" sx={{ minWidth: 860 }}>
               <TableHead sx={{ bgcolor: '#f7f6ff' }}>
                 <TableRow>
                   <TableCell>Producto</TableCell>
@@ -213,7 +217,7 @@ export default function InventoryOffersPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredRows.map((row) => {
+                {inventory.visible.map((row) => {
                   const status = getStatus(row.stock)
                   const available = Math.max(0, row.stock - row.reserved)
                   const selected = row.sku === activeItem.sku
@@ -228,7 +232,7 @@ export default function InventoryOffersPage() {
                       <TableCell>
                         <Stack direction="row" spacing={1.25}  sx={{ alignItems: "center" }}>
                           <Box component="img" src={catalogImage(row)} alt="" sx={{ width: 42, height: 42, borderRadius: 1.5, objectFit: 'cover' }} />
-                          <Box>
+                          <Box sx={{ minWidth: 150 }}>
                             <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>{row.name}</Typography>
                             <Typography variant="caption" color="text.secondary">{row.category}</Typography>
                           </Box>
@@ -260,6 +264,8 @@ export default function InventoryOffersPage() {
                 })}
               </TableBody>
             </Table>
+            </Box>
+            <ShowMore {...inventory} label="variantes" />
           </Card>
         </Grid>
 

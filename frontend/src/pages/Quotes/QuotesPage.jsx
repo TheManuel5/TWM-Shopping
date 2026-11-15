@@ -39,6 +39,7 @@ import chairImage from '../../assets/products/chair.jpg'
 import shoeImage from '../../assets/products/shoe.jpg'
 import StatusChip from '../../components/atoms/StatusChip/StatusChip'
 import { formatCLP } from '../../utils/taxonomyData'
+import { catalogImage } from '../../utils/catalogImages'
 
 const INITIAL_QUOTES = [
   {
@@ -97,6 +98,7 @@ export default function QuotesPage() {
   const [quotes, setQuotes] = useCollection('quotes', INITIAL_QUOTES)
   const [selectedId, setSelectedId] = useState('COT-024')
   const [tab, setTab] = useState('Todas')
+  const [listCount, setListCount] = useState(10)
 
   const activeQuote = quotes.find((q) => q.id === selectedId) || quotes[0]
 
@@ -121,7 +123,7 @@ export default function QuotesPage() {
   ], `cotizacion-${activeQuote.id}.pdf`)
   const visibleQuotes = quotes.filter(q => (tab === 'Todas' || q.status.startsWith(tab.slice(0, -1))) && (!query || `${q.id} ${q.vendor}`.toLowerCase().includes(query.toLowerCase())))
 
-  if (!activeQuote) return <Card sx={{ p: 5 }}><Typography variant="h4">Aún no tienes cotizaciones</Typography><Button onClick={() => navigate('/catalogo')}>Explorar catálogo</Button></Card>
+  if (!activeQuote) return <Card sx={{ p: { xs: 4, md: 6 }, textAlign: 'center', maxWidth: 560, mx: 'auto' }}><Box sx={{ display: 'grid', placeItems: 'center', width: 72, height: 72, mx: 'auto', mb: 2, borderRadius: '50%', bgcolor: 'secondary.light', color: 'primary.main' }}><PictureAsPdfOutlined sx={{ fontSize: 32 }} /></Box><Typography variant="h6">Aún no tienes cotizaciones</Typography><Typography color="text.secondary" sx={{ mt: 0.5, mb: 2.5 }}>Solicita una desde el carrito o desde tus favoritos; el precio se mantiene 15 días.</Typography><Button variant="contained" onClick={() => navigate('/catalogo')}>Explorar catálogo</Button></Card>
   return (
     <Box sx={{ maxWidth: 1280, mx: 'auto' }}>
       <Stack
@@ -132,7 +134,7 @@ export default function QuotesPage() {
         sx={[{ justifyContent: "space-between", alignItems: { xs: 'flex-start', sm: 'center' } }, { mb: 2.5 }]}
       >
         <Box>
-          <Typography variant="h4">Mis cotizaciones</Typography>
+          <Typography variant="h4" component="h1" sx={{ fontSize: { xs: '1.6rem', md: '2rem' } }}>Mis cotizaciones</Typography>
           <Typography variant="body2" color="text.secondary">
             Revisa el estado de tus cotizaciones, exporta el PDF y continúa con tu compra.
           </Typography>
@@ -145,7 +147,7 @@ export default function QuotesPage() {
       <Tabs
         value={tab}
         onChange={(_, v) => setTab(v)}
-        sx={{ mb: 2.5, bgcolor: 'background.paper', borderRadius: 2.5, px: 1 }}
+        variant="scrollable" scrollButtons="auto" sx={{ mb: 2.5, borderBottom: '1px solid', borderColor: 'divider' }}
       >
         <Tab value="Todas" label={`Todas (${quotes.length})`} />
         <Tab value="Solicitadas" label="Solicitadas" />
@@ -175,7 +177,7 @@ export default function QuotesPage() {
             />
 
             <Stack spacing={1.5}>
-              {visibleQuotes.map((q) => {
+              {visibleQuotes.slice(0, listCount).map((q) => {
                 const selected = q.id === activeQuote.id
                 return (
                   <Paper
@@ -201,6 +203,8 @@ export default function QuotesPage() {
                   </Paper>
                 )
               })}
+              {!visibleQuotes.length && <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>No hay cotizaciones en esta vista.</Typography>}
+              {visibleQuotes.length > listCount && <Button onClick={() => setListCount(listCount + 10)}>Ver {Math.min(10, visibleQuotes.length - listCount)} más</Button>}
             </Stack>
           </Card>
         </Grid>
@@ -231,7 +235,7 @@ export default function QuotesPage() {
                   Válida hasta el
                 </Typography>
                 <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>
-                  📅 {activeQuote.validUntil}
+                  {activeQuote.validUntil}
                 </Typography>
                 <Typography variant="caption" color="primary.main" sx={{ fontWeight: 700 }}>
                   Precios fijos por 15 días
@@ -291,7 +295,7 @@ export default function QuotesPage() {
                     <TableRow key={it.id}>
                       <TableCell>
                         <Stack direction="row" spacing={1.5}  sx={{ alignItems: "center" }}>
-                          <Box component="img" src={it.image} alt="" sx={{ width: 44, height: 44, borderRadius: 1.5, objectFit: 'cover' }} />
+                          <Box component="img" src={catalogImage(it)} alt="" sx={{ width: 44, height: 44, borderRadius: 1.5, objectFit: 'cover', bgcolor: '#f4f2ff' }} />
                           <Box>
                             <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>{it.name}</Typography>
                             <Typography variant="caption" color="text.secondary">{it.detail}</Typography>
@@ -310,7 +314,7 @@ export default function QuotesPage() {
             <Paper elevation={0} sx={{ p: 2, bgcolor: 'secondary.light', borderRadius: 2.5, mb: 3 }}>
               <Stack direction="row"   sx={{ justifyContent: "space-between", alignItems: "center" }}>
                 <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Total de la cotización</Typography>
-                <Typography variant="h5" sx={{ fontWeight: 900 }}>{formatCLP(activeQuote.total)} CLP</Typography>
+                <Typography variant="h5" sx={{ fontWeight: 900 }}>{formatCLP(activeQuote.total)}</Typography>
               </Stack>
             </Paper>
 
@@ -344,7 +348,7 @@ export default function QuotesPage() {
               <Grid size={{ xs: 12, md: 6 }}>
                 <Paper elevation={0} sx={{ p: 2, bgcolor: '#f7f6ff', borderRadius: 2, mb: 2 }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 0.5 }}>
-                    Notas del proveedor
+                    Condiciones de la cotización
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
                     Precios válidos por 15 días. Luego se actualizarán semanalmente según disponibilidad de stock hasta los 45 días.

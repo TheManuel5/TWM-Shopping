@@ -44,3 +44,23 @@ Las evidencias exactas de cada ejecución se encuentran en backend/test-results 
 Siete fotografías Pexels WebP guardadas dentro del frontend, con fuentes y licencia. Correspondencia por categorías reales, sin reemplazar fotografías propias ni escribir referencias en PostgreSQL. Etiqueta «Imagen referencial» en catálogo, destacados, favoritos y fichas cuando aplica. Miniaturas administrativas y carrito usan el mismo selector de imagen. Corregido además el texto alternativo fijo de la ficha de producto para usar el nombre real de la publicación.
 
 Prueba unitaria específica de prioridad de fotos propias, deduplicación de galería, categorías y ausencia de mutaciones. Total: 14 pruebas de dominio.
+
+## Paneles por cuenta y mejora de seguridad para exposición
+
+- Nuevo `/mi-panel`: estadísticas filtradas por cliente o vendedor, enlaces a operaciones propias y diseño móvil. Las cuentas duales pueden alternar sus actividades; los importes excluyen cancelaciones.
+- Nuevo `/admin/dashboard`: primera vista al elegir administración general. Contadores reales, estados de pedidos y acceso destacado a la lista de usuarios. El directorio muestra totales por rol y la marca de administrador.
+- Título Shopping, idioma español y favicon de bolsa violeta. Menú de cuenta con acceso al panel personal.
+- Evidencia segura de bcrypt en autenticación: algoritmo, costo y prefijo enmascarado. No se exponen contraseñas ni hashes completos en respuestas o consola.
+- Restaurado únicamente el permiso general de 20.000.001-3 en proyectobd, con respaldo previo. Migrados 1994 hashes reconocidos a bcrypt, sin crear cuentas ni cambiar las claves. Auditoría posterior: 1001 clientes y 1000 emprendedores con bcrypt. Los SQL originales no se modificaron.
+- Main se actualizó por fast-forward con nueve commits del equipo cuyo resultado final no cambiaba el árbol de archivos. Estos cambios nuevos aún requieren commit/push.
+
+## Revisión del 10 al 12/11/2026: interfaz, rendimiento y orden del código
+
+- Interfaz: nueva pantalla de carga con porcentaje, inicio con cifras reales, tarjeta única de publicación, catálogo por bloques con «Ver más», filtros derivados de los datos y rediseño de detalle de producto y servicio, carrito, checkout, favoritos, compras y seguimiento.
+- Menú de categorías lateral por niveles, con saludo, vuelta al menú principal y cierre con Escape.
+- Se retiraron textos sin respaldo en el sistema (envío a todo Chile, cuotas, cuenta bancaria fija, plazos de entrega) y cifras escritas a mano en el inventario.
+- Listas largas por bloques en pedidos, inventario, despachos, devoluciones, cotizaciones, mensajes y panel del vendedor; este último tardaba 40 s con 12.000 pedidos.
+- API: estado en memoria con invalidación por revisión, fecha y cambios de PostgreSQL; vía rápida para carrito y favoritos; GET /state con Content-Length.
+- Backend formateado con CSharpier y controladores unificados en src/Controllers.
+- Scripts de verificación sin contraseñas ni rutas fijas; Start-Local.ps1 y Stop-Local.ps1 corregidos; colección Postman con PUT y DELETE.
+- Compra de prueba registrada en la base local como pedido 12001 durante la verificación con sesión.
