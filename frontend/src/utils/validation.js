@@ -1,5 +1,12 @@
 export const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-export const phonePattern = /^\+?\d[\d\s-]{7,14}$/
+export const phonePattern = /^(?:\+?56[\s-]?[2-9](?:[\s-]?\d){8}|[2-9](?:[\s-]?\d){8})$/
+export const limitChileanPhone = value => {
+  const cleaned = value.replace(/[^\d+\s-]/g, '')
+  const digits = cleaned.replace(/\D/g, '')
+  const maxDigits = digits.startsWith('56') ? 11 : 9
+  const limitedDigits = digits.slice(0, maxDigits)
+  return `${cleaned.startsWith('+') ? '+' : ''}${limitedDigits}`
+}
 export function isValidRut(value) {
   const rut = value.replace(/[.\s-]/g, '').toUpperCase()
   if (!/^\d{7,8}[\dK]$/.test(rut)) return false

@@ -35,7 +35,10 @@ const fieldStyles = {
 }
 
 function cleanRut(value) {
-  return value.replace(/[^0-9kK]/g, '').slice(0, 9).toUpperCase()
+  const cleaned = value.replace(/[^0-9kK]/g, '').toUpperCase()
+  const digits = cleaned.replace(/K/g, '')
+  const hasValidCheckDigitPosition = cleaned.endsWith('K') && digits.length >= 7 && digits.length <= 8
+  return hasValidCheckDigitPosition ? `${digits}K` : digits.slice(0, 9)
 }
 
 function formatRut(value) {
@@ -133,7 +136,11 @@ export default function Login() {
       setSync({ target: 100, label: 'Listo' })
       // Un instante para que el contador llegue a 100 antes de entrar.
       await new Promise(resolve => setTimeout(resolve, 450))
-      navigate(location.state?.from ?? '/inicio', { replace: true })
+      const normalizedRut = account.rut?.replace(/[.\s]/g, '').toUpperCase()
+      const destination = normalizedRut === '20000001-3'
+        ? '/vendedor/dashboard'
+        : location.state?.from ?? '/inicio'
+      navigate(destination, { replace: true })
 
     } catch (error) {
       console.error(error)

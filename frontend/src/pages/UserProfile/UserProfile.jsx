@@ -4,7 +4,7 @@ import useCollection from '../../hooks/useCollection'
 import useAuth from '../../contexts/AuthContext/useAuth'
 import { logEvent, readCollection, writeCollection } from '../../data/localStore'
 import { notify } from '../../utils/feedback'
-import { emailPattern, phonePattern } from '../../utils/validation'
+import { emailPattern, limitChileanPhone, phonePattern } from '../../utils/validation'
 import {
   AccountCircleOutlined,
   AddOutlined,
@@ -149,7 +149,7 @@ export default function UserProfile() {
     setProfile((currentProfile) => ({
       ...currentProfile,
       phones: currentProfile.phones.map((phone) =>
-        phone.id === phoneId ? { ...phone, number: value } : phone,
+          phone.id === phoneId ? { ...phone, number: limitChileanPhone(value) } : phone,
       ),
     }))
   }

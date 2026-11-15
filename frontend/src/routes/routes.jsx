@@ -71,6 +71,7 @@ export default function AppRoutes() {
             {/* Vistas del Emprendedor / Vendedor (P15, P16, P17, P21, P22) */}
             <Route path="/vendedor/empresa" element={<ManageCompaniesPage />} />
             <Route path="/vendedor/dashboard" element={<SellerDashboardPage />} />
+            <Route path="/vendedor/usuarios" element={<ManageUsersPage />} />
             <Route path="/vendedor/publicar-producto" element={<PublishProductPage />} />
             <Route path="/vendedor/publicar-servicio" element={<PublishServicePage />} />
             <Route path="/vendedor/inventario" element={<InventoryOffersPage />} />

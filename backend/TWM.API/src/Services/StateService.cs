@@ -86,7 +86,7 @@ public sealed class StateService(
             "orders" or "quotes" or "returns" or "messages" or "conversations" => Admin(user)
                 || Text(row, "customerRut") == Rut(user)
                 || (Seller(user) && Text(row, "sellerRut") == Rut(user)),
-            "users" => Admin(user),
+            "users" => Seller(user),
             "companies" => Admin(user) || Text(row, "ownerRut") == Rut(user),
             _ => true,
         };
@@ -334,7 +334,7 @@ public sealed class StateService(
                         .ToArray()
                 );
             }
-            if (key == "categories" && !Admin(user) || key == "users" && !Admin(user))
+            if (key == "categories" && !Admin(user) || key == "users" && !Seller(user))
                 throw new ForbiddenException();
             if (key == "zones" || key == "shippingMethod")
             {

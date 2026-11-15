@@ -30,6 +30,7 @@ import {
 import { useState } from 'react'
 import { Link as RouterLink, useNavigate } from 'react-router-dom'
 import AuthPageShell from '../../components/auth/AuthPageShell'
+import { limitChileanPhone, phonePattern } from '../../utils/validation'
 
 import { registerLocal } from '../../services/demoAuth'
 
@@ -41,10 +42,12 @@ const fieldStyles = {
 }
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const phonePattern = /^\+?\d[\d\s-]{7,14}$/
 
 function cleanRut(value) {
-  return value.replace(/[^0-9kK]/g, '').slice(0, 9).toUpperCase()
+  const cleaned = value.replace(/[^0-9kK]/g, '').toUpperCase()
+  const digits = cleaned.replace(/K/g, '')
+  const hasValidCheckDigitPosition = cleaned.endsWith('K') && digits.length >= 7 && digits.length <= 8
+  return hasValidCheckDigitPosition ? `${digits}K` : digits.slice(0, 9)
 }
 
 function formatRut(value) {
@@ -174,7 +177,10 @@ export default function Register() {
 
   const handleChange = (event) => {
     const { name, value } = event.target
-    setFormData((currentData) => ({ ...currentData, [name]: name === 'rut' ? formatRut(value) : value }))
+    setFormData((currentData) => ({
+      ...currentData,
+      [name]: name === 'rut' ? formatRut(value) : name === 'telefono' ? limitChileanPhone(value) : value,
+    }))
   }
 
   const handleBlur = (event) => {
