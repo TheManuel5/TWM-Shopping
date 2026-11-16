@@ -60,11 +60,11 @@ public sealed class ImportedCredentialMigration(DatabaseService database)
                 );
                 var done = Interlocked.Add(ref migrated, changed);
                 if (done % 100 == 0)
-                    Console.WriteLine($"Contraseñas migradas a bcrypt: {done}");
+                    //Console.WriteLine($"Contraseñas migradas a bcrypt: {done}");
             }
         );
-        Console.WriteLine(
-            $"Migración terminada: {migrated} convertidas; {skipped} desconocidas conservadas; ninguna cuenta creada."
-        );
+        //Console.WriteLine(
+        //    $"Migración terminada: {migrated} convertidas; {skipped} desconocidas conservadas; ninguna cuenta creada."
+        //);
     }
 }

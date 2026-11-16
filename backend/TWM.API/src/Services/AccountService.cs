@@ -99,9 +99,9 @@ public sealed class AccountService(DatabaseService database)
         if (legacy)
             await StorePassword(c, null, rut, request.Password, false, ct);
         profile!["credentialProtection"] = ProtectionEvidence(legacy ? null : verifiedDigest);
-        Console.WriteLine(
-            "[Shopping] Credencial verificada " + profile["credentialProtection"]!.ToJsonString()
-        );
+        //Console.WriteLine(
+        //    "[Shopping] Credencial verificada " + profile["credentialProtection"]!.ToJsonString()
+        //);
         return profile;
     }
 
@@ -117,9 +117,9 @@ public sealed class AccountService(DatabaseService database)
         if (Encoding.UTF8.GetByteCount(password) is < 8 or > 72)
             throw new ArgumentException("La contraseña debe tener entre 8 y 72 bytes.");
         var hash = BCrypt.Net.BCrypt.HashPassword(password, 12);
-        Console.WriteLine(
-            "[Shopping] Protección generada " + ProtectionEvidence(hash).ToJsonString()
-        );
+        //Console.WriteLine(
+        //    "[Shopping] Protección generada " + ProtectionEvidence(hash).ToJsonString()
+        //);
         await RelationalStore.Exec(
             c,
             tx,
@@ -229,9 +229,9 @@ public sealed class AccountService(DatabaseService database)
         await tx.CommitAsync(ct);
         var created = (await Profile(rut, ct))!;
         created["credentialProtection"] = ProtectionEvidence(hash);
-        Console.WriteLine(
-            "[Shopping] Registro protegido " + created["credentialProtection"]!.ToJsonString()
-        );
+        //Console.WriteLine(
+        //    "[Shopping] Registro protegido " + created["credentialProtection"]!.ToJsonString()
+        //);
         return created;
     }
 

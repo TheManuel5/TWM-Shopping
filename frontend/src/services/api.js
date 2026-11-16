@@ -1,3 +1,5 @@
+import { hashForTransport } from '../utils/authHash'
+
 export const API_MODE = import.meta.env.PROD || import.meta.env.VITE_DATA_MODE !== 'demo'
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5156/api'
 const CONNECTION_ERROR = 'No se pudo conectar con la API. Comprueba la dirección configurada y que el servidor esté ejecutándose.'
@@ -56,11 +58,21 @@ async function fetchJsonWithProgress(endpoint, onProgress) {
 export const apiService = {
   getState: onProgress => fetchJsonWithProgress('/state', onProgress),
   commit: (changes, revision, delta = false, deleted = {}) => fetchApi('/state/transaction', { method: 'PUT', body: JSON.stringify({ changes, revision, delta, deleted }) }),
-  login: credentials => fetchApi('/auth/login', { method: 'POST', body: JSON.stringify(credentials) }),
-  register: values => fetchApi('/auth/register', { method: 'POST', body: JSON.stringify(values) }),
+  login: async credentials => {
+    const password = await hashForTransport(credentials?.password)
+    return fetchApi('/auth/login', { method: 'POST', body: JSON.stringify({ ...credentials, password }) })
+  },
+  register: async values => {
+    const password = await hashForTransport(values?.password)
+    return fetchApi('/auth/register', { method: 'POST', body: JSON.stringify({ ...values, password }) })
+  },
   me: () => fetchApi('/auth/me'),
   logout: () => fetchApi('/auth/logout', { method: 'POST' }),
-  changePassword: values => fetchApi('/auth/password', { method: 'PUT', body: JSON.stringify(values) }),
+  changePassword: async values => {
+    const current = await hashForTransport(values?.current)
+    const next = await hashForTransport(values?.next)
+    return fetchApi('/auth/password', { method: 'PUT', body: JSON.stringify({ ...values, current, next }) })
+  },
   preview: values => fetchApi('/ventas/preview', { method: 'POST', body: JSON.stringify(values) }),
   checkout: values => fetchApi('/ventas/checkout', { method: 'POST', body: JSON.stringify(values) }),
 }
