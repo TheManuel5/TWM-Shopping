@@ -246,9 +246,9 @@ public sealed class StateService(
             }
             var loaded = watch.ElapsedMilliseconds;
             var result = Snapshot(data, revision, user);
-            Console.WriteLine(
-                $"[Shopping] Lectura de estado: {(reused ? "en memoria" : "desde PostgreSQL")} {loaded} ms, vista {watch.ElapsedMilliseconds - loaded} ms"
-            );
+            //Console.WriteLine(
+            //    $"[Shopping] Lectura de estado: {(reused ? "en memoria" : "desde PostgreSQL")} {loaded} ms, vista {watch.ElapsedMilliseconds - loaded} ms"
+            //);
             return result;
         }
         finally
