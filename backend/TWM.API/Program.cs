@@ -147,7 +147,7 @@ if (args.Length == 2 && args[0] == "--admin-rut")
     await scope
         .ServiceProvider.GetRequiredService<AccountService>()
         .SetAdministrator(args[1], CancellationToken.None);
-    Console.WriteLine("Administrador asignado al RUT existente.");
+    //Console.WriteLine("Administrador asignado al RUT existente.");
     return;
 }
 if (args.Length == 2 && args[0] == "--set-password")
@@ -160,7 +160,7 @@ if (args.Length == 2 && args[0] == "--set-password")
     await scope
         .ServiceProvider.GetRequiredService<AccountService>()
         .ResetPassword(args[1], password, CancellationToken.None);
-    Console.WriteLine("Contraseña bcrypt configurada para el RUT existente.");
+    //Console.WriteLine("Contraseña bcrypt configurada para el RUT existente.");
     return;
 }
 if (args.Length == 1 && args[0] == "--upgrade-imported-hashes")
