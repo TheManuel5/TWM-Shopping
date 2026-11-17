@@ -50,6 +50,19 @@ La interfaz se adapta a móvil, muestra Skeleton durante la carga y mensajes vis
 | `minuta/` | Minutas semanales |
 | `*.ps1` (raíz) | Instalación, arranque y administración local |
 
+### Organización del backend
+
+| Carpeta en `backend/TWM.API/src` | Contenido |
+| --- | --- |
+| `Config` | Lectura del archivo `.env` y SQL de compatibilidad web |
+| `Controllers` | Endpoints HTTP; reciben y devuelven DTOs |
+| `Dtos` | Contratos de entrada y salida de la API, con validaciones en español |
+| `Middlewares` | Errores uniformes (`ErrorResponse`) y validación de DTOs |
+| `Models` | Constantes del dominio, como los roles |
+| `Routes` | Rutas mínimas de salud |
+| `Services` | Lógica de negocio y acceso a PostgreSQL |
+| `Utils` | Utilidades de sesión |
+
 ## Requisitos
 
 - PostgreSQL 15 o posterior, con `psql` disponible
@@ -116,7 +129,7 @@ El script pide la contraseña de forma privada. Para asignar administración a o
 ## Base de datos
 
 - La base que usa la API es la configurada en `backend/TWM.API/.env`. El nombre por defecto del instalador es `shopping_twm_local`.
-- En el PC de desarrollo, la revisión del 09/11/2026 se hizo sobre la base `proyectobd`: se migraron 1994 hashes reconocidos a bcrypt conservando las contraseñas, y quedaron 1001 clientes y 1000 emprendedores, todos con bcrypt.
+- En el PC de desarrollo, sobre `proyectobd`, la migración de cuentas antiguas al formato canónico del navegador (`dotnet run --project backend/TWM.API -- --migrate-transport-hashes`, con `--dry-run` previo) convirtió 1998 cuentas con respaldo previo. Tres filas no pudieron verificarse con la carga original (RUT 20.000.001-3, 20.000.002-1 y 44.444.444-4); si no entran, el administrador les asigna una contraseña en Administración.
 - Al arrancar, la API valida el modelo y crea el esquema `shopping_ui` (permisos, carrito, preferencias y metadatos web). Luego aplica `backend/TWM.API/src/Config/web_compatibility.sql`.
 - El arranque no ejecuta los inserts ni modifica los cuatro SQL originales.
 - Las cotizaciones se mantienen cada minuto mientras la API está activa: precio fijo 15 días, ajustes semanales posteriores y purga a los 45 días.

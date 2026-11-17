@@ -2,11 +2,13 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TWM.API.Dtos;
 using TWM.API.Services;
 
 namespace TWM.API.Controllers;
 
-[ApiController, Route("api/resources"), Route("api")]
+/// <summary>Recursos REST (productos, servicios, pedidos, usuarios, etc.) sobre el mismo estado validado.</summary>
+[ApiController, Route("api/resources"), Route("api"), Produces("application/json")]
 public sealed class ResourcesController(StateService state) : ControllerBase
 {
     static readonly Dictionary<string, string> Names = new()
@@ -36,11 +38,11 @@ public sealed class ResourcesController(StateService state) : ControllerBase
             _ => true,
         };
 
-    async Task<JsonNode> Snapshot(CancellationToken ct) =>
-        JsonSerializer.SerializeToNode(await state.Read(User, ct))!;
-
     [HttpGet("{resource}")]
-    public async Task<IActionResult> Get(string resource, CancellationToken ct)
+    [ProducesResponseType<ResourceListResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ErrorResponse>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<ResourceListResponse>> Get(string resource, CancellationToken ct)
     {
         var key = Resource(resource);
         if (
@@ -48,25 +50,28 @@ public sealed class ResourcesController(StateService state) : ControllerBase
             && User.Identity?.IsAuthenticated != true
         )
             return Unauthorized();
-        var snapshot = await Snapshot(ct);
-        var value = snapshot["collections"]![key];
-        return Ok(
-            new
-            {
-                revision = snapshot["revision"]!.GetValue<long>(),
-                items = value is JsonArray rows
-                    ? new JsonArray(
-                        rows.Where(row => Matches(resource, row))
-                            .Select(row => row?.DeepClone())
-                            .ToArray()
-                    )
-                    : value?.DeepClone(),
-            }
+        var snapshot = await state.Read(User, ct);
+        var value = snapshot.Collections.GetValueOrDefault(key);
+        return new ResourceListResponse(
+            snapshot.Revision,
+            value is JsonArray rows
+                ? new JsonArray(
+                    rows.Where(row => Matches(resource, row))
+                        .Select(row => row?.DeepClone())
+                        .ToArray()
+                )
+                : value?.DeepClone()
         );
     }
 
     [HttpGet("{resource}/{id}")]
-    public async Task<IActionResult> Find(string resource, string id, CancellationToken ct)
+    [ProducesResponseType<ResourceItemResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ResourceItemResponse>> Find(
+        string resource,
+        string id,
+        CancellationToken ct
+    )
     {
         var key = Resource(resource);
         if (
@@ -74,24 +79,28 @@ public sealed class ResourcesController(StateService state) : ControllerBase
             && User.Identity?.IsAuthenticated != true
         )
             return Unauthorized();
-        var snapshot = await Snapshot(ct);
+        var snapshot = await state.Read(User, ct);
         var row = StateService
-            .Rows(snapshot["collections"]![key])
+            .Rows(snapshot.Collections.GetValueOrDefault(key))
             .FirstOrDefault(row => StateService.Id(row) == id && Matches(resource, row));
         return row == null
             ? NotFound()
-            : Ok(new { revision = snapshot["revision"]!.GetValue<long>(), item = row.DeepClone() });
+            : new ResourceItemResponse(snapshot.Revision, row.DeepClone());
     }
 
     [Authorize, HttpPost("{resource}")]
-    public Task<object> Create(
+    [ProducesResponseType<StateSnapshotResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ErrorResponse>(StatusCodes.Status409Conflict)]
+    public Task<StateSnapshotResponse> Create(
         string resource,
         [FromBody] JsonObject payload,
         CancellationToken ct
     ) => Mutate(resource, null, payload, false, ct);
 
     [Authorize, HttpPut("{resource}/{id}")]
-    public Task<object> Update(
+    [ProducesResponseType<StateSnapshotResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ErrorResponse>(StatusCodes.Status409Conflict)]
+    public Task<StateSnapshotResponse> Update(
         string resource,
         string id,
         [FromBody] JsonObject payload,
@@ -99,10 +108,12 @@ public sealed class ResourcesController(StateService state) : ControllerBase
     ) => Mutate(resource, id, payload, false, ct);
 
     [Authorize, HttpDelete("{resource}/{id}")]
-    public Task<object> Delete(string resource, string id, CancellationToken ct) =>
+    [ProducesResponseType<StateSnapshotResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ErrorResponse>(StatusCodes.Status409Conflict)]
+    public Task<StateSnapshotResponse> Delete(string resource, string id, CancellationToken ct) =>
         Mutate(resource, id, null, true, ct);
 
-    async Task<object> Mutate(
+    async Task<StateSnapshotResponse> Mutate(
         string resource,
         string? id,
         JsonObject? payload,
@@ -115,8 +126,11 @@ public sealed class ResourcesController(StateService state) : ControllerBase
             throw new ArgumentException("Usa /api/state/transaction para el árbol jerárquico.");
         if (!long.TryParse(Request.Headers.IfMatch.ToString().Trim('"'), out var revision))
             throw new ArgumentException("Envía If-Match con la revisión recibida al consultar.");
-        var snapshot = await Snapshot(ct);
-        var rows = StateService.Rows(snapshot["collections"]![key]).DeepClone().AsArray();
+        var snapshot = await state.Read(User, ct);
+        var rows = StateService
+            .Rows(snapshot.Collections.GetValueOrDefault(key))
+            .DeepClone()
+            .AsArray();
         var old = rows.FirstOrDefault(row => StateService.Id(row) == id && Matches(resource, row));
         if (id != null && old == null)
             throw new ArgumentException("Registro inexistente.");

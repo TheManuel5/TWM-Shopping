@@ -2,7 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
 using Npgsql;
-using TWM.API.Models;
+using TWM.API.Dtos;
 using static TWM.API.Services.StateService;
 
 namespace TWM.API.Services;
@@ -52,57 +52,87 @@ public sealed class AccountService(DatabaseService database)
         var rut = Rut(request.Rut);
         if (Encoding.UTF8.GetByteCount(request.Password) > 72)
             return null;
+        // Se aceptan ambas formas: el digest del navegador y la contraseña en texto plano.
+        var transported = PasswordTransport.Canonical(request.Password);
+        var plainSupplied = !PasswordTransport.IsTransportDigest(request.Password);
         await using var c = await database.Open(ct);
-        var hashes = await RelationalStore.Query(
+        var rows = await RelationalStore.Query(
             c,
             null,
-            "SELECT jsonb_build_object('hash',passwd)::text FROM public.cliente WHERE run=@rut UNION ALL SELECT jsonb_build_object('hash',passwd)::text FROM public.emprendedor WHERE run=@rut",
+            "SELECT jsonb_build_object('table','cliente','hash',passwd)::text FROM public.cliente WHERE run=@rut UNION ALL SELECT jsonb_build_object('table','emprendedor','hash',passwd)::text FROM public.emprendedor WHERE run=@rut",
             ct,
             ("rut", rut)
         );
-        bool accepted = false,
-            legacy = false;
-        string? verifiedDigest = null;
-        foreach (var row in hashes)
+        string? matchedTable = null;
+        string? matchedHash = null;
+        string? verifiedHash = null;
+        var upgradeFromPlain = false;
+        foreach (var row in rows)
         {
+            var table = Text(row, "table");
             var hash = Text(row, "hash");
             if (hash.StartsWith("$2"))
             {
-                if (BCrypt.Net.BCrypt.Verify(request.Password, hash))
+                if (BCrypt.Net.BCrypt.Verify(transported, hash))
                 {
-                    accepted = true;
-                    verifiedDigest = hash;
+                    (matchedTable, matchedHash, verifiedHash) = (table, hash, hash);
+                }
+                else if (plainSupplied && BCrypt.Net.BCrypt.Verify(request.Password, hash))
+                {
+                    (matchedTable, matchedHash, upgradeFromPlain) = (table, hash, true);
                 }
             }
-            else if (hash.Length == 64)
-            {
-                var digest = Convert.ToHexStringLower(
-                    SHA256.HashData(Encoding.UTF8.GetBytes(request.Password))
-                );
-                if (
-                    CryptographicOperations.FixedTimeEquals(
-                        Encoding.UTF8.GetBytes(hash.ToLowerInvariant()),
-                        Encoding.UTF8.GetBytes(digest)
+            else if (
+                plainSupplied
+                && hash.Length == 64
+                && CryptographicOperations.FixedTimeEquals(
+                    Encoding.UTF8.GetBytes(hash.ToLowerInvariant()),
+                    Encoding.UTF8.GetBytes(
+                        Convert.ToHexStringLower(
+                            SHA256.HashData(Encoding.UTF8.GetBytes(request.Password))
+                        )
                     )
                 )
-                {
-                    accepted = true;
-                    legacy = true;
-                }
+            )
+            {
+                (matchedTable, matchedHash, upgradeFromPlain) = (table, hash, true);
             }
+            if (matchedTable != null)
+                break;
         }
-        if (!accepted)
+        if (matchedTable == null)
             return null;
         var profile = await Profile(rut, ct);
         if (profile?["active"]?.GetValue<bool>() == false)
             return null;
-        if (legacy)
-            await StorePassword(c, null, rut, request.Password, false, ct);
-        profile!["credentialProtection"] = ProtectionEvidence(legacy ? null : verifiedDigest);
-        //Console.WriteLine(
-        //    "[Shopping] Credencial verificada " + profile["credentialProtection"]!.ToJsonString()
-        //);
+        // Cuenta antigua que entró con su contraseña original: pasa al formato del navegador.
+        if (upgradeFromPlain)
+            await UpgradeRow(c, matchedTable, rut, matchedHash!, request.Password, ct);
+        profile!["credentialProtection"] = ProtectionEvidence(verifiedHash);
         return profile;
+    }
+
+    /// <summary>Cambia el formato de una sola fila (cliente o emprendedor), sin tocar la otra tabla del mismo RUT.</summary>
+    static async Task UpgradeRow(
+        NpgsqlConnection c,
+        string table,
+        string rut,
+        string oldHash,
+        string plain,
+        CancellationToken ct
+    )
+    {
+        var hash = BCrypt.Net.BCrypt.HashPassword(PasswordTransport.Canonical(plain), 12);
+        // table solo puede ser "cliente" o "emprendedor": viene de la consulta anterior, no de la petición.
+        await RelationalStore.Exec(
+            c,
+            null,
+            $"UPDATE public.{table} SET passwd=@hash WHERE run=@rut AND passwd=@old",
+            ct,
+            ("hash", hash),
+            ("rut", rut),
+            ("old", oldHash)
+        );
     }
 
     static async Task StorePassword(
@@ -116,7 +146,7 @@ public sealed class AccountService(DatabaseService database)
     {
         if (Encoding.UTF8.GetByteCount(password) is < 8 or > 72)
             throw new ArgumentException("La contraseña debe tener entre 8 y 72 bytes.");
-        var hash = BCrypt.Net.BCrypt.HashPassword(password, 12);
+        var hash = BCrypt.Net.BCrypt.HashPassword(PasswordTransport.Canonical(password), 12);
         //Console.WriteLine(
         //    "[Shopping] Protección generada " + ProtectionEvidence(hash).ToJsonString()
         //);
@@ -139,7 +169,11 @@ public sealed class AccountService(DatabaseService database)
             );
     }
 
-    public async Task ChangePassword(string rut, PasswordRequest request, CancellationToken ct)
+    public async Task ChangePassword(
+        string rut,
+        ChangePasswordRequest request,
+        CancellationToken ct
+    )
     {
         if (await Login(new(rut, request.Current), ct) == null)
             throw new UnauthorizedAccessException();
@@ -177,7 +211,10 @@ public sealed class AccountService(DatabaseService database)
         await using var tx = await c.BeginTransactionAsync(ct);
         await RelationalStore.Exec(c, tx, "SELECT pg_advisory_xact_lock(7281156)", ct);
         var names = request.Nombre.Trim().Split(' ', 2);
-        var hash = BCrypt.Net.BCrypt.HashPassword(request.Password, 12);
+        var hash = BCrypt.Net.BCrypt.HashPassword(
+            PasswordTransport.Canonical(request.Password),
+            12
+        );
         var tables =
             request.Rol == "vendedor" ? new[] { "cliente", "emprendedor" } : new[] { "cliente" };
         foreach (var table in tables)
@@ -203,9 +240,9 @@ public sealed class AccountService(DatabaseService database)
         );
         if (
             request.Address == null
-            || Number(request.Address, "number") <= 0
-            || Number(request.Address, "communeId") <= 0
-            || Text(request.Address, "street").Trim().Length < 3
+            || request.Address.Number <= 0
+            || request.Address.CommuneId <= 0
+            || request.Address.Street.Trim().Length < 3
         )
             throw new ArgumentException("Completa calle, número y comuna de la dirección inicial.");
         var addressId = await RelationalStore.Next(c, tx, "direccion", "id", ct);
@@ -215,9 +252,9 @@ public sealed class AccountService(DatabaseService database)
             "INSERT INTO public.direccion(id,calle,numero,comuna_id,cliente_id) VALUES(@id,@street,@number,@commune,@rut);INSERT INTO public.registrar(cliente_id,direccion_id) VALUES(@rut,@id)",
             ct,
             ("id", addressId),
-            ("street", Text(request.Address, "street")),
-            ("number", (int)Number(request.Address, "number")),
-            ("commune", (int)Number(request.Address, "communeId")),
+            ("street", request.Address.Street.Trim()),
+            ("number", request.Address.Number),
+            ("commune", request.Address.CommuneId),
             ("rut", rut)
         );
         await RelationalStore.Exec(

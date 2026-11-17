@@ -55,23 +55,28 @@ async function fetchJsonWithProgress(endpoint, onProgress) {
   return JSON.parse(new TextDecoder().decode(buffer.subarray(0, loaded)))
 }
 
+// La contraseña se transforma con bcrypt en el navegador antes de enviarla. Las cuentas creadas antes
+// de ese cambio guardan bcrypt de la contraseña original: si el servidor rechaza la versión transformada
+// (401), se reintenta con la original, que viaja por HTTPS igual que antes del cambio.
+async function withCredentialFallback(password, send) {
+  const transformed = await hashForTransport(password)
+  try {
+    return await send(transformed)
+  } catch (error) {
+    if (error.status === 401 && password && transformed !== password) return send(password)
+    throw error
+  }
+}
+
 export const apiService = {
   getState: onProgress => fetchJsonWithProgress('/state', onProgress),
   commit: (changes, revision, delta = false, deleted = {}) => fetchApi('/state/transaction', { method: 'PUT', body: JSON.stringify({ changes, revision, delta, deleted }) }),
-  login: async credentials => {
-    const password = await hashForTransport(credentials?.password)
-    return fetchApi('/auth/login', { method: 'POST', body: JSON.stringify({ ...credentials, password }) })
-  },
-  register: async values => {
-    const password = await hashForTransport(values?.password)
-    return fetchApi('/auth/register', { method: 'POST', body: JSON.stringify({ ...values, password }) })
-  },
+  login: credentials => withCredentialFallback(credentials?.password, password => fetchApi('/auth/login', { method: 'POST', body: JSON.stringify({ ...credentials, password }) })),
   me: () => fetchApi('/auth/me'),
   logout: () => fetchApi('/auth/logout', { method: 'POST' }),
   changePassword: async values => {
-    const current = await hashForTransport(values?.current)
     const next = await hashForTransport(values?.next)
-    return fetchApi('/auth/password', { method: 'PUT', body: JSON.stringify({ ...values, current, next }) })
+    return withCredentialFallback(values?.current, current => fetchApi('/auth/password', { method: 'PUT', body: JSON.stringify({ ...values, current, next }) }))
   },
   preview: values => fetchApi('/ventas/preview', { method: 'POST', body: JSON.stringify(values) }),
   checkout: values => fetchApi('/ventas/checkout', { method: 'POST', body: JSON.stringify(values) }),

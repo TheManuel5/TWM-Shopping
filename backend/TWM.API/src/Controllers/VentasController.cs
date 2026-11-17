@@ -1,21 +1,30 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using TWM.API.Models;
+using TWM.API.Dtos;
 using TWM.API.Services;
 
 namespace TWM.API.Controllers;
 
-[ApiController, Authorize, Route("api/ventas")]
+/// <summary>Cálculo y registro de compras.</summary>
+[ApiController, Authorize, Route("api/ventas"), Produces("application/json")]
 public sealed class VentasController(CommerceService commerce, StateService state) : ControllerBase
 {
+    /// <summary>Calcula los totales en el servidor sin registrar la compra.</summary>
     [HttpPost("preview")]
-    public Task<object> Preview(CheckoutRequest request, CancellationToken ct) =>
+    [ProducesResponseType<CheckoutPreviewResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ErrorResponse>(StatusCodes.Status400BadRequest)]
+    public Task<CheckoutPreviewResponse> Preview(CheckoutRequest request, CancellationToken ct) =>
         commerce.Preview(request, User, ct);
 
+    /// <summary>Registra la compra. Repetir el mismo requestId devuelve el pedido ya creado.</summary>
     [HttpPost("checkout")]
-    public Task<object> Checkout(CheckoutRequest request, CancellationToken ct) =>
+    [ProducesResponseType<CheckoutResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ErrorResponse>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ErrorResponse>(StatusCodes.Status403Forbidden)]
+    public Task<CheckoutResponse> Checkout(CheckoutRequest request, CancellationToken ct) =>
         commerce.Checkout(request, User, ct);
 
     [HttpGet]
-    public Task<object> Get(CancellationToken ct) => state.Read(User, ct);
+    [ProducesResponseType<StateSnapshotResponse>(StatusCodes.Status200OK)]
+    public Task<StateSnapshotResponse> Get(CancellationToken ct) => state.Read(User, ct);
 }
