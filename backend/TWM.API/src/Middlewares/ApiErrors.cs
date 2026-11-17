@@ -1,4 +1,5 @@
 using Npgsql;
+using TWM.API.Dtos;
 using TWM.API.Services;
 
 namespace TWM.API.Middlewares;
@@ -39,9 +40,8 @@ public sealed class ApiErrors(RequestDelegate next, ILogger<ApiErrors> logger)
             );
             context.Response.StatusCode = status;
             await context.Response.WriteAsJsonAsync(
-                new
-                {
-                    message = status switch
+                new ErrorResponse(
+                    status switch
                     {
                         400 => error is ArgumentException ? error.Message
                         : error is PostgresException pg && pg.SqlState == "P0001" ? pg.MessageText
@@ -54,8 +54,8 @@ public sealed class ApiErrors(RequestDelegate next, ILogger<ApiErrors> logger)
                         503 => "PostgreSQL no está disponible. Revisa la configuración local.",
                         _ => "No se pudo procesar la solicitud.",
                     },
-                    traceId = context.TraceIdentifier,
-                }
+                    context.TraceIdentifier
+                )
             );
         }
     }

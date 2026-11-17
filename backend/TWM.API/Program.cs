@@ -22,9 +22,13 @@ var builder = WebApplication.CreateBuilder(
     {
         Args =
             args.Length > 0
-            && new[] { "--admin-rut", "--set-password", "--upgrade-imported-hashes" }.Contains(
-                args[0]
-            )
+            && new[]
+            {
+                "--admin-rut",
+                "--set-password",
+                "--upgrade-imported-hashes",
+                "--migrate-transport-hashes",
+            }.Contains(args[0])
                 ? []
                 : args,
         ContentRootPath = root,
@@ -50,7 +54,12 @@ builder.Services.AddRateLimiter(options =>
         )
     );
 });
-builder.Services.AddControllers();
+builder
+    .Services.AddControllers()
+    .ConfigureApiBehaviorOptions(options =>
+        // Un DTO inválido responde con el mismo ErrorResponse que el resto de los errores.
+        options.InvalidModelStateResponseFactory = ValidationErrors.Create
+    );
 builder.Services.AddOpenApi();
 builder.Services.AddSingleton<DatabaseService>();
 builder.Services.AddScoped<AccountService>();
@@ -161,6 +170,20 @@ if (args.Length == 2 && args[0] == "--set-password")
         .ServiceProvider.GetRequiredService<AccountService>()
         .ResetPassword(args[1], password, CancellationToken.None);
     //Console.WriteLine("Contraseña bcrypt configurada para el RUT existente.");
+    return;
+}
+if (args.Length >= 1 && args[0] == "--migrate-transport-hashes")
+{
+    using var scope = app.Services.CreateScope();
+    var dryRun = args.Contains("--dry-run");
+    var (upgraded, current, unknown) = await scope
+        .ServiceProvider.GetRequiredService<ImportedCredentialMigration>()
+        .MigrateTransport(dryRun, CancellationToken.None);
+    Console.WriteLine(
+        $"{(dryRun ? "Simulación" : "Migración")}: {upgraded} cuentas pasan al formato del navegador; {current} ya estaban; {unknown.Count} sin contraseña conocida."
+    );
+    foreach (var rut in unknown)
+        Console.WriteLine($"  Sin contraseña conocida: RUT {rut}");
     return;
 }
 if (args.Length == 1 && args[0] == "--upgrade-imported-hashes")

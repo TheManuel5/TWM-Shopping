@@ -4,34 +4,50 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using TWM.API.Models;
+using TWM.API.Dtos;
 using TWM.API.Services;
 using TWM.API.Utils;
 
 namespace TWM.API.Controllers;
 
-[ApiController, Route("api/auth")]
+/// <summary>Registro, inicio y cierre de sesión, perfil y cambio de contraseña.</summary>
+[ApiController, Route("api/auth"), Produces("application/json")]
 public sealed class AuthController(AccountService accounts) : ControllerBase
 {
     [EnableRateLimiting("auth"), HttpPost("register")]
-    public async Task<IActionResult> Register(RegisterRequest request, CancellationToken ct) =>
-        StatusCode(201, SessionClaims.Public(await accounts.Register(request, ct)));
+    [ProducesResponseType<UserProfileResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ErrorResponse>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ErrorResponse>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<UserProfileResponse>> Register(
+        RegisterRequest request,
+        CancellationToken ct
+    ) =>
+        StatusCode(
+            StatusCodes.Status201Created,
+            UserProfileResponse.From(await accounts.Register(request, ct))
+        );
 
     [EnableRateLimiting("auth"), HttpPost("login")]
-    public async Task<IActionResult> Login(LoginRequest request, CancellationToken ct)
+    [ProducesResponseType<UserProfileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ErrorResponse>(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<UserProfileResponse>> Login(
+        LoginRequest request,
+        CancellationToken ct
+    )
     {
         var profile = await accounts.Login(request, ct);
         if (profile == null)
-            return Unauthorized(new { message = "RUT o contraseña incorrectos." });
+            return Unauthorized(new ErrorResponse("RUT o contraseña incorrectos."));
         await HttpContext.SignInAsync(
             CookieAuthenticationDefaults.AuthenticationScheme,
             SessionClaims.Create(profile),
             new AuthenticationProperties { IsPersistent = request.Remember }
         );
-        return Ok(SessionClaims.Public(profile));
+        return UserProfileResponse.From(profile);
     }
 
     [AllowAnonymous, HttpPost("logout")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Logout()
     {
         await HttpContext.SignOutAsync();
@@ -39,14 +55,18 @@ public sealed class AuthController(AccountService accounts) : ControllerBase
     }
 
     [Authorize, HttpGet("me")]
-    public async Task<IActionResult> Me(CancellationToken ct)
+    [ProducesResponseType<UserProfileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<UserProfileResponse>> Me(CancellationToken ct)
     {
         var profile = await accounts.Profile(User.FindFirstValue(ClaimTypes.NameIdentifier)!, ct);
-        return profile == null ? Unauthorized() : Ok(SessionClaims.Public(profile));
+        return profile == null ? Unauthorized() : UserProfileResponse.From(profile);
     }
 
     [Authorize, HttpPut("password")]
-    public async Task<IActionResult> Password(PasswordRequest request, CancellationToken ct)
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ErrorResponse>(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> Password(ChangePasswordRequest request, CancellationToken ct)
     {
         var rut = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         var session = await HttpContext.AuthenticateAsync();

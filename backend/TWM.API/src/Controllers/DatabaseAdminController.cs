@@ -1,31 +1,34 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
+using TWM.API.Dtos;
+using TWM.API.Models;
 using TWM.API.Services;
 
 namespace TWM.API.Controllers;
 
-[ApiController, Authorize(Roles = "Admin"), Route("api/admin/database")]
+/// <summary>Administración de tablas y consultas analíticas de PostgreSQL. Solo administrador general.</summary>
+[
+    ApiController,
+    Authorize(Roles = Roles.Admin),
+    Route("api/admin/database"),
+    Produces("application/json")
+]
 public sealed class DatabaseAdminController(
     DatabaseService database,
     StateService state,
     AccountService accounts
 ) : ControllerBase
 {
-    public sealed record AccountPassword(
-        [
-            System.ComponentModel.DataAnnotations.Required,
-            System.ComponentModel.DataAnnotations.MinLength(8),
-            System.ComponentModel.DataAnnotations.MaxLength(72)
-        ]
-            string Next
-    );
+    static readonly JsonSerializerOptions Web = new(JsonSerializerDefaults.Web);
 
     [HttpPut("accounts/{rut}/password")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Password(
         string rut,
-        AccountPassword request,
+        AdminPasswordRequest request,
         CancellationToken ct
     )
     {
@@ -34,21 +37,24 @@ public sealed class DatabaseAdminController(
     }
 
     [HttpGet("tables")]
-    public async Task<object> Tables(CancellationToken ct)
+    [ProducesResponseType<IReadOnlyList<TableInfoResponse>>(StatusCodes.Status200OK)]
+    public async Task<IReadOnlyList<TableInfoResponse>> Tables(CancellationToken ct)
     {
         await using var c = await database.Open(ct);
-        return await RelationalStore.Query(
+        var rows = await RelationalStore.Query(
             c,
             null,
             "SELECT jsonb_build_object('name',table_name)::text FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY table_name",
             ct
         );
+        return rows.Select(row => new TableInfoResponse(StateService.Text(row, "name"))).ToList();
     }
 
+    /// <summary>Lee hasta 500 filas. Las columnas dependen de la tabla, por eso las filas viajan como JSON; nunca incluye passwd.</summary>
     [HttpGet("tables/{table}")]
-    public async Task<object> Read(string table, int limit = 100, CancellationToken ct = default)
+    [ProducesResponseType<JsonArray>(StatusCodes.Status200OK)]
+    public async Task<JsonArray> Read(string table, int limit = 100, CancellationToken ct = default)
     {
-        if (table is "cliente" or "emprendedor") { }
         await using var c = await database.Open(ct);
         var rows = await RelationalStore.Query(
             c,
@@ -61,21 +67,36 @@ public sealed class DatabaseAdminController(
         return rows;
     }
 
-    public sealed record Mutation(JsonObject Fields, JsonObject? Key);
-
     [HttpPost("tables/{table}")]
-    public Task<object> Create(string table, Mutation request, CancellationToken ct) =>
-        Mutate(table, "insert", request, ct);
+    [ProducesResponseType<StatusResponse>(StatusCodes.Status200OK)]
+    public Task<StatusResponse> Create(
+        string table,
+        TableMutationRequest request,
+        CancellationToken ct
+    ) => Mutate(table, "insert", request, ct);
 
     [HttpPut("tables/{table}")]
-    public Task<object> Update(string table, Mutation request, CancellationToken ct) =>
-        Mutate(table, "update", request, ct);
+    [ProducesResponseType<StatusResponse>(StatusCodes.Status200OK)]
+    public Task<StatusResponse> Update(
+        string table,
+        TableMutationRequest request,
+        CancellationToken ct
+    ) => Mutate(table, "update", request, ct);
 
     [HttpDelete("tables/{table}")]
-    public Task<object> Delete(string table, [FromBody] Mutation request, CancellationToken ct) =>
-        Mutate(table, "delete", request, ct);
+    [ProducesResponseType<StatusResponse>(StatusCodes.Status200OK)]
+    public Task<StatusResponse> Delete(
+        string table,
+        [FromBody] TableMutationRequest request,
+        CancellationToken ct
+    ) => Mutate(table, "delete", request, ct);
 
-    async Task<object> Mutate(string table, string action, Mutation request, CancellationToken ct)
+    async Task<StatusResponse> Mutate(
+        string table,
+        string action,
+        TableMutationRequest request,
+        CancellationToken ct
+    )
     {
         if (request.Fields["passwd"] is JsonNode password)
         {
@@ -103,23 +124,32 @@ public sealed class DatabaseAdminController(
         );
         await state.Bump(c, tx, ct);
         await tx.CommitAsync(ct);
-        return new { status = "ok" };
+        return new StatusResponse("ok");
     }
 
     [HttpGet("queries")]
-    public async Task<object> Queries(CancellationToken ct)
+    [ProducesResponseType<IReadOnlyList<QueryInfoResponse>>(StatusCodes.Status200OK)]
+    public async Task<IReadOnlyList<QueryInfoResponse>> Queries(CancellationToken ct)
     {
         await using var c = await database.Open(ct);
-        return await RelationalStore.Query(
+        var rows = await RelationalStore.Query(
             c,
             null,
             "SELECT jsonb_build_object('id',p.oid::text,'name',p.proname,'arguments',pg_get_function_arguments(p.oid),'returns',pg_get_function_result(p.oid),'parameters',(SELECT coalesce(jsonb_agg(jsonb_build_object('name',coalesce(p.proargnames[a.n], 'parametro_'||a.n),'type',format_type(a.t,NULL),'optional',a.n>p.pronargs-p.pronargdefaults)),'[]'::jsonb) FROM unnest(p.proargtypes::oid[]) WITH ORDINALITY a(t,n)))::text FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname LIKE 'fn_%' AND p.provolatile='s' AND p.proname NOT LIKE 'fn_crud_%' ORDER BY p.proname",
             ct
         );
+        return rows.Deserialize<List<QueryInfoResponse>>(Web) ?? [];
     }
 
+    /// <summary>Ejecuta una función analítica. Recibe los parámetros en orden; las columnas del resultado dependen de la función.</summary>
     [HttpPost("queries/{id}")]
-    public async Task<object> Query(string id, [FromBody] JsonArray arguments, CancellationToken ct)
+    [ProducesResponseType<JsonArray>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ErrorResponse>(StatusCodes.Status400BadRequest)]
+    public async Task<JsonArray> Query(
+        string id,
+        [FromBody] JsonArray arguments,
+        CancellationToken ct
+    )
     {
         if (!uint.TryParse(id, out var oid))
             throw new ArgumentException("Consulta desconocida.");

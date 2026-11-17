@@ -1,6 +1,8 @@
 using System.Security.Claims;
 using System.Text.Json.Nodes;
 using Npgsql;
+using TWM.API.Dtos;
+using TWM.API.Models;
 
 namespace TWM.API.Services;
 
@@ -51,9 +53,9 @@ public sealed class StateService(
 
     public static string Id(JsonNode? n) => Text(n, "id");
 
-    public static bool Admin(ClaimsPrincipal u) => u.IsInRole("Admin");
+    public static bool Admin(ClaimsPrincipal u) => u.IsInRole(Roles.Admin);
 
-    public static bool Seller(ClaimsPrincipal u) => Admin(u) || u.IsInRole("Vendedor");
+    public static bool Seller(ClaimsPrincipal u) => Admin(u) || u.IsInRole(Roles.Seller);
 
     public static string Rut(ClaimsPrincipal u) =>
         u.FindFirstValue(ClaimTypes.NameIdentifier) ?? "guest";
@@ -169,7 +171,11 @@ public sealed class StateService(
             ct
         );
 
-    public object Snapshot(Dictionary<string, JsonNode?> data, long revision, ClaimsPrincipal user)
+    public StateSnapshotResponse Snapshot(
+        Dictionary<string, JsonNode?> data,
+        long revision,
+        ClaimsPrincipal user
+    )
     {
         var result = new Dictionary<string, JsonNode?>();
         var rut = Rut(user);
@@ -214,17 +220,10 @@ public sealed class StateService(
             result.TryAdd(key, new JsonArray());
         if (rut != "guest")
             result.TryAdd("addresses:" + rut, new JsonArray());
-        return new
-        {
-            collections = result,
-            revision,
-            isAuthenticated = user.Identity?.IsAuthenticated == true,
-            source = "public",
-            dataMode = "relational",
-        };
+        return new StateSnapshotResponse(result, revision, user.Identity?.IsAuthenticated == true);
     }
 
-    public async Task<object> Read(ClaimsPrincipal user, CancellationToken ct)
+    public async Task<StateSnapshotResponse> Read(ClaimsPrincipal user, CancellationToken ct)
     {
         await using var c = await database.Open(ct);
         await using var tx = await c.BeginTransactionAsync(
@@ -257,7 +256,7 @@ public sealed class StateService(
         }
     }
 
-    public async Task<object> Commit(
+    public async Task<StateSnapshotResponse> Commit(
         Dictionary<string, JsonNode?> changes,
         long expected,
         ClaimsPrincipal user,
@@ -286,7 +285,7 @@ public sealed class StateService(
         }
     }
 
-    async Task<object> CommitFull(
+    async Task<StateSnapshotResponse> CommitFull(
         Dictionary<string, JsonNode?> changes,
         long expected,
         ClaimsPrincipal user,
@@ -724,7 +723,7 @@ public sealed class StateService(
     // el estado completo. La respuesta es parcial y el cliente solo reemplaza las colecciones devueltas.
     static readonly HashSet<string> Light = ["cart", "wishlist", "selectedVendor", "comuna"];
 
-    async Task<object> CommitLight(
+    async Task<StateSnapshotResponse> CommitLight(
         Dictionary<string, JsonNode?> changes,
         long expected,
         ClaimsPrincipal user,
@@ -774,18 +773,11 @@ public sealed class StateService(
         {
             cache.Gate.Release();
         }
-        return new
-        {
-            partial = true,
-            collections = saved,
-            revision = version,
-            isAuthenticated = true,
-            source = "public",
-            dataMode = "relational",
-        };
+        return new StateSnapshotResponse(saved, version, IsAuthenticated: true, Partial: true);
     }
 
-    public async Task<object> Maintain(ClaimsPrincipal user, CancellationToken ct)
+    /// <summary>Ejecuta el mantenimiento de cotizaciones. Devuelve el estado nuevo, o null si no hay sesión (tarea en segundo plano).</summary>
+    public async Task<StateSnapshotResponse?> Maintain(ClaimsPrincipal user, CancellationToken ct)
     {
         await using var c = await database.Open(ct);
         await using var tx = await c.BeginTransactionAsync(ct);
@@ -808,7 +800,7 @@ public sealed class StateService(
         if (user.Identity?.IsAuthenticated != true)
         {
             await tx.CommitAsync(ct);
-            return new { status = "ok" };
+            return null;
         }
         var data = await Load(c, tx, ct);
         var version = await Revision(c, tx, ct);

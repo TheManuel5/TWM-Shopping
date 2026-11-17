@@ -3,7 +3,7 @@
 - Integración de los cuatro SQL de entrega_mejorada, sin restaurar funciones antiguas encima del modelo nuevo.
 - Corrección de las referencias a 00_repair_encoding.sql y 05_web_compatibility.sql que impedían compilar. Extensión web en backend/TWM.API/src/Config/web_compatibility.sql basada en las funciones nuevas; mantiene la protección de facturas pagadas.
 - Creación de shopping_twm_local con los datos suministrados y shopping_verificacion_v2 para todas las operaciones de prueba. proyectobd se conserva. No se insertaron cuentas ni pedidos de pruebas en shopping_twm_local.
-- Migración de 2000 credenciales importadas a bcrypt, conservando contraseñas. RUT existente 20.000.001-3 asignado como administrador local por elección del equipo.
+- Migración de 2000 credenciales importadas a bcrypt, conservando contraseñas. Formato canónico del navegador (`--migrate-transport-hashes`): las cuentas antiguas se convierten al iniciar sesión o en lote con `--dry-run` previo; tres filas no reconocibles quedan para asignación del administrador. RUT existente 20.000.001-3 asignado como administrador local por elección del equipo.
 - Reportes compatibles con las nuevas firmas: filtros jsonb, parámetros tipados, límite opcional y PDF. Contrato HTTP y Postman actualizados.
 - Servicios respetan inactividad y disponibilidad. Árbol de categorías diferencia ramas con productos y servicios; metadatos de relacionados conservados en JSON del artículo.
 - Ajustes visuales: cabecera de 64 px, menú lateral de 232 px, tamaños de títulos, proporciones del acceso, tabla de publicaciones con imagen/SKU/estado y métricas calculadas, cinco destacados y ficha de servicio con imagen principal y panel de compra/vendedor.
@@ -64,3 +64,12 @@ Prueba unitaria específica de prioridad de fotos propias, deduplicación de gal
 - Backend formateado con CSharpier y controladores unificados en src/Controllers.
 - Scripts de verificación sin contraseñas ni rutas fijas; Start-Local.ps1 y Stop-Local.ps1 corregidos; colección Postman con PUT y DELETE.
 - Compra de prueba registrada en la base local como pedido 12001 durante la verificación con sesión.
+
+## DTOs en la API (17/11/2026)
+
+- Nueva carpeta backend/TWM.API/src/Dtos con los contratos de entrada y salida de cada endpoint, separados por área.
+- Controladores tipados con ActionResult<T> y ProducesResponseType, visibles en la documentación OpenAPI.
+- Validaciones con mensajes en español; los DTOs inválidos responden con el mismo ErrorResponse que el resto de los errores.
+- Constantes de roles en Models/Roles.cs, usadas por los atributos Authorize y la sesión.
+- Corregido un error de sintaxis en ImportedCredentialMigration.cs que impedía compilar el backend en main.
+- Verificado: el JSON de 22 de 23 respuestas es idéntico al anterior (la diferencia es un mensaje de error más claro) y pasan las cuatro suites de integración.

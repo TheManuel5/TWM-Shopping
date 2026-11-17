@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 using static TWM.API.Services.StateService;
@@ -58,13 +59,84 @@ public sealed class ImportedCredentialMigration(DatabaseService database)
                     ("rut", rut),
                     ("old", old)
                 );
-                var done = Interlocked.Add(ref migrated, changed);
-                if (done % 100 == 0)
-                    //Console.WriteLine($"Contraseñas migradas a bcrypt: {done}");
+                Interlocked.Add(ref migrated, changed);
+                // El avance cada 100 cuentas se dejó de mostrar en consola.
             }
         );
         //Console.WriteLine(
         //    $"Migración terminada: {migrated} convertidas; {skipped} desconocidas conservadas; ninguna cuenta creada."
         //);
+    }
+
+    /// <summary>
+    /// Pasa al formato del navegador las cuentas cuya contraseña original se puede verificar con el generador
+    /// de los TXT recibidos. Las demás no se tocan: su contraseña no es conocida por el servidor y se migran
+    /// al entrar con ella. Con dryRun no escribe en la base.
+    /// </summary>
+    public async Task<(int Upgraded, int Current, IReadOnlyList<string> Unknown)> MigrateTransport(
+        bool dryRun,
+        CancellationToken ct
+    )
+    {
+        await using var c = await database.Open(ct);
+        var rows = await RelationalStore.Query(
+            c,
+            null,
+            "SELECT jsonb_build_object('table','cliente','rut',run,'hash',passwd)::text FROM public.cliente WHERE left(passwd,2)='$2' UNION ALL SELECT jsonb_build_object('table','emprendedor','rut',run,'hash',passwd)::text FROM public.emprendedor WHERE left(passwd,2)='$2'",
+            ct
+        );
+        var upgraded = 0;
+        var current = 0;
+        var unknown = new ConcurrentBag<string>();
+        await Parallel.ForEachAsync(
+            rows,
+            new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = ct },
+            async (row, token) =>
+            {
+                var table = Text(row, "table");
+                var rut = Text(row, "rut");
+                var hash = Text(row, "hash");
+                var plain = GeneratorPassword(table, rut);
+                if (plain == null || !BCrypt.Net.BCrypt.Verify(plain, hash))
+                {
+                    if (
+                        plain != null
+                        && BCrypt.Net.BCrypt.Verify(PasswordTransport.Canonical(plain), hash)
+                    )
+                        Interlocked.Increment(ref current);
+                    else
+                        unknown.Add(rut);
+                    return;
+                }
+                if (!dryRun)
+                {
+                    var next = BCrypt.Net.BCrypt.HashPassword(
+                        PasswordTransport.Canonical(plain),
+                        12
+                    );
+                    await using var connection = await database.Open(token);
+                    await RelationalStore.Exec(
+                        connection,
+                        null,
+                        $"UPDATE public.{table} SET passwd=@hash WHERE run=@rut AND passwd=@old",
+                        token,
+                        ("hash", next),
+                        ("rut", rut),
+                        ("old", hash)
+                    );
+                }
+                Interlocked.Increment(ref upgraded);
+            }
+        );
+        return (upgraded, current, unknown.OrderBy(rut => rut, StringComparer.Ordinal).ToList());
+    }
+
+    // Misma regla con la que se generó la carga: contraseña conocida solo para cuentas del generador.
+    static string? GeneratorPassword(string table, string rut)
+    {
+        if (!int.TryParse(rut.Split('-')[0], out var body))
+            return null;
+        var i = body >= 20000000 ? body - 20000000 : body - 10000000;
+        return $"hash-demo-{(table == "cliente" ? "cliente" : "emprendedor")}-{i}";
     }
 }
