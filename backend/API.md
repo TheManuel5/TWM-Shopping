@@ -31,6 +31,25 @@ El cuerpo de checkout utiliza `items:[{id,dbId,sku,qty,price}]`, `vendor`, `addr
 
 401 sin sesión, 403 sin permisos, 400 al violar reglas, 409 ante revisión obsoleta, 429 por límite de autenticación. Los errores no devuelven conexiones ni contraseñas. La cuenta importada se consulta en Cliente/Emprendedor; shopping_ui guarda permisos y versiones de sesión. No hay semilla de cuentas de aplicación.
 
+## DTOs
+
+Cada endpoint recibe y devuelve un DTO definido en `backend/TWM.API/src/Dtos`. El JSON usa nombres en camelCase y es el mismo que antes de introducir los DTOs.
+
+| Área | Entrada | Salida |
+|---|---|---|
+| Autenticación | `RegisterRequest` (con `RegisterAddressRequest`), `LoginRequest`, `ChangePasswordRequest` | `UserProfileResponse` (sin hash ni versión de sesión) |
+| Compras | `CheckoutRequest` con `CheckoutItemRequest` y `CheckoutAddressRequest` | `CheckoutPreviewResponse`, `CheckoutResponse` |
+| Estado | `StateTransactionRequest` | `StateSnapshotResponse` (`partial: true` en guardados rápidos) |
+| Recursos | Objeto del recurso + If-Match | `ResourceListResponse`, `ResourceItemResponse`, `StateSnapshotResponse` |
+| Reportes | `ReportQuery` (from, to, q, carrier) | `ReportRowResponse[]` |
+| Administración | `AdminPasswordRequest`, `TableMutationRequest` | `TableInfoResponse[]`, `QueryInfoResponse[]`, `StatusResponse` |
+| Salud | — | `HealthResponse`, `DatabaseHealthResponse` |
+| Errores | — | `ErrorResponse`: `message`, `traceId` y, en validaciones, `errors` por campo |
+
+Un DTO inválido responde 400 con `ErrorResponse` y mensajes en español; por ejemplo `{"message":"Indica el RUT.","errors":{"Rut":["Indica el RUT."]}}`. Los identificadores (`id`, `sku`, `quoteId`) se aceptan como texto o número, y las cantidades y precios también como texto numérico.
+
+Las filas de las colecciones (productos, pedidos, cotizaciones…) y los resultados de las tablas y funciones SQL siguen viajando como JSON, porque sus columnas dependen de cada tabla o función; los envoltorios que las contienen sí son DTOs.
+
 ## Actualización para entrega_mejorada
 
 API v4. La base de entrega local es shopping_twm_local; las pruebas usan shopping_verificacion_v2. GET /admin/database/queries devuelve parameters con name, type y optional. POST recibe un array posicional: los filtros jsonb se envían como objetos, el límite como entero o null. Por ejemplo fn_catalogo_unificado: [null,{},10]. Un parámetro opcional null/vacío omite el argumento y utiliza DEFAULT de PostgreSQL. Las listas como p_marcas se envían como arrays JSON, por ejemplo ["Visa","MasterCard"]. Las funciones conservan las reglas de negocio del SQL mejorado. Los errores de concurrencia 409 requieren recuperar revision antes de reintentar.
@@ -38,3 +57,14 @@ API v4. La base de entrega local es shopping_twm_local; las pruebas usan shoppin
 ## Evidencia de protección de credenciales
 
 POST `/auth/login` y POST `/auth/register` incluyen en el perfil `credentialProtection` con `algorithm: bcrypt`, `cost`, `format` (por ejemplo `$2a$12$[contenido oculto]`) y `valueExposed: false`. Es metadata de la verificación/generación ejecutada en servidor; no es el hash almacenado. No se devuelve el secreto ni el hash completo. El directorio de usuarios incluye el booleano `canAdmin`, sin permitir que una cuenta común se conceda ese permiso.
+
+### Formato de contraseña en tránsito y migración
+
+El navegador convierte la contraseña en un digest bcrypt con un salt fijo de la aplicación antes de enviarla. El servidor guarda bcrypt sobre el valor canónico (el digest). Las cuentas antiguas guardadas con bcrypt sobre la contraseña original entran con la contraseña original y se convierten al formato canónico en ese mismo inicio de sesión. Para convertir en lote las cuentas cuya contraseña original puede reconstruirse con la carga importada, ejecutar desde la raíz del proyecto:
+
+```bash
+dotnet run --project backend/TWM.API -- --migrate-transport-hashes --dry-run
+dotnet run --project backend/TWM.API -- --migrate-transport-hashes
+```
+
+El comando muestra cuántas cuentas convirtió, cuántas ya estaban en formato canónico y los RUT que no pudo verificar. Esas cuentas no cambian; si no pueden entrar, el administrador les asigna una nueva contraseña desde Administración.

@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text.Json.Nodes;
 using Npgsql;
+using TWM.API.Dtos;
 using TWM.API.Models;
 using static TWM.API.Services.StateService;
 
@@ -28,7 +29,7 @@ public sealed class CommerceService(DatabaseService database, StateService state
         CancellationToken ct
     )
     {
-        if (!user.IsInRole("Cliente"))
+        if (!user.IsInRole(Roles.Buyer))
             throw new ForbiddenException();
         var rut = Rut(user);
         if (
@@ -46,7 +47,7 @@ public sealed class CommerceService(DatabaseService database, StateService state
         if (client.Count == 0)
             throw new ArgumentException("Esta cuenta necesita un perfil de cliente para comprar.");
         int? addressId = null;
-        if (request.Address != null && int.TryParse(Text(request.Address, "id"), out var aid))
+        if (request.Address != null && int.TryParse(request.Address.Id, out var aid))
         {
             var found = await RelationalStore.Query(
                 c,
@@ -70,7 +71,7 @@ public sealed class CommerceService(DatabaseService database, StateService state
             weight = 0;
         foreach (var line in request.Items)
         {
-            var parts = Id(line).Split('-');
+            var parts = line.Id.Split('-');
             if (
                 parts.Length < 4
                 || parts[0] is not ("P" or "S")
@@ -83,14 +84,14 @@ public sealed class CommerceService(DatabaseService database, StateService state
                 tx,
                 "SELECT jsonb_build_object('id',id)::text FROM shopping_ui.listing_state WHERE id=@id AND NOT active",
                 ct,
-                ("id", Id(line))
+                ("id", line.Id)
             );
             if (retired.Count > 0)
                 throw new ArgumentException("La publicación fue retirada por el vendedor.");
             seller ??= owner;
             if (owner != seller)
                 throw new ArgumentException("Cada compra corresponde a un vendedor.");
-            var qty = Number(line, "qty");
+            var qty = line.Qty;
             if (qty < 1 || qty % 1 != 0 || qty > 100000)
                 throw new ArgumentException("Cantidad inválida.");
             var service = parts[0] == "S";
@@ -107,7 +108,7 @@ public sealed class CommerceService(DatabaseService database, StateService state
                 );
             else
             {
-                if (!int.TryParse(Text(line, "sku"), out variant))
+                if (!int.TryParse(line.Sku, out variant))
                     throw new ArgumentException("Selecciona una variante real.");
                 found = await RelationalStore.Query(
                     c,
@@ -132,19 +133,26 @@ public sealed class CommerceService(DatabaseService database, StateService state
                     "El servicio presencial requiere una dirección de tu cuenta."
                 );
             var needed = request
-                .Items.Where(x => Id(x) == Id(line) && Text(x, "sku") == Text(line, "sku"))
-                .Sum(x => Number(x, "qty"));
+                .Items.Where(x => x.Id == line.Id && (x.Sku ?? "") == (line.Sku ?? ""))
+                .Sum(x => x.Qty);
             if (!service && Number(product, "stock") < needed)
                 throw new ArgumentException("Stock insuficiente.");
             var price = Number(product, "net");
-            if (Text(line, "quoteId") != "")
+            if (!string.IsNullOrEmpty(line.QuoteId))
             {
                 var quoted = await RelationalStore.Query(
                     c,
                     tx,
                     "SELECT jsonb_build_object('net',(d->>'precio_unitario')::numeric,'qty',(d->>'cantidad')::int)::text FROM public.cotizacion q CROSS JOIN LATERAL jsonb_array_elements(q.detalle) d WHERE q.id=@quote AND q.cliente_id=@rut AND q.emprendedor_id=@seller AND q.estado='Aceptada por el cliente' AND CURRENT_DATE<=q.fecha+15 AND ((@service AND (d->>'servicio_id')::int=@item) OR (NOT @service AND (d->>'producto_id')::int=@item AND (d->>'caracteristicas_id')::int=@variant)) AND NOT EXISTS(SELECT 1 FROM shopping_ui.used_quotes u WHERE u.quote_id=q.id)",
                     ct,
-                    ("quote", int.Parse(Text(line, "quoteId"))),
+                    (
+                        "quote",
+                        int.TryParse(line.QuoteId, out var quoteId)
+                            ? quoteId
+                            : throw new ArgumentException(
+                                "Cotización inválida, utilizada o vencida."
+                            )
+                    ),
                     ("rut", rut),
                     ("seller", owner),
                     ("item", item),
@@ -155,7 +163,7 @@ public sealed class CommerceService(DatabaseService database, StateService state
                     throw new ArgumentException("Cotización inválida, utilizada o vencida.");
                 price = Number(quoted[0], "net");
             }
-            if (RelationalStore.Gross(price) != Number(line, "price"))
+            if (RelationalStore.Gross(price) != line.Price)
                 throw new ArgumentException("El precio cambió. Actualiza el carrito.");
             netBase += price * qty;
             if (!service)
@@ -168,13 +176,13 @@ public sealed class CommerceService(DatabaseService database, StateService state
             lines.Add(
                 new JsonObject
                 {
-                    ["id"] = Id(line),
+                    ["id"] = line.Id,
                     ["type"] = service ? "Servicio" : "Producto",
                     ["dbId"] = item,
                     ["variant"] = variant,
                     ["qty"] = qty,
                     ["net"] = price,
-                    ["quoteId"] = Text(line, "quoteId"),
+                    ["quoteId"] = line.QuoteId ?? "",
                 }
             );
         }
@@ -254,7 +262,7 @@ public sealed class CommerceService(DatabaseService database, StateService state
         );
     }
 
-    public async Task<object> Preview(
+    public async Task<CheckoutPreviewResponse> Preview(
         CheckoutRequest request,
         ClaimsPrincipal user,
         CancellationToken ct
@@ -262,10 +270,10 @@ public sealed class CommerceService(DatabaseService database, StateService state
     {
         await using var c = await database.Open(ct);
         var p = await Calculate(c, null, request, user, ct);
-        return p.Totals;
+        return CheckoutPreviewResponse.From(p.Totals);
     }
 
-    public async Task<object> Checkout(
+    public async Task<CheckoutResponse> Checkout(
         CheckoutRequest request,
         ClaimsPrincipal user,
         CancellationToken ct
@@ -288,13 +296,10 @@ public sealed class CommerceService(DatabaseService database, StateService state
         if (existing.Count > 0)
         {
             var snapshot = await state.Load(c, tx, ct);
-            return new
-            {
-                order = List(snapshot, "orders")
-                    .FirstOrDefault(o => Id(o) == Id(existing[0]))
-                    ?.DeepClone(),
-                state = state.Snapshot(snapshot, await state.Revision(c, tx, ct), user),
-            };
+            return new CheckoutResponse(
+                List(snapshot, "orders").FirstOrDefault(o => Id(o) == Id(existing[0]))?.DeepClone(),
+                state.Snapshot(snapshot, await state.Revision(c, tx, ct), user)
+            );
         }
         var plan = await Calculate(c, tx, request, user, ct);
         if (
@@ -461,10 +466,9 @@ public sealed class CommerceService(DatabaseService database, StateService state
         var data = await state.Load(c, tx, ct);
         var revision = await state.Revision(c, tx, ct);
         await tx.CommitAsync(ct);
-        return new
-        {
-            order = List(data, "orders").First(o => Id(o) == orderId.ToString())!.DeepClone(),
-            state = state.Snapshot(data, revision, user),
-        };
+        return new CheckoutResponse(
+            List(data, "orders").First(o => Id(o) == orderId.ToString())!.DeepClone(),
+            state.Snapshot(data, revision, user)
+        );
     }
 }
