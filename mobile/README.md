@@ -1,56 +1,80 @@
-# Welcome to your Expo app 👋
+# Shopping móvil
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Aplicación React Native con Expo SDK 58 y Expo Router, a partir de la plantilla compartida en main. Esta rama implementa la navegación y el catálogo de Jheferson. Reutiliza la API .NET y PostgreSQL; no modifica el backend ni los módulos web.
 
-## Get started
+## Ejecutar en Expo Go
 
-1. Install dependencies
+Requisitos: Node.js 22.13 o posterior (verificado con Node 24), .NET 10, PostgreSQL con los datos del proyecto y Expo Go compatible con SDK 58.
 
-   ```bash
-   npm install
-   ```
+Desde mobile:
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```powershell
+npm ci
 ```
 
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
+En una terminal, detener cualquier API anterior que ocupe el mismo puerto e iniciar la API para la red local:
 
-### Other setup steps
+```powershell
+.\scripts\start-backend.ps1
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+En otra terminal, desde mobile:
 
-## Learn more
+```powershell
+npx expo start --go
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+Escanear el QR en Expo Go para Android. El teléfono y la computadora deben compartir red. La app deduce la dirección del servidor Expo y utiliza el puerto API 5156. Si Expo usa un túnel o la API está en otra computadora, crear .env.local con la IP real de la computadora del backend:
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```env
+EXPO_PUBLIC_API_URL=http://192.168.1.100:5156/api
+```
 
-## Join the community
+Reiniciar Expo después de cambiarla. localhost en el teléfono se refiere al teléfono, no al PC. La red debe permitir acceder a 5156. Nunca incluir contraseñas ni conexiones PostgreSQL en variables EXPO_PUBLIC.
 
-Join our community of developers creating universal apps.
+El script inicia la API con 0.0.0.0:5156 y permite el origen web http://localhost:8081 únicamente en su proceso. No edita Program.cs, appsettings ni el .env privado; restaura las variables al salir. Para otro puerto usar -Port 5158 y configurar ese puerto también en la app. La vista web se abre con npm run web; si Expo elige otro puerto, indicarlo al script con -WebPort.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Alcance de Jheferson
+
+- Cinco accesos inferiores: Inicio, Categorías, Publicar, Mis productos y Mi cuenta.
+- Inicio con búsqueda, categorías, publicaciones reales y acceso a servicios.
+- Categorías y subcategorías a partir de IDs y children reales. Se conserva el grupo Productos o Servicios, incluso si comparten una categoría.
+- Catálogo con búsqueda sin acentos, tipo, disponibilidad, rango de precios y orden. Se muestran bloques de 20 elementos. La API actual entrega el estado completo; la paginación de pantalla es local.
+- Detalles de producto y servicio, galería, variantes, stock, cantidad, precio, vendedor y relacionados.
+- Reseñas y preguntas, resumen de valoraciones y formularios validados. Los envíos necesitan la sesión que integrará Samuel. El servidor comprueba permisos y compra entregada. Un conflicto 409 recupera el estado y permite reintentar sin duplicar automáticamente el envío.
+- Estados de carga, error, reintento, catálogo vacío y publicación inexistente.
+
+Las imágenes de categoría reutilizadas de la web se identifican como referenciales; nombres, precios, stock y opiniones provienen del servidor. No se inventan ventas ni valoraciones.
+
+## Rutas e integración
+
+| Ruta                                          | Responsable o contrato                                                                                                     |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| / y /categorias                               | Jheferson                                                                                                                  |
+| /categoria/[id]                               | Jheferson; recibe id y group                                                                                               |
+| /catalogo                                     | Jheferson; recibe q, category (ID), group, type (Producto o Servicio)                                                      |
+| /producto/[id], /servicio/[id], /resenas/[id] | Jheferson; ID completo como P-1-20000001-3                                                                                 |
+| /cuenta                                       | Entrada para autenticación y perfil de Samuel y Gaby                                                                       |
+| /carrito                                      | Entrada de Gaby; recibe productId, sku, quantity. El receptor valida contra servidor; navegar todavía no guarda una compra |
+| /mensajes                                     | Entrada de Rolando; recibe productId y sellerRut                                                                           |
+| /publicar y /mis-productos                    | Entradas de Manuel                                                                                                         |
+
+Las entradas de otros módulos indican que están pendientes; no simulan operaciones guardadas. Se reemplazan al integrar sus PR. Esta rama no implementa login, carrito ni administración.
+
+src/app contiene rutas y layouts. Los detalles viven en el Stack raíz para mantener historial de navegación; las cinco pantallas principales están en (tabs). El contenido del catálogo está en src/features/catalog. Los componentes y colores comunes están en src/components/shopping y src/theme/shopping.ts.
+
+Samuel mantiene src/services/api. Para conectar su cliente sin reescribir pantallas, registrar configureCatalogTransport desde src/features/catalog/gateway.ts antes de montar CatalogProvider. Recibe una función genérica de ruta relativa y RequestInit, y devuelve JSON; debe conservar cookies y propagar errores con status y cancelación. El adaptador actual usa fetch con credenciales y timeout; no implementa autenticación. Tras iniciar o cerrar sesión, llamar useCatalog().refresh(). La persistencia de cookies debe verificarse en Android con el módulo de Samuel.
+
+Jheferson mantiene layouts y nombres de rutas. Los demás añaden implementaciones en sus carpetas de features y sustituyen su ruta de entrada. Coordinar dependencias y archivos compartidos antes de modificarlos.
+
+## Comprobaciones
+
+```powershell
+npm run lint
+npm run typecheck
+npm test
+npx expo-doctor
+npx expo export --platform android --output-dir dist-android
+```
+
+Las pruebas verifican jerarquía por IDs, filtros combinados, disponibilidad de productos frente a servicios, orden sin mutar datos y descuentos. El bundle Android no sustituye una prueba en teléfono. Antes del PR, comprobar en Expo Go: inicio, categorías, subcategoría, catálogo, detalle y reseñas; búsqueda sin resultados; filtros; volver; variantes agotadas; sin conexión y reintento. Los formularios autenticados se validan al integrar la sesión de Samuel.
