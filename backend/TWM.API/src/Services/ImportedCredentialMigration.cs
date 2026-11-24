@@ -58,9 +58,7 @@ public sealed class ImportedCredentialMigration(DatabaseService database)
                     ("rut", rut),
                     ("old", old)
                 );
-                var done = Interlocked.Add(ref migrated, changed);
-                if (done % 100 == 0)
-                    //Console.WriteLine($"Contraseñas migradas a bcrypt: {done}");
+                Interlocked.Add(ref migrated, changed);
             }
         );
         //Console.WriteLine(
