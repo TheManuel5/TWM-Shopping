@@ -1,12 +1,9 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
 import { useMemo, useState } from 'react';
 import {
   Alert,
   Pressable,
-  Platform,
   ScrollView,
   Share,
   StyleSheet,
@@ -16,6 +13,8 @@ import {
 
 import OrdersReturnsHeader from '../OrdersReturnsHeader';
 import type { PurchaseOrder } from '../purchaseTypes';
+import { PurchaseListFilters, purchaseTextScale } from '../components/PurchaseUi';
+import { exportPdfDocument } from '../services/pdfExport';
 
 const purple = '#5B32EC';
 const ink = '#25243A';
@@ -25,15 +24,6 @@ const orderStatuses = ['Recibido', 'En preparación', 'Enviado', 'En reparto', '
 
 function money(amount: number) {
   return `$${new Intl.NumberFormat('es-CL', { maximumFractionDigits: 0 }).format(amount)}`;
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 }
 
 function statusStyle(status: string) {
@@ -134,9 +124,11 @@ function OrderCard({
 
 function TrackOrder({
   order,
+  accountName,
   onBack,
 }: {
   order: PurchaseOrder;
+  accountName: string;
   onBack: () => void;
 }) {
   const [historyExpanded, setHistoryExpanded] = useState(false);
@@ -169,46 +161,49 @@ function TrackOrder({
   };
 
   const downloadReceipt = async () => {
-    const rows = order.products
-      .map((item) => `<tr><td>${escapeHtml(item.name)}</td><td>${item.qty}</td><td>${money(item.price * item.qty)}</td></tr>`)
-      .join('');
-    const html = `
-      <html><body style="font-family:Arial,sans-serif;color:#25243A;padding:24px">
-        <h1>Comprobante de compra</h1>
-        <p>Pedido #${escapeHtml(order.id)} · ${escapeHtml(order.date)}</p>
-        <p>Vendedor: ${escapeHtml(order.store)}</p>
-        <table style="width:100%;border-collapse:collapse" border="1" cellpadding="10">
-          <thead><tr><th>Producto</th><th>Cantidad</th><th>Total</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-        <p>Despacho: ${money(order.shipping)}</p>
-        <h2>Total: ${money(order.total)}</h2>
-        <p>Medio de pago: ${escapeHtml(order.payment)}</p>
-      </body></html>`;
-
     try {
-      if (Platform.OS === 'web') {
-        await Print.printAsync({ html });
-        return;
-      }
-      const { uri } = await Print.printToFileAsync({ html });
-      if (!(await Sharing.isAvailableAsync())) {
-        Alert.alert('Comprobante creado', 'No está disponible compartir archivos en este dispositivo.');
-        return;
-      }
-      await Sharing.shareAsync(uri, {
-        mimeType: 'application/pdf',
-        dialogTitle: `Comprobante pedido ${order.id}`,
-        UTI: 'com.adobe.pdf',
+      await exportPdfDocument({
+        title: 'Comprobante de compra',
+        fileName: `comprobante-pedido-${order.id}`,
+        details: [
+          { label: 'Pedido', value: `#${order.id}` },
+          { label: 'Fecha', value: order.date },
+          { label: 'Vendedor', value: order.store },
+          { label: 'Estado', value: order.status },
+          { label: 'Entrega', value: order.address },
+          { label: 'Medio de pago', value: order.payment },
+          ...(order.cardLast4
+            ? [{ label: 'Tarjeta', value: `•••• ${order.cardLast4}` }]
+            : []),
+          ...(order.transferCode
+            ? [{ label: 'Comprobante de transferencia', value: order.transferCode }]
+            : []),
+        ],
+        items: order.products.map((item) => ({
+          name: item.name,
+          detail: item.detail,
+          quantity: item.qty,
+          unitPrice: item.price,
+          total: item.price * item.qty,
+        })),
+        summary: [
+          { label: 'Productos', amount: order.total - order.shipping },
+          { label: 'Despacho', amount: order.shipping },
+          { label: 'Total', amount: order.total, emphasize: true },
+        ],
+        footer: 'Comprobante del registro de compra. No reemplaza un documento tributario ni acredita el cobro bancario.',
       });
-    } catch {
-      Alert.alert('No se pudo generar el comprobante', 'Inténtalo nuevamente más tarde.');
+    } catch (error) {
+      Alert.alert(
+        'No se pudo descargar el comprobante',
+        error instanceof Error ? error.message : 'Inténtalo nuevamente más tarde.',
+      );
     }
   };
 
   return (
     <>
-      <OrdersReturnsHeader title="Seguimiento del pedido" onBack={onBack} />
+      <OrdersReturnsHeader title="Seguimiento del pedido" accountName={accountName} onBack={onBack} />
       <ScrollView style={styles.scrollViewport} contentContainerStyle={styles.detailContent}>
         <View style={styles.statusCard}>
           <View style={styles.orderHeader}>
@@ -362,59 +357,77 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 
 export default function PurchaseHistoryScreen({
   orders,
+  accountName,
   onBack,
   onRequestReturn,
 }: {
   orders: PurchaseOrder[];
+  accountName: string;
   onBack: () => void;
   onRequestReturn: (order: PurchaseOrder) => void;
 }) {
   const [filter, setFilter] = useState('Todas');
+  const [query, setQuery] = useState('');
   const [visibleCount, setVisibleCount] = useState(10);
   const [trackingOrder, setTrackingOrder] = useState<PurchaseOrder | null>(null);
   const filters = ['Todas', 'En curso', 'Entregadas'];
-  const visibleOrders = useMemo(() => {
-    const matching = orders.filter((order) => {
-      if (filter === 'En curso') return !deliveredStatuses.includes(order.status);
-      if (filter === 'Entregadas') return deliveredStatuses.includes(order.status);
-      return true;
+  const matchingOrders = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase('es-CL');
+    return orders.filter((order) => {
+      const matchesStatus = filter === 'Todas'
+        || (filter === 'En curso'
+          ? !deliveredStatuses.includes(order.status)
+          : deliveredStatuses.includes(order.status));
+      const searchableText = [
+        order.id,
+        order.store,
+        order.status,
+        ...order.products.flatMap((product) => [product.name, product.detail]),
+      ].join(' ').toLocaleLowerCase('es-CL');
+      return matchesStatus && (!normalizedQuery || searchableText.includes(normalizedQuery));
     });
-    return matching.slice(0, visibleCount);
-  }, [filter, orders, visibleCount]);
-  const filteredCount = orders.filter((order) => {
-    if (filter === 'En curso') return !deliveredStatuses.includes(order.status);
-    if (filter === 'Entregadas') return deliveredStatuses.includes(order.status);
-    return true;
-  }).length;
+  }, [filter, orders, query]);
+  const visibleOrders = matchingOrders.slice(0, visibleCount);
+  const filteredCount = matchingOrders.length;
+  const filterOptions = filters.map((value) => ({
+    value,
+    label: value,
+    count: orders.filter((order) =>
+      value === 'Todas'
+        ? true
+        : value === 'En curso'
+          ? !deliveredStatuses.includes(order.status)
+          : deliveredStatuses.includes(order.status),
+    ).length,
+  }));
 
   if (trackingOrder) {
     return (
-      <TrackOrder order={trackingOrder} onBack={() => setTrackingOrder(null)} />
+      <TrackOrder order={trackingOrder} accountName={accountName} onBack={() => setTrackingOrder(null)} />
     );
   }
 
   return (
     <>
-      <OrdersReturnsHeader title="Historial de compras" onBack={onBack} />
-      <ScrollView style={styles.scrollViewport} contentContainerStyle={styles.listContent}>
-        <View style={styles.filterRow}>
-          {filters.map((item) => {
-            const selected = item === filter;
-            return (
-              <Pressable
-                key={item}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-                onPress={() => {
-                  setFilter(item);
-                  setVisibleCount(10);
-                }}
-                style={[styles.filterChip, selected && styles.filterChipSelected]}>
-                <Text style={[styles.filterText, selected && styles.filterTextSelected]}>{item}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
+      <OrdersReturnsHeader title="Historial de compras" accountName={accountName} onBack={onBack} />
+      <ScrollView style={styles.scrollViewport} contentContainerStyle={styles.listContent} keyboardShouldPersistTaps="handled">
+        <PurchaseListFilters
+          searchValue={query}
+          searchPlaceholder="Buscar pedidos, tiendas o productos..."
+          onSearchChange={(value) => {
+            setQuery(value);
+            setVisibleCount(10);
+          }}
+          selectedFilter={filter}
+          filters={filterOptions}
+          onSelectFilter={(value) => {
+            if (filters.includes(value)) {
+              setFilter(value);
+              setVisibleCount(10);
+            }
+          }}
+        />
+        <Text style={styles.listCount}>Mostrando {visibleOrders.length} de {filteredCount} pedidos</Text>
         {visibleOrders.length ? visibleOrders.map((order) => (
           <OrderCard
             key={order.id}
@@ -425,8 +438,14 @@ export default function PurchaseHistoryScreen({
         )) : (
           <View style={styles.emptyCard}>
             <MaterialIcons name="receipt-long" size={36} color={purple} />
-            <Text style={styles.emptyTitle}>Aún no hay compras</Text>
-            <Text style={styles.mutedText}>Cuando realices una compra, tus pedidos aparecerán aquí.</Text>
+            <Text style={styles.emptyTitle}>
+              {query || filter !== 'Todas' ? 'No hay pedidos con estos filtros' : 'Aún no hay compras'}
+            </Text>
+            <Text style={styles.mutedText}>
+              {query || filter !== 'Todas'
+                ? 'Prueba con otro término de búsqueda o estado.'
+                : 'Cuando realices una compra, tus pedidos aparecerán aquí.'}
+            </Text>
           </View>
         )}
         {filteredCount > visibleOrders.length ? (
@@ -438,26 +457,20 @@ export default function PurchaseHistoryScreen({
             <MaterialIcons name="expand-more" size={19} color={purple} />
           </Pressable>
         ) : null}
-        <Text style={styles.listCount}>Mostrando {visibleOrders.length} de {filteredCount} pedidos</Text>
       </ScrollView>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollViewport: { flex: 1, marginBottom: 66 },
+  scrollViewport: { flex: 1, backgroundColor: '#FAF9FD' },
   listContent: { padding: 18, paddingBottom: 24, gap: 15 },
-  filterRow: { flexDirection: 'row', gap: 8, marginBottom: 2 },
-  filterChip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 18, backgroundColor: '#F0EEF6' },
-  filterChipSelected: { backgroundColor: purple },
-  filterText: { color: muted, fontSize: 12, fontWeight: '600' },
-  filterTextSelected: { color: '#FFFFFF' },
   card: { padding: 18, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EEEAF5', borderRadius: 16, gap: 13 },
   statusCard: { padding: 18, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EEEAF5', borderRadius: 16, gap: 13 },
   orderHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   orderHeading: { flex: 1, gap: 5 },
-  orderId: { color: ink, fontSize: 15, fontWeight: '800' },
-  mutedText: { color: muted, fontSize: 11, lineHeight: 16 },
+  orderId: { color: ink, fontSize: purchaseTextScale.subtitle, fontWeight: '800' },
+  mutedText: { color: muted, fontSize: purchaseTextScale.body, lineHeight: 16 },
   statusPill: { borderRadius: 12, paddingHorizontal: 9, paddingVertical: 5, maxWidth: 120 },
   statusGreen: { backgroundColor: '#E5F6ED' },
   statusRed: { backgroundColor: '#FDE9E9' },
@@ -468,8 +481,8 @@ const styles = StyleSheet.create({
   productLine: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 6 },
   productImage: { width: 54, height: 54, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F2EFFF', borderRadius: 12 },
   productCopy: { flex: 1, gap: 5 },
-  productName: { color: ink, fontSize: 13, fontWeight: '700' },
-  productPrice: { color: ink, fontSize: 12, fontWeight: '700' },
+  productName: { color: ink, fontSize: purchaseTextScale.body, fontWeight: '700' },
+  productPrice: { color: ink, fontSize: purchaseTextScale.body, fontWeight: '700' },
   orderFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   total: { color: purple, fontSize: 16, fontWeight: '900' },
   primarySmallButton: { minHeight: 38, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: purple, borderRadius: 11, paddingHorizontal: 11 },
@@ -477,14 +490,14 @@ const styles = StyleSheet.create({
   returnButton: { minHeight: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderRadius: 11, borderWidth: 1, borderColor: '#D8D1F6', backgroundColor: '#FFFFFF' },
   returnButtonText: { color: purple, fontSize: 12, fontWeight: '700' },
   emptyCard: { alignItems: 'center', gap: 8, paddingVertical: 36, paddingHorizontal: 24, backgroundColor: '#FFFFFF', borderRadius: 16, borderWidth: 1, borderColor: '#EEEAF5' },
-  emptyTitle: { color: ink, fontSize: 16, fontWeight: '800' },
+  emptyTitle: { color: ink, fontSize: purchaseTextScale.sectionTitle, fontWeight: '800' },
   moreButton: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 12, borderWidth: 1, borderColor: '#D8D1F6', backgroundColor: '#FFFFFF' },
-  listCount: { color: muted, fontSize: 11, textAlign: 'center', marginTop: 3 },
+  listCount: { color: muted, fontSize: 11, marginTop: -7 },
   detailContent: { padding: 18, paddingBottom: 24, gap: 16 },
-  sectionTitle: { color: ink, fontSize: 15, fontWeight: '800' },
+  sectionTitle: { color: ink, fontSize: purchaseTextScale.sectionTitle, fontWeight: '800' },
   statusHeading: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   progressSection: { gap: 9 },
-  progressCaption: { color: ink, fontSize: 12, fontWeight: '700' },
+  progressCaption: { color: ink, fontSize: purchaseTextScale.body, fontWeight: '700' },
   progressTrack: { height: 7, overflow: 'hidden', borderRadius: 5, backgroundColor: '#E9E6F2' },
   progressFill: { height: '100%', borderRadius: 5, backgroundColor: purple },
   progressEndpoints: { flexDirection: 'row', justifyContent: 'space-between' },
@@ -493,7 +506,7 @@ const styles = StyleSheet.create({
   paymentHeading: { flex: 1, gap: 3 },
   detailRow: { gap: 4, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#F0EEF5' },
   detailLabel: { color: muted, fontSize: 10 },
-  detailValue: { color: ink, fontSize: 12, fontWeight: '600' },
+  detailValue: { color: ink, fontSize: purchaseTextScale.body, fontWeight: '600' },
   linkText: { color: purple, fontSize: 11, fontWeight: '700' },
   accordionHeader: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   accordionCopy: { gap: 4 },
@@ -504,13 +517,13 @@ const styles = StyleSheet.create({
   historyMarkerActive: { backgroundColor: purple },
   historyLine: { flex: 1, width: 1, backgroundColor: '#DAD7E4', marginVertical: 3 },
   historyCopy: { flex: 1, gap: 3 },
-  historyStatus: { color: ink, fontSize: 12, fontWeight: '700' },
+  historyStatus: { color: ink, fontSize: purchaseTextScale.body, fontWeight: '700' },
   paymentDetailsButton: { minHeight: 38, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#EAE9F0' },
   paymentDetails: { paddingBottom: 5 },
   totalLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, marginTop: 2, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#EAE9F0' },
-  totalLabel: { color: ink, fontSize: 14, fontWeight: '800' },
+  totalLabel: { color: ink, fontSize: purchaseTextScale.subtitle, fontWeight: '800' },
   primaryButton: { minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 3, backgroundColor: purple, borderRadius: 12 },
-  primaryButtonText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+  primaryButtonText: { color: '#FFFFFF', fontSize: purchaseTextScale.body, fontWeight: '700' },
   outlineButton: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderWidth: 1, borderColor: '#D8D1F6', borderRadius: 12 },
-  outlineButtonText: { color: purple, fontSize: 12, fontWeight: '700' },
+  outlineButtonText: { color: purple, fontSize: purchaseTextScale.body, fontWeight: '700' },
 });

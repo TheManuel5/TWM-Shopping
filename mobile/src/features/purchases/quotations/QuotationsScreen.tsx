@@ -1,16 +1,18 @@
 import { type ReactNode, useMemo, useState } from 'react';
 import {
+  Alert,
   Pressable,
   ScrollView,
   type StyleProp,
   StyleSheet,
   Text,
-  TextInput,
   type TextStyle,
   View,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import OrdersReturnsHeader from '../OrdersReturnsHeader';
+import { PurchaseListFilters, purchaseTextScale } from '../components/PurchaseUi';
+import { exportPdfDocument } from '../services/pdfExport';
 
 type QuoteStatus =
   | 'Solicitada'
@@ -137,6 +139,7 @@ export const initialQuotes: Quote[] = [
 
 type Props = {
   quotes: Quote[];
+  accountName: string;
   onBack: () => void;
   onGoToCart: () => void;
   onAcceptQuote: (quote: Quote) => void;
@@ -199,6 +202,7 @@ function AppText({
 
 export default function QuotationsScreen({
   quotes,
+  accountName,
   onBack,
   onGoToCart,
   onAcceptQuote,
@@ -223,61 +227,69 @@ export default function QuotationsScreen({
     });
   }, [filter, query, quotes]);
 
+  const downloadQuote = async () => {
+    if (!selectedQuote) return;
+    try {
+      await exportPdfDocument({
+        title: `Cotización ${selectedQuote.id}`,
+        fileName: `cotizacion-${selectedQuote.id}`,
+        details: [
+          { label: 'Vendedor', value: selectedQuote.vendor },
+          { label: 'Emitida', value: selectedQuote.emittedDate },
+          { label: 'Válida hasta', value: selectedQuote.validUntil },
+          { label: 'Estado', value: selectedQuote.status },
+        ],
+        items: selectedQuote.items.map((item) => ({
+          name: item.name,
+          detail: item.detail,
+          quantity: item.qty,
+          unitPrice: item.unitPrice,
+          total: item.qty * item.unitPrice,
+        })),
+        summary: [{ label: 'Total de la cotización', amount: selectedQuote.total, emphasize: true }],
+        footer: 'Los precios se mantienen por 15 días y luego pueden actualizarse semanalmente.',
+      });
+    } catch (error) {
+      Alert.alert(
+        'No se pudo descargar la cotización',
+        error instanceof Error ? error.message : 'Inténtalo nuevamente más tarde.',
+      );
+    }
+  };
+
   const listScreen = () => (
     <>
-      <OrdersReturnsHeader title="Mis cotizaciones" onBack={onBack} />
+      <OrdersReturnsHeader title="Mis cotizaciones" accountName={accountName} onBack={onBack} />
       <ScrollView
         style={styles.scrollViewport}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled">
-        <View style={styles.intro}>
-          <AppText style={styles.introTitle}>Mis solicitudes</AppText>
-          <AppText style={styles.introCopy}>
-            Revisa el estado, la vigencia y el total de tus cotizaciones.
-          </AppText>
-        </View>
         <PrimaryButton label="＋　Nueva cotización" onPress={onGoToCart} />
-        <View style={styles.searchBox}>
-          <MaterialIcons name="search" size={19} color={muted} />
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Buscar cotizaciones..."
-            placeholderTextColor="#9696A5"
-            style={styles.searchInput}
-            accessibilityLabel="Buscar cotizaciones"
-            returnKeyType="search"
-          />
-        </View>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterRow}>
-          {filters.map((option) => {
-            const count = option === 'Todas'
+        <PurchaseListFilters
+          searchValue={query}
+          searchPlaceholder="Buscar cotizaciones..."
+          onSearchChange={setQuery}
+          selectedFilter={filter}
+          filters={filters.map((option) => ({
+            value: option,
+            label: option,
+            count: option === 'Todas'
               ? quotes.length
               : quotes.filter((quote) =>
                   option === 'Aceptada'
                     ? quote.status.startsWith('Aceptada')
                     : quote.status === option,
-                ).length;
-            const active = filter === option;
-            return (
-              <Pressable
-                key={option}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-                onPress={() => setFilter(option)}
-                style={[styles.filterChip, active && styles.filterChipActive]}>
-                <AppText style={[styles.filterText, active && styles.filterTextActive]}>
-                  {option} ({count})
-                </AppText>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+                ).length,
+          }))}
+          onSelectFilter={(value) => {
+            const nextFilter = filters.find((option) => option === value);
+            if (nextFilter) setFilter(nextFilter);
+          }}
+        />
 
+        <AppText style={styles.listCount}>
+          {visibleQuotes.length} {visibleQuotes.length === 1 ? 'cotización' : 'cotizaciones'}
+        </AppText>
         {visibleQuotes.length ? (
           visibleQuotes.map((quote) => (
             <Pressable
@@ -332,6 +344,7 @@ export default function QuotationsScreen({
       <>
         <OrdersReturnsHeader
           title="Detalle de cotización"
+          accountName={accountName}
           onBack={() => setSelectedId(null)}
         />
         <ScrollView style={styles.scrollViewport} contentContainerStyle={styles.content}>
@@ -393,6 +406,7 @@ export default function QuotationsScreen({
               Después de 15 días, los precios pueden actualizarse semanalmente. La cotización se elimina a los 45 días.
             </AppText>
           </View>
+          <OutlineButton label="Descargar PDF" onPress={downloadQuote} />
           {selectedQuote.status !== 'Expirada' &&
           selectedQuote.status !== 'Aceptada por el cliente' ? (
             <PrimaryButton
@@ -433,58 +447,49 @@ function OutlineButton({ label, onPress }: { label: string; onPress: () => void 
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#FAF9FD', width: '100%', maxWidth: 390, alignSelf: 'center' },
-  text: { color: ink, fontSize: 13, fontFamily: 'System' },
-  scrollViewport: { flex: 1, marginBottom: 66 },
+  text: { color: ink, fontSize: purchaseTextScale.body, fontFamily: 'System' },
+  scrollViewport: { flex: 1 },
   content: { padding: 18, gap: 15, paddingBottom: 24 },
-  intro: { gap: 5, paddingHorizontal: 2 },
-  introTitle: { color: ink, fontSize: 17, fontWeight: '800' },
-  introCopy: { color: muted, fontSize: 11, lineHeight: 16 },
-  searchBox: { minHeight: 42, borderWidth: 1, borderColor: '#E6E3ED', borderRadius: 12, paddingHorizontal: 11, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FFFFFF' },
-  searchInput: { flex: 1, minHeight: 40, fontSize: 12, color: ink, paddingVertical: 0 },
-  filterRow: { gap: 8, paddingRight: 4 },
-  filterChip: { minHeight: 36, borderRadius: 18, borderWidth: 1, borderColor: '#E9E7F0', backgroundColor: '#F0EEF6', paddingHorizontal: 13, justifyContent: 'center' },
-  filterChipActive: { backgroundColor: purple, borderColor: purple },
-  filterText: { color: muted, fontSize: 10, fontWeight: '600' },
-  filterTextActive: { color: '#FFFFFF' },
+  listCount: { color: muted, fontSize: 11, marginTop: -7 },
   quoteCard: { borderWidth: 1, borderColor: '#EEEAF5', borderRadius: 15, backgroundColor: '#FFFFFF', padding: 16, gap: 7 },
   quoteCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  quoteId: { fontSize: 13, color: ink, fontWeight: '900' },
+  quoteId: { fontSize: purchaseTextScale.subtitle, color: ink, fontWeight: '900' },
   statusBadge: { borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, alignSelf: 'flex-start' },
   statusText: { fontSize: 9, fontWeight: '700' },
   vendorRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  vendorName: { flex: 1, minWidth: 0, fontSize: 12, fontWeight: '700', color: ink },
+  vendorName: { flex: 1, minWidth: 0, fontSize: purchaseTextScale.body, fontWeight: '700', color: ink },
   metaText: { fontSize: 10, lineHeight: 15, color: muted },
   quoteResponse: { marginTop: 5, padding: 8, borderRadius: 9, backgroundColor: '#F2EEFF', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  quoteTotal: { color: ink, fontSize: 14, fontWeight: '900' },
+  quoteTotal: { color: ink, fontSize: purchaseTextScale.sectionTitle, fontWeight: '900' },
   responseAction: { color: purple, fontSize: 10, fontWeight: '700' },
   emptyCard: { minHeight: 180, borderRadius: 14, borderWidth: 1, borderColor: '#EEEAF5', backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', padding: 22, gap: 8 },
-  emptyTitle: { color: ink, fontSize: 14, textAlign: 'center', fontWeight: '700' },
+  emptyTitle: { color: ink, fontSize: purchaseTextScale.sectionTitle, textAlign: 'center', fontWeight: '700' },
   emptyCopy: { color: muted, fontSize: 11, textAlign: 'center', lineHeight: 16 },
   infoCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 9, padding: 12, borderRadius: 12, backgroundColor: '#F1EEFF' },
-  infoText: { flex: 1, color: '#5E5973', fontSize: 11, lineHeight: 16 },
+  infoText: { flex: 1, color: '#5E5973', fontSize: purchaseTextScale.body, lineHeight: 16 },
   detailCard: { borderWidth: 1, borderColor: '#EEEAF5', borderRadius: 15, backgroundColor: '#FFFFFF', padding: 16, gap: 7 },
-  detailTitle: { fontSize: 16, fontWeight: '900', color: ink },
+  detailTitle: { fontSize: purchaseTextScale.sectionTitle, fontWeight: '900', color: ink },
   detailLabel: { color: muted, fontSize: 10 },
-  validUntil: { color: ink, fontSize: 14, fontWeight: '800' },
+  validUntil: { color: ink, fontSize: purchaseTextScale.subtitle, fontWeight: '800' },
   validityNote: { color: purple, fontSize: 10, fontWeight: '700' },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: '#EAE9F0', marginVertical: 7 },
-  sectionTitle: { color: ink, fontSize: 13, fontWeight: '800', marginBottom: 2 },
+  sectionTitle: { color: ink, fontSize: purchaseTextScale.sectionTitle, fontWeight: '800', marginBottom: 2 },
   itemRow: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 9, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#EAE9F0' },
   itemIcon: { width: 34, height: 34, borderRadius: 10, backgroundColor: '#F1EEFF', alignItems: 'center', justifyContent: 'center' },
   itemCopy: { flex: 1, gap: 2 },
-  itemName: { color: ink, fontSize: 11, fontWeight: '700' },
+  itemName: { color: ink, fontSize: purchaseTextScale.body, fontWeight: '700' },
   itemSubtotal: { color: ink, fontSize: 11, fontWeight: '800' },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 9, paddingVertical: 8, paddingHorizontal: 9, borderRadius: 9, backgroundColor: '#EEE9FF' },
   totalLabel: { color: ink, fontSize: 11, fontWeight: '700' },
-  totalAmount: { color: purple, fontSize: 16, fontWeight: '900' },
+  totalAmount: { color: purple, fontSize: purchaseTextScale.sectionTitle, fontWeight: '900' },
   historyRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#EAE9F0' },
   historyDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: purple, marginTop: 4 },
   historyCopy: { flex: 1, gap: 2 },
   historyDate: { color: ink, fontSize: 10, fontWeight: '700' },
   historyTotal: { color: ink, fontSize: 10, fontWeight: '800' },
-  primaryButton: { minHeight: 46, borderRadius: 12, backgroundColor: purple, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
-  primaryButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
+  primaryButton: { minHeight: 48, borderRadius: 12, backgroundColor: purple, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
+  primaryButtonText: { color: '#FFFFFF', fontSize: purchaseTextScale.subtitle, fontWeight: '700' },
   outlineButton: { minHeight: 42, borderRadius: 12, borderWidth: 1, borderColor: '#D8D1F6', backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
-  outlineButtonText: { color: purple, fontSize: 12, fontWeight: '700' },
+  outlineButtonText: { color: purple, fontSize: purchaseTextScale.body, fontWeight: '700' },
   pressed: { opacity: 0.72 },
 });

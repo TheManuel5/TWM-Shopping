@@ -14,6 +14,7 @@ import {
 
 import OrdersReturnsHeader from '../OrdersReturnsHeader';
 import type { PurchaseOrder, ReturnRequest } from '../purchaseTypes';
+import { PurchaseListFilters, purchaseTextScale } from '../components/PurchaseUi';
 
 const purple = '#5B32EC';
 const ink = '#25243A';
@@ -123,10 +124,12 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 function ReturnTracking({
   request,
   order,
+  accountName,
   onBack,
 }: {
   request: ReturnRequest;
   order?: PurchaseOrder;
+  accountName: string;
   onBack: () => void;
 }) {
   const [historyExpanded, setHistoryExpanded] = useState(false);
@@ -141,7 +144,7 @@ function ReturnTracking({
 
   return (
     <>
-      <OrdersReturnsHeader title="Seguimiento de devolución" onBack={onBack} />
+      <OrdersReturnsHeader title="Seguimiento de devolución" accountName={accountName} onBack={onBack} />
       <ScrollView style={styles.scrollViewport} contentContainerStyle={styles.detailContent}>
         <View style={styles.statusCard}>
           <View style={styles.returnCardTop}>
@@ -281,12 +284,14 @@ function ReturnTracking({
 export default function ReturnsScreen({
   orders,
   requests,
+  accountName,
   initialOrderId,
   onRequestChange,
   onBack,
 }: {
   orders: PurchaseOrder[];
   requests: ReturnRequest[];
+  accountName: string;
   initialOrderId: string | null;
   onRequestChange: (requests: ReturnRequest[]) => void;
   onBack: () => void;
@@ -311,6 +316,7 @@ export default function ReturnsScreen({
   const [images, setImages] = useState<string[]>([]);
   const [trackingId, setTrackingId] = useState<string | null>(null);
   const [filter, setFilter] = useState('Todas');
+  const [query, setQuery] = useState('');
   const [selector, setSelector] = useState<'product' | 'reason' | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [showRequestForm, setShowRequestForm] = useState(Boolean(initialOrderId));
@@ -323,12 +329,30 @@ export default function ReturnsScreen({
   const remaining = selectedChoice
     ? selectedChoice.product.qty - alreadyRequested
     : 0;
-  const visibleRequests = requests.filter((request) =>
-    filter === 'Todas' || request.status === filter,
+  const normalizedQuery = query.trim().toLocaleLowerCase('es-CL');
+  const visibleRequests = requests.filter((request) => {
+    const matchesStatus = filter === 'Todas' || request.status === filter;
+    const order = orders.find((item) => item.id === request.orderId);
+    const searchableText = [
+      request.id,
+      request.orderId,
+      request.product,
+      request.status,
+      request.reason,
+      order?.store ?? '',
+    ].join(' ').toLocaleLowerCase('es-CL');
+    return matchesStatus && (!normalizedQuery || searchableText.includes(normalizedQuery));
+  });
+  const availableStatuses = returnStatuses.filter((status) =>
+    status === 'Todas' || requests.some((request) => request.status === status),
   );
-  const countForStatus = (status: string) => status === 'Todas'
-    ? requests.length
-    : requests.filter((request) => request.status === status).length;
+  const filterOptions = availableStatuses.map((status) => ({
+    value: status,
+    label: status,
+    count: status === 'Todas'
+      ? requests.length
+      : requests.filter((request) => request.status === status).length,
+  }));
   const trackingRequest = requests.find((request) => request.id === trackingId);
 
   if (trackingRequest) {
@@ -336,6 +360,7 @@ export default function ReturnsScreen({
       <ReturnTracking
         request={trackingRequest}
         order={orders.find((order) => order.id === trackingRequest.orderId)}
+        accountName={accountName}
         onBack={() => setTrackingId(null)}
       />
     );
@@ -417,6 +442,7 @@ export default function ReturnsScreen({
     };
     onRequestChange([request, ...requests]);
     setFilter('Todas');
+    setQuery('');
     setQuantity(1);
     setImages([]);
     setNotice(`Solicitud ${requestId} creada correctamente.`);
@@ -545,6 +571,7 @@ export default function ReturnsScreen({
     <>
       <OrdersReturnsHeader
         title={showRequestForm ? 'Solicitar devolución' : 'Devoluciones'}
+        accountName={accountName}
         onBack={showRequestForm ? leaveRequestForm : onBack}
       />
       {showRequestForm ? (
@@ -567,11 +594,6 @@ export default function ReturnsScreen({
             </View>
           ) : null}
 
-          <View style={styles.intro}>
-            <Text style={styles.pageTitle}>Mis solicitudes</Text>
-            <Text style={styles.mutedText}>Revisa el estado y el importe de tus devoluciones.</Text>
-          </View>
-
           <Pressable
             accessibilityRole="button"
             onPress={() => setShowRequestForm(true)}
@@ -580,28 +602,14 @@ export default function ReturnsScreen({
             <Text style={styles.newRequestText}>Solicitar devolución</Text>
           </Pressable>
 
-          <View style={styles.filterRow}>
-            <Text style={styles.fieldLabel}>Filtrar por estado</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
-              {returnStatuses.map((status) => {
-                const selected = filter === status;
-                return (
-                  <Pressable
-                    key={status}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected }}
-                    onPress={() => {
-                      setFilter(status);
-                    }}
-                    style={[styles.filterChip, selected && styles.filterChipSelected]}>
-                    <Text style={[styles.filterText, selected && styles.filterTextSelected]}>
-                      {status} ({countForStatus(status)})
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
+          <PurchaseListFilters
+            searchValue={query}
+            searchPlaceholder="Buscar devoluciones o productos..."
+            onSearchChange={setQuery}
+            selectedFilter={filter}
+            filters={filterOptions}
+            onSelectFilter={setFilter}
+          />
 
           <Text style={styles.requestCount}>
             {visibleRequests.length} {visibleRequests.length === 1 ? 'solicitud' : 'solicitudes'}
@@ -616,8 +624,14 @@ export default function ReturnsScreen({
           )) : (
             <View style={styles.emptyCard}>
               <MaterialIcons name="assignment-return" size={32} color={purple} />
-              <Text style={styles.emptyTitle}>Aún no tienes solicitudes</Text>
-              <Text style={styles.mutedText}>Toca “Solicitar devolución” para empezar con un pedido entregado.</Text>
+              <Text style={styles.emptyTitle}>
+                {query || filter !== 'Todas' ? 'No hay solicitudes con estos filtros' : 'Aún no tienes solicitudes'}
+              </Text>
+              <Text style={styles.mutedText}>
+                {query || filter !== 'Todas'
+                  ? 'Prueba con otro término de búsqueda o estado.'
+                  : 'Toca “Solicitar devolución” para empezar con un pedido entregado.'}
+              </Text>
             </View>
           )}
         </ScrollView>
@@ -682,25 +696,19 @@ export default function ReturnsScreen({
 }
 
 const styles = StyleSheet.create({
-  scrollViewport: { flex: 1, marginBottom: 66 },
-  content: { padding: 18, paddingBottom: 24, gap: 16 },
+  scrollViewport: { flex: 1, backgroundColor: '#FAF9FD' },
+  content: { padding: 18, paddingBottom: 24, gap: 15 },
   formPageContent: { padding: 18, paddingBottom: 24, gap: 16 },
   detailContent: { padding: 18, paddingBottom: 24, gap: 16 },
   intro: { gap: 6, marginBottom: 2, paddingHorizontal: 2 },
-  pageTitle: { color: ink, fontSize: 17, fontWeight: '800' },
-  mutedText: { color: muted, fontSize: 11, lineHeight: 16 },
+  pageTitle: { color: ink, fontSize: purchaseTextScale.pageTitle, fontWeight: '800' },
+  mutedText: { color: muted, fontSize: purchaseTextScale.body, lineHeight: 16 },
   fieldLabel: { color: muted, fontSize: 10, fontWeight: '600' },
   helperText: { color: muted, fontSize: 10, lineHeight: 15 },
-  filterRow: { gap: 8 },
-  filterScroll: { gap: 7, paddingVertical: 2 },
-  filterChip: { minHeight: 36, paddingHorizontal: 13, paddingVertical: 8, borderRadius: 18, backgroundColor: '#F0EEF6' },
-  filterChipSelected: { backgroundColor: purple },
-  filterText: { color: muted, fontSize: 10, fontWeight: '600' },
-  filterTextSelected: { color: '#FFFFFF' },
-  newRequestButton: { minHeight: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 13, backgroundColor: purple },
-  newRequestText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
+  newRequestButton: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 12, backgroundColor: purple },
+  newRequestText: { color: '#FFFFFF', fontSize: purchaseTextScale.subtitle, fontWeight: '700' },
   requestCount: { color: muted, fontSize: 11, marginTop: -7 },
-  returnCard: { padding: 16, gap: 9, backgroundColor: '#FFFFFF', borderRadius: 14, borderWidth: 1, borderColor: '#EEEAF5' },
+  returnCard: { padding: 16, gap: 7, backgroundColor: '#FFFFFF', borderRadius: 15, borderWidth: 1, borderColor: '#EEEAF5' },
   returnCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 7 },
   returnCardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 1 },
   trackAction: { flexDirection: 'row', alignItems: 'center', gap: 2 },
@@ -708,10 +716,10 @@ const styles = StyleSheet.create({
   returnId: { color: ink, fontSize: 12, fontWeight: '800' },
   statusPill: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 12 },
   statusText: { fontSize: 9, fontWeight: '700' },
-  returnProduct: { color: ink, fontSize: 12, fontWeight: '700' },
-  returnAmount: { color: purple, fontSize: 13, fontWeight: '900' },
+  returnProduct: { color: ink, fontSize: purchaseTextScale.body, fontWeight: '700' },
+  returnAmount: { color: purple, fontSize: purchaseTextScale.subtitle, fontWeight: '900' },
   progressSection: { gap: 9 },
-  progressCaption: { color: ink, fontSize: 12, fontWeight: '700' },
+  progressCaption: { color: ink, fontSize: purchaseTextScale.body, fontWeight: '700' },
   progressTrack: { height: 7, overflow: 'hidden', borderRadius: 5, backgroundColor: '#E9E6F2' },
   progressFill: { height: '100%', borderRadius: 5, backgroundColor: purple },
   progressEndpoints: { flexDirection: 'row', justifyContent: 'space-between' },
@@ -719,20 +727,20 @@ const styles = StyleSheet.create({
   rejectedNotice: { flexDirection: 'row', alignItems: 'center', gap: 7, padding: 10, borderRadius: 10, backgroundColor: '#FDE9E9' },
   rejectedText: { flex: 1, color: '#A52B2B', fontSize: 10, lineHeight: 15 },
   emptyCard: { alignItems: 'center', gap: 7, padding: 22, borderWidth: 1, borderColor: '#EEEAF5', borderRadius: 14, backgroundColor: '#FFFFFF' },
-  emptyTitle: { color: ink, fontSize: 12, fontWeight: '800', textAlign: 'center' },
+  emptyTitle: { color: ink, fontSize: purchaseTextScale.sectionTitle, fontWeight: '800', textAlign: 'center' },
   card: { padding: 18, gap: 14, borderRadius: 15, borderWidth: 1, borderColor: '#EEEAF5', backgroundColor: '#FFFFFF' },
   statusCard: { padding: 18, gap: 13, borderRadius: 16, borderWidth: 1, borderColor: '#EEEAF5', backgroundColor: '#FFFFFF' },
   cardDivider: { height: StyleSheet.hairlineWidth, backgroundColor: '#EAE9F0' },
   detailSectionHeading: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   detailCopy: { flex: 1, gap: 3 },
-  sectionTitle: { color: ink, fontSize: 13, fontWeight: '800' },
+  sectionTitle: { color: ink, fontSize: purchaseTextScale.sectionTitle, fontWeight: '800' },
   refundAmount: { color: purple, fontSize: 23, fontWeight: '900' },
-  productName: { color: ink, fontSize: 13, fontWeight: '700' },
-  totalLabel: { color: ink, fontSize: 13, fontWeight: '800' },
+  productName: { color: ink, fontSize: purchaseTextScale.body, fontWeight: '700' },
+  totalLabel: { color: ink, fontSize: purchaseTextScale.subtitle, fontWeight: '800' },
   totalLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingTop: 9, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#EAE9F0' },
   detailRow: { gap: 4, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#F0EEF5' },
   detailLabel: { color: muted, fontSize: 10 },
-  detailValue: { color: ink, fontSize: 12, fontWeight: '600' },
+  detailValue: { color: ink, fontSize: purchaseTextScale.body, fontWeight: '600' },
   accordionHeader: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   historyList: { gap: 3, marginTop: 7 },
   historyRow: { minHeight: 55, flexDirection: 'row', gap: 12 },
@@ -741,7 +749,7 @@ const styles = StyleSheet.create({
   historyMarkerActive: { backgroundColor: purple },
   historyLine: { flex: 1, width: 1, backgroundColor: '#DAD7E4', marginVertical: 3 },
   historyCopy: { flex: 1, gap: 3 },
-  historyStatus: { color: ink, fontSize: 12, fontWeight: '700' },
+  historyStatus: { color: ink, fontSize: purchaseTextScale.body, fontWeight: '700' },
   outlineButton: { minHeight: 41, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderWidth: 1, borderColor: '#D8D1F6', borderRadius: 11 },
   outlineButtonText: { color: purple, fontSize: 11, fontWeight: '700' },
   formCard: { padding: 18, gap: 15, borderWidth: 1, borderColor: '#EEEAF5', borderRadius: 16, backgroundColor: '#FFFFFF' },
@@ -749,7 +757,7 @@ const styles = StyleSheet.create({
   noChoices: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, padding: 10, borderRadius: 10, backgroundColor: '#F2EFFF' },
   selector: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 13, borderWidth: 1, borderColor: '#DEDCE7', borderRadius: 12, backgroundColor: '#FFFFFF' },
   selectorCopy: { flex: 1, gap: 4 },
-  selectorValue: { color: ink, fontSize: 12, fontWeight: '600' },
+  selectorValue: { color: ink, fontSize: purchaseTextScale.body, fontWeight: '600' },
   quantityBox: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 8 },
   quantityControl: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: '#DEDCE7', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 5 },
   quantityButton: { width: 26, height: 26, alignItems: 'center', justifyContent: 'center' },
@@ -763,12 +771,12 @@ const styles = StyleSheet.create({
   addImageText: { color: purple, fontSize: 9, fontWeight: '700' },
   formActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 2 },
   cancelButton: { minHeight: 42, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 13, borderRadius: 11, borderWidth: 1, borderColor: '#E1DFE8' },
-  cancelText: { color: muted, fontSize: 11, fontWeight: '700' },
+  cancelText: { color: muted, fontSize: purchaseTextScale.body, fontWeight: '700' },
   submitButton: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 12, borderRadius: 11, backgroundColor: purple },
   submitDisabled: { opacity: 0.45 },
-  submitText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
+  submitText: { color: '#FFFFFF', fontSize: purchaseTextScale.body, fontWeight: '700' },
   successNotice: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 11, borderRadius: 11, backgroundColor: '#E5F6ED' },
-  successText: { flex: 1, color: '#18794E', fontSize: 11, fontWeight: '700' },
+  successText: { flex: 1, color: '#18794E', fontSize: purchaseTextScale.body, fontWeight: '700' },
   modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(24,22,38,0.42)' },
   modalCard: { maxHeight: '75%', paddingHorizontal: 17, paddingTop: 16, paddingBottom: 28, borderTopLeftRadius: 20, borderTopRightRadius: 20, backgroundColor: '#FFFFFF' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#EAE9F0' },

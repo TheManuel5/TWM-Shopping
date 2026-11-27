@@ -9,12 +9,19 @@ import {
   View,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { purchaseTextScale } from '../components/PurchaseUi';
 
 type Props = {
   onBack: () => void;
   onAddresses: () => void;
   addressSummary: string;
   hasSelectedAddress: boolean;
+  fullName: string;
+  onFullNameChange: (value: string) => void;
+  email: string;
+  onEmailChange: (value: string) => void;
+  role: 'Comprar' | 'Vender';
+  onRoleChange: (role: 'Comprar' | 'Vender') => void;
 };
 
 type Phone = {
@@ -42,10 +49,13 @@ export default function ProfileScreen({
   onAddresses,
   addressSummary,
   hasSelectedAddress,
+  fullName,
+  onFullNameChange,
+  email,
+  onEmailChange,
+  role,
+  onRoleChange,
 }: Props) {
-  const [role, setRole] = useState<'Comprar' | 'Vender'>('Comprar');
-  const [fullName, setFullName] = useState('Ana Rodríguez');
-  const [email, setEmail] = useState('ana.rodriguez@gmail.com');
   const [emailEditable, setEmailEditable] = useState(false);
   const [phones, setPhones] = useState<Phone[]>([
     { id: 'phone-1', number: '998765432', label: 'Principal' },
@@ -127,7 +137,7 @@ export default function ProfileScreen({
           <View>
             <View style={styles.headerIdentity}>
               <MaterialIcons name="shopping-bag" size={14} color="#E5DEFF" />
-              <Text style={styles.headerEyebrow}>Mi cuenta · Ana Rodríguez</Text>
+              <Text style={styles.headerEyebrow}>Mi cuenta · {fullName}</Text>
             </View>
             <Text style={styles.headerTitle}>Mi perfil</Text>
           </View>
@@ -145,13 +155,13 @@ export default function ProfileScreen({
             active={role === 'Comprar'}
             icon="shopping-cart"
             label="Comprar"
-            onPress={() => setRole('Comprar')}
+            onPress={() => onRoleChange('Comprar')}
           />
           <RoleButton
             active={role === 'Vender'}
             icon="store"
             label="Vender"
-            onPress={() => setRole('Vender')}
+            onPress={() => onRoleChange('Vender')}
           />
         </View>
         <Text style={styles.roleHint}>Puedes cambiar de rol en cualquier momento.</Text>
@@ -174,7 +184,7 @@ export default function ProfileScreen({
                 textContentType="name"
                 style={styles.input}
                 onChangeText={(value) => {
-                  setFullName(value.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ ]/g, ''));
+                  onFullNameChange(value.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ ]/g, ''));
                   setNotice(null);
                 }}
               />
@@ -230,7 +240,7 @@ export default function ProfileScreen({
               autoCapitalize="none"
               value={email}
               onChangeText={(value) => {
-                setEmail(value);
+                onEmailChange(value);
                 setNotice(null);
               }}
               style={[styles.input, styles.emailInput, !emailEditable && styles.readOnlyInput]}
@@ -528,6 +538,7 @@ const styles = StyleSheet.create({
   },
   header: {
     height: 92,
+    width: '100%',
     backgroundColor: purple,
     paddingHorizontal: 16,
     justifyContent: 'center',
@@ -546,10 +557,10 @@ const styles = StyleSheet.create({
   backText: { color: '#FFFFFF', fontSize: 30, lineHeight: 34, marginTop: -3 },
   headerIdentity: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 2 },
   headerEyebrow: { color: '#D9D0FF', fontSize: 10 },
-  headerTitle: { color: '#FFFFFF', fontSize: 20, fontWeight: '700' },
+  headerTitle: { color: '#FFFFFF', fontSize: purchaseTextScale.pageTitle, fontWeight: '700' },
   scroll: { flex: 1 },
   content: { paddingHorizontal: 16, paddingTop: 18, paddingBottom: 20 },
-  intro: { color: muted, fontSize: 12, marginBottom: 12 },
+  intro: { color: muted, fontSize: purchaseTextScale.subtitle, marginBottom: 12 },
   roleSwitch: { flexDirection: 'row', gap: 10 },
   roleButton: {
     flex: 1,
@@ -564,7 +575,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   roleButtonActive: { backgroundColor: '#F3F0FF', borderColor: '#E1DAFF' },
-  roleText: { color: '#6E6B7E', fontSize: 12, fontWeight: '600' },
+  roleText: { color: '#6E6B7E', fontSize: purchaseTextScale.body, fontWeight: '600' },
   roleTextActive: { color: purple },
   roleHint: { color: '#8C8A98', fontSize: 10, marginTop: 7, marginBottom: 12 },
   card: {
@@ -598,7 +609,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   addressCopy: { flex: 1, gap: 3 },
-  addressTitle: { color: ink, fontSize: 13, fontWeight: '600' },
+  addressTitle: { color: ink, fontSize: purchaseTextScale.body, fontWeight: '600' },
   addressDescription: { color: muted, fontSize: 11, lineHeight: 16 },
   cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 9, marginBottom: 13 },
   cardTitleIcon: {
@@ -609,7 +620,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cardTitle: { color: ink, fontSize: 14, fontWeight: '700' },
+  cardTitle: { color: ink, fontSize: purchaseTextScale.sectionTitle, fontWeight: '700' },
   fieldRow: { flexDirection: 'row', gap: 9, marginBottom: 11 },
   halfField: { flex: 1 },
   fieldLabel: { color: '#3A394C', fontSize: 11, fontWeight: '600', marginBottom: 6 },
@@ -731,7 +742,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#F0EEF4',
     backgroundColor: '#FFFFFF',
-    marginBottom: 66,
   },
   notice: {
     flexDirection: 'row',

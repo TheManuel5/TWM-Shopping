@@ -7,6 +7,36 @@ export type PurchaseProduct = {
   sku?: string;
 };
 
+export type CartItem = {
+  id: number;
+  name: string;
+  detail: string;
+  price: number;
+  vendor: string;
+  emoji: string;
+  color: string;
+  quantity: number;
+  type?: 'Producto' | 'Servicio';
+  category?: string;
+  originalPrice?: number;
+  savedAt?: number;
+};
+
+export type PurchaseAddress = {
+  id: string;
+  label: string;
+  region: string;
+  province: string;
+  commune: string;
+  street: string;
+  number: string;
+  department: string;
+  reference: string;
+};
+
+export type DeliveryMode = 'Despacho' | 'Retiro';
+export type PaymentMethod = 'Tarjeta' | 'Transferencia';
+
 export type PurchaseOrder = {
   id: string;
   date: string;

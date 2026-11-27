@@ -1,13 +1,16 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { purchaseTextScale } from './components/PurchaseUi';
 
 const purple = '#5B32EC';
 
 export default function OrdersReturnsHeader({
   title,
+  accountName,
   onBack,
 }: {
   title: string;
+  accountName: string;
   onBack: () => void;
 }) {
   return (
@@ -22,7 +25,7 @@ export default function OrdersReturnsHeader({
       <View>
         <View style={styles.identity}>
           <MaterialIcons name="shopping-bag" size={14} color="#E5DEFF" />
-          <Text style={styles.eyebrow}>Mi cuenta · Gaby</Text>
+          <Text style={styles.eyebrow}>Mi cuenta · {accountName}</Text>
         </View>
         <Text style={styles.title}>{title}</Text>
       </View>
@@ -33,6 +36,7 @@ export default function OrdersReturnsHeader({
 const styles = StyleSheet.create({
   header: {
     height: 92,
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
@@ -50,6 +54,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
   },
   identity: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 2 },
-  eyebrow: { color: '#D9D0FF', fontSize: 10 },
-  title: { color: '#FFFFFF', fontSize: 20, fontWeight: '700' },
+  eyebrow: { color: '#D9D0FF', fontSize: purchaseTextScale.caption },
+  title: { color: '#FFFFFF', fontSize: purchaseTextScale.pageTitle, fontWeight: '700' },
 });
