@@ -68,6 +68,24 @@ export default function ProfileScreen({
   const [birthMonth, setBirthMonth] = useState('Marzo');
   const [birthYear, setBirthYear] = useState('1990');
   const [notice, setNotice] = useState<SaveNotice | null>(null);
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const selectedYear = Number(birthYear);
+  const latestMonthIndex =
+    selectedYear === currentYear ? today.getMonth() : months.length - 1;
+  const availableMonths = months.slice(0, latestMonthIndex + 1);
+  const selectedMonthIndex = Math.min(
+    Math.max(months.indexOf(birthMonth), 0),
+    latestMonthIndex,
+  );
+  const availableDays = Array.from(
+    { length: daysInMonth(selectedYear, selectedMonthIndex, today) },
+    (_, index) => String(index + 1),
+  );
+  const availableYears = Array.from(
+    { length: currentYear - 1940 + 1 },
+    (_, index) => String(currentYear - index),
+  );
   const hasIncompletePhone = phones.some(
     (phone) =>
       phone.number.length > 0 &&
@@ -204,7 +222,7 @@ export default function ProfileScreen({
             <DateSelect
               label="Día"
               value={birthDay}
-              options={Array.from({ length: 31 }, (_, index) => String(index + 1))}
+              options={availableDays}
               onSelect={(value) => {
                 setBirthDay(value);
                 setNotice(null);
@@ -213,20 +231,38 @@ export default function ProfileScreen({
             <DateSelect
               label="Mes"
               value={birthMonth}
-              options={months}
+              options={availableMonths}
               onSelect={(value) => {
                 setBirthMonth(value);
+                const nextMonthIndex = months.indexOf(value);
+                const maximumDay = daysInMonth(selectedYear, nextMonthIndex, today);
+                if (Number(birthDay) > maximumDay) {
+                  setBirthDay(String(maximumDay));
+                }
                 setNotice(null);
               }}
             />
             <DateSelect
               label="Año"
               value={birthYear}
-              options={Array.from({ length: 100 }, (_, index) =>
-                String(new Date().getFullYear() - index),
-              )}
+              options={availableYears}
               onSelect={(value) => {
+                const nextYear = Number(value);
+                const nextLatestMonthIndex =
+                  nextYear === currentYear ? today.getMonth() : months.length - 1;
+                const nextMonthIndex = Math.min(
+                  Math.max(months.indexOf(birthMonth), 0),
+                  nextLatestMonthIndex,
+                );
+                const nextMonth = months[nextMonthIndex];
+                const maximumDay = daysInMonth(nextYear, nextMonthIndex, today);
                 setBirthYear(value);
+                if (nextMonth !== birthMonth) {
+                  setBirthMonth(nextMonth);
+                }
+                if (Number(birthDay) > maximumDay) {
+                  setBirthDay(String(maximumDay));
+                }
                 setNotice(null);
               }}
             />
@@ -445,6 +481,13 @@ function normalizeChileanPhone(value: string) {
   const digits = value.replace(/\D/g, '');
   const nationalNumber = digits.startsWith('56') ? digits.slice(2) : digits;
   return nationalNumber.slice(0, 9);
+}
+
+function daysInMonth(year: number, monthIndex: number, today: Date) {
+  const days = new Date(year, monthIndex + 1, 0).getDate();
+  return year === today.getFullYear() && monthIndex === today.getMonth()
+    ? Math.min(days, today.getDate())
+    : days;
 }
 
 function DateSelect({

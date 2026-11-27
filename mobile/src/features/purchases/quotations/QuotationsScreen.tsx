@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo, useState } from 'react';
+import { type ComponentProps, type ReactNode, useMemo, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -407,10 +407,10 @@ export default function QuotationsScreen({
             </AppText>
           </View>
           <OutlineButton label="Descargar PDF" onPress={downloadQuote} />
-          {selectedQuote.status !== 'Expirada' &&
-          selectedQuote.status !== 'Aceptada por el cliente' ? (
+          {selectedQuote.status === 'Respondida' ? (
             <PrimaryButton
-              label="Aceptar y comprar"
+              label="Aceptar y continuar"
+              icon="shopping-cart"
               onPress={() => onAcceptQuote(selectedQuote)}
             />
           ) : null}
@@ -423,12 +423,25 @@ export default function QuotationsScreen({
   return <View style={styles.screen}>{selectedId ? detailScreen() : listScreen()}</View>;
 }
 
-function PrimaryButton({ label, onPress }: { label: string; onPress: () => void }) {
+function PrimaryButton({
+  label,
+  onPress,
+  icon,
+}: {
+  label: string;
+  onPress: () => void;
+  icon?: ComponentProps<typeof MaterialIcons>['name'];
+}) {
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
+      style={({ pressed }) => [
+        styles.primaryButton,
+        icon && styles.acceptQuoteButton,
+        pressed && styles.pressed,
+      ]}>
+      {icon ? <MaterialIcons name={icon} size={19} color="#FFFFFF" /> : null}
       <AppText style={styles.primaryButtonText}>{label}</AppText>
     </Pressable>
   );
@@ -487,8 +500,9 @@ const styles = StyleSheet.create({
   historyCopy: { flex: 1, gap: 2 },
   historyDate: { color: ink, fontSize: 10, fontWeight: '700' },
   historyTotal: { color: ink, fontSize: 10, fontWeight: '800' },
-  primaryButton: { minHeight: 48, borderRadius: 12, backgroundColor: purple, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
-  primaryButtonText: { color: '#FFFFFF', fontSize: purchaseTextScale.subtitle, fontWeight: '700' },
+  primaryButton: { minHeight: 48, borderRadius: 12, backgroundColor: purple, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, paddingHorizontal: 16 },
+  acceptQuoteButton: { minHeight: 54, borderRadius: 14, backgroundColor: '#4822D8' },
+  primaryButtonText: { color: '#FFFFFF', fontSize: purchaseTextScale.subtitle, fontWeight: '800', textAlign: 'center' },
   outlineButton: { minHeight: 42, borderRadius: 12, borderWidth: 1, borderColor: '#D8D1F6', backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
   outlineButtonText: { color: purple, fontSize: purchaseTextScale.body, fontWeight: '700' },
   pressed: { opacity: 0.72 },

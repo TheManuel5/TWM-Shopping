@@ -174,6 +174,7 @@ export function PurchaseListFilters({
   selectedFilter,
   filters,
   onSelectFilter,
+  wrapFilters = false,
 }: {
   searchValue: string;
   searchPlaceholder: string;
@@ -181,7 +182,24 @@ export function PurchaseListFilters({
   selectedFilter: string;
   filters: ListFilterOption[];
   onSelectFilter: (value: string) => void;
+  wrapFilters?: boolean;
 }) {
+  const filterOptions = filters.map((filter) => {
+    const selected = filter.value === selectedFilter;
+    return (
+      <Pressable
+        key={filter.value}
+        accessibilityRole="button"
+        accessibilityState={{ selected }}
+        onPress={() => onSelectFilter(filter.value)}
+        style={[styles.listFilterChip, selected && styles.listFilterChipSelected]}>
+        <AppText style={[styles.listFilterText, selected && styles.listFilterTextSelected]}>
+          {filter.label} ({filter.count})
+        </AppText>
+      </Pressable>
+    );
+  });
+
   return (
     <View style={styles.listFilters}>
       <View style={styles.searchBox}>
@@ -206,26 +224,16 @@ export function PurchaseListFilters({
         ) : null}
       </View>
       <AppText style={styles.filterHeading}>Filtrar por estado</AppText>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.listFilterOptions}>
-        {filters.map((filter) => {
-          const selected = filter.value === selectedFilter;
-          return (
-            <Pressable
-              key={filter.value}
-              accessibilityRole="button"
-              accessibilityState={{ selected }}
-              onPress={() => onSelectFilter(filter.value)}
-              style={[styles.listFilterChip, selected && styles.listFilterChipSelected]}>
-              <AppText style={[styles.listFilterText, selected && styles.listFilterTextSelected]}>
-                {filter.label} ({filter.count})
-              </AppText>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+      {wrapFilters ? (
+        <View style={styles.listFilterOptionsWrapped}>{filterOptions}</View>
+      ) : (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.listFilterOptions}>
+          {filterOptions}
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -299,6 +307,7 @@ const styles = StyleSheet.create({
   clearSearch: { width: 26, height: 28, alignItems: 'center', justifyContent: 'center' },
   filterHeading: { color: muted, fontSize: 11, fontWeight: '600', marginBottom: -3 },
   listFilterOptions: { flexDirection: 'row', gap: 8, paddingRight: 4 },
+  listFilterOptionsWrapped: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   listFilterChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F0EEF6' },
   listFilterChipSelected: { backgroundColor: purple },
   listFilterText: { color: muted, fontSize: purchaseTextScale.body, fontWeight: '600' },
