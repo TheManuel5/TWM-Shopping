@@ -209,7 +209,7 @@ function TrackOrder({
   return (
     <>
       <OrdersReturnsHeader title="Seguimiento del pedido" onBack={onBack} />
-      <ScrollView contentContainerStyle={styles.detailContent}>
+      <ScrollView style={styles.scrollViewport} contentContainerStyle={styles.detailContent}>
         <View style={styles.statusCard}>
           <View style={styles.orderHeader}>
             <View style={styles.orderHeading}>
@@ -396,7 +396,7 @@ export default function PurchaseHistoryScreen({
   return (
     <>
       <OrdersReturnsHeader title="Historial de compras" onBack={onBack} />
-      <ScrollView contentContainerStyle={styles.listContent}>
+      <ScrollView style={styles.scrollViewport} contentContainerStyle={styles.listContent}>
         <View style={styles.filterRow}>
           {filters.map((item) => {
             const selected = item === filter;
@@ -445,7 +445,8 @@ export default function PurchaseHistoryScreen({
 }
 
 const styles = StyleSheet.create({
-  listContent: { padding: 18, paddingBottom: 36, gap: 15 },
+  scrollViewport: { flex: 1, marginBottom: 66 },
+  listContent: { padding: 18, paddingBottom: 24, gap: 15 },
   filterRow: { flexDirection: 'row', gap: 8, marginBottom: 2 },
   filterChip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 18, backgroundColor: '#F0EEF6' },
   filterChipSelected: { backgroundColor: purple },
@@ -479,7 +480,7 @@ const styles = StyleSheet.create({
   emptyTitle: { color: ink, fontSize: 16, fontWeight: '800' },
   moreButton: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 12, borderWidth: 1, borderColor: '#D8D1F6', backgroundColor: '#FFFFFF' },
   listCount: { color: muted, fontSize: 11, textAlign: 'center', marginTop: 3 },
-  detailContent: { padding: 18, paddingBottom: 36, gap: 16 },
+  detailContent: { padding: 18, paddingBottom: 24, gap: 16 },
   sectionTitle: { color: ink, fontSize: 15, fontWeight: '800' },
   statusHeading: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   progressSection: { gap: 9 },

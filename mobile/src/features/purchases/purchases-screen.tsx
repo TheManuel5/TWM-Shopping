@@ -245,7 +245,13 @@ export default function PurchasesScreen() {
   const [screen, setScreen] = useState<Screen>('profile');
   const [cart, setCart] = useState(initialProducts);
   const [favorites, setFavorites] = useState(initialProducts);
-  const [payment, setPayment] = useState('Tarjeta de crédito o débito');
+  const [selectedVendor, setSelectedVendor] = useState('Tienda Sur');
+  const [deliveryMode, setDeliveryMode] = useState<'Despacho' | 'Retiro'>('Despacho');
+  const [paymentMethod, setPaymentMethod] = useState<'Tarjeta' | 'Transferencia'>('Tarjeta');
+  const [cardLast4, setCardLast4] = useState('');
+  const [transferCode, setTransferCode] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [purchaseOrders, setPurchaseOrders] = useState(initialOrders);
   const [returnRequests, setReturnRequests] = useState(initialReturns);
   const [returnOrderId, setReturnOrderId] = useState<string | null>(null);
@@ -266,11 +272,27 @@ export default function PurchasesScreen() {
   const [referenceInput, setReferenceInput] = useState('');
   const [geoPicker, setGeoPicker] = useState<GeographyField | null>(null);
   const [returnToProfileAfterAddresses, setReturnToProfileAfterAddresses] = useState(false);
+  const [returnToCheckoutAfterAddresses, setReturnToCheckoutAfterAddresses] = useState(false);
 
   const selectedAddress = addresses.find((item) => item.id === selectedAddressId);
   const address = selectedAddress
     ? `${selectedAddress.street} ${selectedAddress.number}, ${selectedAddress.commune}`
     : '';
+  const cartGroups = Array.from(new Set(cart.map((item) => item.vendor))).map((vendor) => ({
+    vendor,
+    items: cart.filter((item) => item.vendor === vendor),
+  }));
+  const activeGroup = cartGroups.find((group) => group.vendor === selectedVendor) ?? cartGroups[0];
+  const activeItems = activeGroup?.items ?? [];
+  const activeSubtotal = activeItems.reduce((total, item) => total + item.price * item.quantity, 0);
+  const shippingCost = deliveryMode === 'Retiro'
+    ? 0
+    : selectedAddress?.commune === 'Osorno'
+      ? 3570
+      : selectedAddress
+        ? 5950
+        : 0;
+  const checkoutTotal = activeSubtotal + shippingCost;
   const cartTotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
   const geographyOptions = geoPicker === 'region'
     ? Object.keys(CHILE_GEOGRAPHY)
@@ -293,6 +315,65 @@ export default function PurchasesScreen() {
         )
         .filter((item) => item.quantity > 0),
     );
+  };
+
+  const confirmPurchase = () => {
+    setCheckoutError(null);
+    if (!activeGroup || !activeItems.length) {
+      setCheckoutError('Tu carrito está vacío. Agrega artículos antes de continuar.');
+      return;
+    }
+    if (deliveryMode === 'Despacho' && !selectedAddress) {
+      setCheckoutError('Selecciona o agrega una dirección de despacho.');
+      return;
+    }
+    if (!acceptedTerms) {
+      setCheckoutError('Confirma que los datos de entrega y pago son correctos.');
+      return;
+    }
+    if (paymentMethod === 'Tarjeta' && !/^\d{4}$/.test(cardLast4)) {
+      setCheckoutError('Ingresa los últimos cuatro dígitos de la tarjeta.');
+      return;
+    }
+    if (paymentMethod === 'Transferencia' && transferCode.trim().length < 5) {
+      setCheckoutError('Ingresa un código de transferencia válido.');
+      return;
+    }
+
+    const createdAt = new Date();
+    const total = checkoutTotal;
+    const order: PurchaseOrder = {
+      id: `TW-${createdAt.getTime().toString().slice(-4)}`,
+      date: createdAt.toLocaleDateString('es-CL'),
+      createdAt: createdAt.toISOString(),
+      store: activeGroup.vendor,
+      status: 'Recibido',
+      products: activeItems.map((item) => ({
+        id: item.id,
+        name: item.name,
+        detail: item.detail,
+        price: item.price,
+        qty: item.quantity,
+      })),
+      total,
+      shipping: shippingCost,
+      payment: paymentMethod === 'Tarjeta' ? 'Tarjeta de crédito o débito' : 'Transferencia',
+      ...(paymentMethod === 'Tarjeta' ? { cardLast4 } : { transferCode: transferCode.trim() }),
+      address: deliveryMode === 'Retiro'
+        ? 'Retiro con el vendedor'
+        : `${selectedAddress?.street} ${selectedAddress?.number}, ${selectedAddress?.commune}, ${selectedAddress?.region}`,
+      dispatch: {},
+      history: [{ date: createdAt.toISOString(), status: 'Recibido' }],
+    };
+    const nextVendor = cartGroups.find((group) => group.vendor !== activeGroup.vendor)?.vendor;
+
+    setPurchaseOrders((current) => [order, ...current]);
+    setCart((items) => items.filter((item) => item.vendor !== activeGroup.vendor));
+    setSelectedVendor(nextVendor ?? '');
+    setLastOrderId(order.id);
+    setLastOrderTotal(total);
+    setAcceptedTerms(false);
+    setScreen('confirmation');
   };
 
   const openAddressEditor = (addressToEdit?: PurchaseAddress) => {
@@ -380,13 +461,13 @@ export default function PurchasesScreen() {
   };
 
   const requestQuoteFromCart = () => {
-    if (!cart.length) {
+    if (!activeItems.length || !activeGroup) {
       setQuoteRequestError('Agrega por lo menos un producto antes de solicitar una cotización.');
       return;
     }
 
     if (
-      cart.some(
+      activeItems.some(
         (item) =>
           !item.name.trim() ||
           !item.vendor.trim() ||
@@ -400,7 +481,7 @@ export default function PurchasesScreen() {
       return;
     }
 
-    const vendors = new Set(cart.map((item) => item.vendor.trim()));
+    const vendors = new Set(activeItems.map((item) => item.vendor.trim()));
     if (vendors.size !== 1) {
       setQuoteRequestError('Solicita una cotización por vendedor.');
       return;
@@ -410,7 +491,7 @@ export default function PurchasesScreen() {
     const validUntil = new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000);
     const quote: Quote = {
       id: `COT-${Date.now()}`,
-      vendor: cart[0].vendor.trim(),
+      vendor: activeGroup.vendor.trim(),
       emittedDate: now.toLocaleDateString('es-CL', {
         day: 'numeric',
         month: 'short',
@@ -422,8 +503,8 @@ export default function PurchasesScreen() {
         year: 'numeric',
       }),
       status: 'Solicitada',
-      total: cart.reduce((total, item) => total + item.price * item.quantity, 0),
-      items: cart.map((item) => ({
+      total: activeItems.reduce((total, item) => total + item.price * item.quantity, 0),
+      items: activeItems.map((item) => ({
         id: item.id,
         name: item.name.trim(),
         detail: item.detail.trim(),
@@ -472,17 +553,24 @@ export default function PurchasesScreen() {
           name: quoteItem.name,
           detail: quoteItem.detail,
           price: quoteItem.unitPrice,
+          vendor: quote.vendor,
           quantity: quoteItem.qty,
         };
       }),
     );
+    setSelectedVendor(quote.vendor);
     setLastOrderTotal(quote.total);
+    setCheckoutError(null);
     setScreen('checkout');
   };
 
   const goBack = () => {
     if (screen === 'checkout') setScreen('cart');
     else if (screen === 'new-address') setScreen('addresses');
+    else if (screen === 'addresses' && returnToCheckoutAfterAddresses) {
+      setReturnToCheckoutAfterAddresses(false);
+      setScreen('checkout');
+    }
     else if (screen === 'addresses' && returnToProfileAfterAddresses) {
       setReturnToProfileAfterAddresses(false);
       setScreen('profile');
@@ -666,31 +754,128 @@ export default function PurchasesScreen() {
 
   const cartScreen = () => (
     <>
-      {header('Mi carrito', `${cart.length} productos`)}
+      {accountPageHeader('Mi carrito')}
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {cart.length ? (
           <>
+            <AppText style={styles.cartIntro}>Compra a un vendedor a la vez.</AppText>
+            {cartGroups.length > 1 ? (
+              <View style={styles.infoBanner}>
+                <MaterialIcons name="info-outline" size={18} color={purple} />
+                <AppText style={styles.infoCopy}>
+                  Elige qué vendedor quieres pagar ahora. Los demás productos seguirán guardados en tu carrito.
+                </AppText>
+              </View>
+            ) : null}
+            {cartGroups.map((group) => {
+              const selected = group.vendor === activeGroup?.vendor;
+              const units = group.items.reduce((sum, item) => sum + item.quantity, 0);
+              const subtotal = group.items.reduce(
+                (sum, item) => sum + item.price * item.quantity,
+                0,
+              );
+              return (
+                <View
+                  key={group.vendor}
+                  style={[styles.vendorCard, selected && styles.vendorCardSelected]}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    accessibilityLabel={`Comprar a ${group.vendor}`}
+                    onPress={() => setSelectedVendor(group.vendor)}
+                    style={[styles.vendorHeader, selected && styles.vendorHeaderSelected]}>
+                    <MaterialIcons
+                      name={selected ? 'check-circle' : 'storefront'}
+                      size={19}
+                      color={purple}
+                    />
+                    <View style={styles.vendorCopy}>
+                      <AppText style={styles.vendorName}>{group.vendor}</AppText>
+                      <AppText style={styles.secondaryText}>
+                        {units} {units === 1 ? 'producto' : 'productos'}
+                        {selected ? ' · Seleccionado para comprar' : ' · Compra por separado'}
+                      </AppText>
+                    </View>
+                    {cartGroups.length > 1 ? (
+                      <AppText style={styles.vendorTotal}>{money(subtotal)}</AppText>
+                    ) : null}
+                    <MaterialIcons
+                      name={selected ? 'expand-less' : 'chevron-right'}
+                      size={21}
+                      color={purple}
+                    />
+                  </Pressable>
+                  {selected ? (
+                    <View style={styles.vendorItems}>
+                      {group.items.map((item, index) => (
+                        <View
+                          key={item.id}
+                          style={[
+                            styles.cartItemRow,
+                            index === group.items.length - 1 && styles.cartItemLast,
+                          ]}>
+                          <View style={[styles.productImage, { backgroundColor: item.color }]}>
+                            <AppText style={styles.productEmoji}>{item.emoji}</AppText>
+                          </View>
+                          <View style={styles.cartItemDetails}>
+                            <AppText style={styles.productName}>{item.name}</AppText>
+                            <AppText style={styles.secondaryText}>{item.detail}</AppText>
+                            <View style={styles.cartItemFooter}>
+                              <AppText style={styles.productPrice}>
+                                {money(item.price * item.quantity)}
+                              </AppText>
+                              <View style={styles.cartItemActions}>
+                                <View style={styles.quantityControl}>
+                                  <Pressable
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Disminuir cantidad de ${item.name}`}
+                                    onPress={() => updateQuantity(item.id, -1)}
+                                    style={styles.quantityAction}>
+                                    <MaterialIcons name="remove" size={17} color={purple} />
+                                  </Pressable>
+                                  <AppText style={styles.quantityValue}>{item.quantity}</AppText>
+                                  <Pressable
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Aumentar cantidad de ${item.name}`}
+                                    onPress={() => updateQuantity(item.id, 1)}
+                                    style={styles.quantityAction}>
+                                    <MaterialIcons name="add" size={17} color={purple} />
+                                  </Pressable>
+                                </View>
+                                <Pressable
+                                  accessibilityRole="button"
+                                  accessibilityLabel={`Quitar ${item.name} del carrito`}
+                                  onPress={() => {
+                                    setQuoteRequestError(null);
+                                    setCart((items) => items.filter((cartItem) => cartItem.id !== item.id));
+                                  }}
+                                  style={styles.removeAction}>
+                                  <MaterialIcons name="delete-outline" size={18} color={muted} />
+                                </Pressable>
+                              </View>
+                            </View>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  ) : null}
+                </View>
+              );
+            })}
             <View style={styles.menuCard}>
-              {cart.map((item) => (
-                <ProductRow
-                  key={item.id}
-                  product={item}
-                  showQuantity
-                  onIncrease={() => updateQuantity(item.id, 1)}
-                  onDecrease={() => updateQuantity(item.id, -1)}
-                  onRemove={() => {
-                    setQuoteRequestError(null);
-                    setCart((items) => items.filter((cartItem) => cartItem.id !== item.id));
-                  }}
-                />
-              ))}
-            </View>
-            <View style={styles.menuCard}>
-              <AppText style={styles.cardHeading}>Resumen de compra</AppText>
-              <PriceRow label="Subtotal" value={money(cartTotal)} />
-              <PriceRow label="Envío" value="Gratis" valueStyle={styles.freeText} />
+              <AppText style={styles.cardHeading}>Total productos</AppText>
+              <PriceRow
+                label={`Subtotal (${activeItems.reduce((sum, item) => sum + item.quantity, 0)} ${
+                  activeItems.reduce((sum, item) => sum + item.quantity, 0) === 1
+                    ? 'artículo'
+                    : 'artículos'
+                })`}
+                value={money(activeSubtotal)}
+              />
+              <PriceRow label="Envío" value="Se calcula al confirmar" />
               <View style={styles.divider} />
-              <PriceRow label="Total" value={money(cartTotal)} bold />
+              <PriceRow label="Total parcial" value={money(activeSubtotal)} bold />
+              <AppText style={styles.secondaryText}>IVA incluido</AppText>
             </View>
             {quoteRequestError ? (
               <View style={styles.quoteErrorBanner}>
@@ -698,12 +883,25 @@ export default function PurchasesScreen() {
                 <AppText style={styles.quoteErrorText}>{quoteRequestError}</AppText>
               </View>
             ) : null}
-            <PrimaryButton label="Continuar compra" onPress={() => setScreen('checkout')} />
+            <PrimaryButton
+              label="Continuar compra"
+              onPress={() => {
+                setCheckoutError(null);
+                setAcceptedTerms(false);
+                setScreen('checkout');
+              }}
+            />
             <OutlineButton label="Solicitar cotización" onPress={requestQuoteFromCart} />
             <OutlineButton label="Seguir comprando" onPress={() => setScreen('home')} />
           </>
         ) : (
-          <EmptyState title="Tu carrito está vacío" description="Agrega productos para comenzar tu compra." />
+          <>
+            <EmptyState
+              title="Tu carrito está vacío"
+              description="Explora el catálogo y agrega productos o servicios para comenzar tu compra."
+            />
+            <OutlineButton label="Volver a mi cuenta" onPress={() => setScreen('home')} />
+          </>
         )}
       </ScrollView>
     </>
@@ -711,99 +909,216 @@ export default function PurchasesScreen() {
 
   const checkoutScreen = () => (
     <>
-      {header('Finalizar compra', 'Revisa tus datos antes de pagar')}
+      {accountPageHeader('Finalizar compra')}
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        <AppText style={styles.checkoutIntro}>
+          Revisa la entrega y el pago antes de registrar tu pedido.
+        </AppText>
         <View style={styles.stepRow}>
           <Step number="1" label="Entrega" active />
           <View style={styles.stepLine} />
           <Step number="2" label="Pago" active />
           <View style={styles.stepLine} />
-          <Step number="3" label="Confirmar" />
+          <Step number="3" label="Confirmar" active />
         </View>
+        {checkoutError ? (
+          <View style={styles.quoteErrorBanner}>
+            <MaterialIcons name="error-outline" size={18} color="#B23B36" />
+            <AppText style={styles.quoteErrorText}>{checkoutError}</AppText>
+          </View>
+        ) : null}
         <View style={styles.menuCard}>
-          <SectionTitle
-            title="Dirección de entrega"
-            action="Cambiar"
-            onAction={() => {
-              setReturnToProfileAfterAddresses(false);
-              setScreen('addresses');
-            }}
-          />
-          <AppText style={styles.addressName}>
-            {selectedAddress?.label ?? 'Dirección no seleccionada'}
-          </AppText>
-          <AppText style={styles.secondaryText}>
-            {address || 'Agrega una dirección de entrega.'}
-          </AppText>
-          {selectedAddress ? (
-            <AppText style={styles.secondaryText}>
-              {selectedAddress.region}, Provincia de {selectedAddress.province}, Comuna de {selectedAddress.commune}
-            </AppText>
+          <AppText style={styles.cardHeading}>1. Entrega</AppText>
+          {(['Despacho', 'Retiro'] as const).map((option) => {
+            const selected = deliveryMode === option;
+            return (
+              <Pressable
+                key={option}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+                onPress={() => {
+                  setDeliveryMode(option);
+                  setCheckoutError(null);
+                }}
+                style={[styles.checkoutOption, selected && styles.checkoutOptionSelected]}>
+                <View style={[styles.radio, selected && styles.radioSelected]}>
+                  {selected ? <View style={styles.radioDot} /> : null}
+                </View>
+                <MaterialIcons
+                  name={option === 'Despacho' ? 'local-shipping' : 'storefront'}
+                  size={20}
+                  color={purple}
+                />
+                <View style={styles.paymentCopy}>
+                  <AppText style={styles.paymentLabel}>
+                    {option === 'Despacho' ? 'Despacho a domicilio' : 'Retiro con el vendedor'}
+                  </AppText>
+                  <AppText style={styles.secondaryText}>
+                    {option === 'Despacho' ? 'Según la comuna de entrega' : 'Sin costo de despacho'}
+                  </AppText>
+                </View>
+              </Pressable>
+            );
+          })}
+          {deliveryMode === 'Despacho' ? (
+            <View style={styles.checkoutAddress}>
+              <SectionTitle
+                title="Dirección de despacho"
+                action={selectedAddress ? 'Cambiar' : 'Agregar'}
+                onAction={() => {
+                  setReturnToProfileAfterAddresses(false);
+                  setReturnToCheckoutAfterAddresses(true);
+                  setScreen('addresses');
+                }}
+              />
+              {selectedAddress ? (
+                <View style={styles.checkoutAddressCopy}>
+                  <View style={styles.checkoutAddressTitle}>
+                    <MaterialIcons name="place" size={18} color={purple} />
+                    <AppText style={styles.addressName}>{selectedAddress.label}</AppText>
+                  </View>
+                  <AppText style={styles.secondaryText}>
+                    {[
+                      selectedAddress.street,
+                      selectedAddress.number,
+                      selectedAddress.department,
+                      selectedAddress.commune,
+                      selectedAddress.region,
+                    ].filter(Boolean).join(', ')}
+                  </AppText>
+                </View>
+              ) : (
+                <AppText style={styles.secondaryText}>Agrega una dirección para recibir tu compra.</AppText>
+              )}
+            </View>
           ) : null}
         </View>
         <View style={styles.menuCard}>
-          <AppText style={styles.cardHeading}>Método de pago</AppText>
-          {['Tarjeta de crédito o débito', 'Pago contra entrega'].map((option) => (
+          <AppText style={styles.cardHeading}>2. Medio de pago</AppText>
+          {(['Tarjeta', 'Transferencia'] as const).map((option) => (
             <Pressable
               key={option}
-              onPress={() => setPayment(option)}
-              style={styles.paymentOption}>
-              <View style={[styles.radio, payment === option && styles.radioSelected]}>
-                {payment === option ? <View style={styles.radioDot} /> : null}
+              accessibilityRole="button"
+              accessibilityState={{ selected: paymentMethod === option }}
+              onPress={() => {
+                setPaymentMethod(option);
+                setCheckoutError(null);
+              }}
+              style={[
+                styles.checkoutOption,
+                paymentMethod === option && styles.checkoutOptionSelected,
+              ]}>
+              <View style={[styles.radio, paymentMethod === option && styles.radioSelected]}>
+                {paymentMethod === option ? <View style={styles.radioDot} /> : null}
               </View>
-              <AppText style={styles.paymentLabel}>{option}</AppText>
+              <MaterialIcons
+                name={option === 'Tarjeta' ? 'credit-card' : 'account-balance'}
+                size={20}
+                color={purple}
+              />
+              <View style={styles.paymentCopy}>
+                <AppText style={styles.paymentLabel}>
+                  {option === 'Tarjeta' ? 'Tarjeta de crédito o débito' : 'Transferencia'}
+                </AppText>
+                <AppText style={styles.secondaryText}>
+                  {option === 'Tarjeta' ? 'Solo se guardan los últimos 4 dígitos' : 'Con código de comprobante'}
+                </AppText>
+              </View>
             </Pressable>
           ))}
+          {paymentMethod === 'Tarjeta' ? (
+            <View style={styles.checkoutInputBlock}>
+              <AppText style={styles.inputLabel}>Últimos 4 dígitos de la tarjeta</AppText>
+              <TextInput
+                accessibilityLabel="Últimos 4 dígitos de la tarjeta"
+                value={cardLast4}
+                onChangeText={(value) => setCardLast4(value.replace(/\D/g, '').slice(0, 4))}
+                placeholder="0000"
+                placeholderTextColor="#9696A5"
+                keyboardType="number-pad"
+                inputMode="numeric"
+                maxLength={4}
+                style={styles.input}
+              />
+              <AppText style={styles.helperText}>
+                No guardamos el número completo de tu tarjeta.
+              </AppText>
+            </View>
+          ) : (
+            <View style={styles.checkoutInputBlock}>
+              <AppText style={styles.inputLabel}>Código del comprobante de transferencia</AppText>
+              <TextInput
+                accessibilityLabel="Código del comprobante de transferencia"
+                value={transferCode}
+                onChangeText={setTransferCode}
+                placeholder="Ingresa el código del comprobante"
+                placeholderTextColor="#9696A5"
+                autoCapitalize="characters"
+                style={styles.input}
+              />
+              <AppText style={styles.helperText}>
+                Transfiere al vendedor y registra aquí el código de tu comprobante.
+              </AppText>
+            </View>
+          )}
         </View>
         <View style={styles.menuCard}>
-          <PriceRow label="Productos" value={money(cartTotal)} />
-          <PriceRow label="Envío" value="Gratis" valueStyle={styles.freeText} />
+          <AppText style={styles.cardHeading}>3. Resumen de compra</AppText>
+          <View style={styles.checkoutVendorRow}>
+            <MaterialIcons name="storefront" size={18} color={purple} />
+            <AppText style={styles.vendorName}>{activeGroup?.vendor ?? 'Vendedor'}</AppText>
+          </View>
+          {activeItems.map((item) => (
+            <View key={item.id} style={styles.checkoutItemRow}>
+              <AppText style={styles.checkoutItemName} numberOfLines={1}>
+                {item.quantity} × {item.name}
+              </AppText>
+              <AppText style={styles.checkoutItemAmount}>
+                {money(item.price * item.quantity)}
+              </AppText>
+            </View>
+          ))}
           <View style={styles.divider} />
-          <PriceRow label="Total a pagar" value={money(cartTotal)} bold />
+          <PriceRow label="Subtotal" value={money(activeSubtotal)} />
+          <PriceRow
+            label={deliveryMode === 'Despacho' ? 'Despacho' : 'Retiro con el vendedor'}
+            value={shippingCost ? money(shippingCost) : 'Sin costo'}
+          />
+          <View style={styles.divider} />
+          <PriceRow label="Valor neto" value={money(Math.round(checkoutTotal / 1.19))} />
+          <PriceRow label="IVA (19 %)" value={money(checkoutTotal - Math.round(checkoutTotal / 1.19))} />
+          <View style={styles.totalSummary}>
+            <AppText style={styles.priceBold}>Total a pagar</AppText>
+            <AppText style={styles.checkoutTotal}>{money(checkoutTotal)}</AppText>
+          </View>
         </View>
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: acceptedTerms }}
+          onPress={() => setAcceptedTerms((accepted) => !accepted)}
+          style={styles.termsRow}>
+          <View style={[styles.termsCheckbox, acceptedTerms && styles.termsCheckboxSelected]}>
+            {acceptedTerms ? <MaterialIcons name="check" size={15} color="#FFFFFF" /> : null}
+          </View>
+          <AppText style={styles.termsCopy}>
+            Confirmo que los datos de entrega y pago son correctos.
+          </AppText>
+        </Pressable>
         <PrimaryButton
-          label="Confirmar pedido"
-          disabled={!cart.length || !selectedAddress}
-          onPress={() => {
-            const createdAt = new Date();
-            const shipping = 0;
-            const order: PurchaseOrder = {
-              id: `TW-${createdAt.getTime().toString().slice(-4)}`,
-              date: createdAt.toLocaleDateString('es-CL'),
-              createdAt: createdAt.toISOString(),
-              store: cart[0]?.vendor ?? 'Tienda Sur',
-              status: 'Recibido',
-              products: cart.map((item) => ({
-                id: item.id,
-                name: item.name,
-                detail: item.detail,
-                price: item.price,
-                qty: item.quantity,
-              })),
-              total: cartTotal + shipping,
-              shipping,
-              payment,
-              address: selectedAddress
-                ? `${selectedAddress.street} ${selectedAddress.number}, ${selectedAddress.commune}, ${selectedAddress.region}`
-                : '',
-              dispatch: {},
-              history: [{ date: createdAt.toISOString(), status: 'Recibido' }],
-            };
-            setLastOrderId(order.id);
-            setPurchaseOrders((current) => [order, ...current]);
-            setLastOrderTotal(cartTotal);
-            setCart([]);
-            setScreen('confirmation');
-          }}
+          label={`Confirmar y pagar ${money(checkoutTotal)}`}
+          disabled={!acceptedTerms || !activeItems.length || (deliveryMode === 'Despacho' && !selectedAddress)}
+          onPress={confirmPurchase}
         />
-        <AppText style={styles.secureNote}>▣　Tu compra está protegida</AppText>
+        <AppText style={styles.secureNote}>
+          El pago queda registrado en el sistema; no se cobra a través de una pasarela bancaria.
+        </AppText>
       </ScrollView>
     </>
   );
 
   const confirmationScreen = () => (
     <>
-      {header('Compra confirmada')}
+      {accountPageHeader('Compra confirmada')}
       <View style={styles.centeredContent}>
         <View style={styles.successCircle}>
           <AppText style={styles.successCheck}>✓</AppText>
@@ -819,7 +1134,18 @@ export default function PurchasesScreen() {
           <PriceRow label="Total pagado" value={money(lastOrderTotal)} bold />
           <AppText style={styles.secondaryText}>Entrega estimada: 3–5 días hábiles</AppText>
         </View>
+        {cart.length ? (
+          <View style={styles.infoBanner}>
+            <MaterialIcons name="shopping-cart" size={18} color={purple} />
+            <AppText style={styles.infoCopy}>
+              Los productos de los otros vendedores siguen guardados en tu carrito.
+            </AppText>
+          </View>
+        ) : null}
         <PrimaryButton label="Ver mis compras" onPress={() => setScreen('orders')} />
+        {cart.length ? (
+          <OutlineButton label="Ver carrito" onPress={() => setScreen('cart')} />
+        ) : null}
         <OutlineButton label="Volver al inicio" onPress={() => setScreen('home')} />
       </View>
     </>
@@ -946,6 +1272,16 @@ export default function PurchasesScreen() {
           label="＋　Agregar dirección"
           onPress={() => openAddressEditor()}
         />
+        {returnToCheckoutAfterAddresses ? (
+          <PrimaryButton
+            label="Usar dirección seleccionada"
+            disabled={!selectedAddress}
+            onPress={() => {
+              setReturnToCheckoutAfterAddresses(false);
+              setScreen('checkout');
+            }}
+          />
+        ) : null}
       </ScrollView>
     </>
   );
@@ -1320,6 +1656,21 @@ const styles = StyleSheet.create({
   menuCopy: { flex: 1, gap: 3 },
   menuLabel: { fontSize: 13, fontWeight: '600', color: ink },
   menuChevron: { color: '#A3A1B0', fontSize: 24 },
+  cartIntro: { color: muted, fontSize: 12, marginBottom: -3 },
+  vendorCard: { overflow: 'hidden', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EEEAF5', borderRadius: 15 },
+  vendorCardSelected: { borderWidth: 1.5, borderColor: purple },
+  vendorHeader: { minHeight: 65, flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 13, paddingVertical: 10 },
+  vendorHeaderSelected: { backgroundColor: '#F3EFFF' },
+  vendorCopy: { flex: 1, minWidth: 0, gap: 3 },
+  vendorName: { color: ink, fontSize: 13, fontWeight: '800' },
+  vendorTotal: { color: ink, fontSize: 11, fontWeight: '700' },
+  vendorItems: { paddingHorizontal: 12 },
+  cartItemRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#EAE9F0' },
+  cartItemLast: { borderBottomWidth: 0 },
+  cartItemDetails: { flex: 1, minWidth: 0, gap: 3 },
+  cartItemFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 5, marginTop: 4 },
+  cartItemActions: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  quantityAction: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
   helpCard: { borderRadius: 15, backgroundColor: '#EEE9FF', padding: 16, gap: 5, borderWidth: 1, borderColor: '#E5DEFF' },
   helpIcon: { width: 27, height: 27, borderRadius: 9, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', marginBottom: 2 },
   helpIconText: { color: purple, fontSize: 15, fontWeight: '800' },
@@ -1361,6 +1712,23 @@ const styles = StyleSheet.create({
   stepLabel: { fontSize: 10, color: muted },
   stepLabelActive: { color: purple, fontWeight: '600' },
   stepLine: { width: 38, height: 1, backgroundColor: '#DAD8E3', marginHorizontal: 7, marginBottom: 15 },
+  checkoutIntro: { color: muted, fontSize: 12, lineHeight: 17 },
+  checkoutOption: { minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 10, marginBottom: 8, borderWidth: 1, borderColor: '#E9E7F0', borderRadius: 12, backgroundColor: '#FFFFFF' },
+  checkoutOptionSelected: { borderColor: purple, backgroundColor: '#F6F3FF' },
+  checkoutAddress: { marginTop: 7, padding: 12, borderRadius: 12, backgroundColor: '#F8F7FB' },
+  checkoutAddressCopy: { gap: 3 },
+  checkoutAddressTitle: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  checkoutInputBlock: { marginTop: 8, marginBottom: 5 },
+  checkoutVendorRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  checkoutItemRow: { minHeight: 30, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  checkoutItemName: { flex: 1, color: muted, fontSize: 11 },
+  checkoutItemAmount: { color: ink, fontSize: 11, fontWeight: '600' },
+  totalSummary: { minHeight: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 10, paddingHorizontal: 13, borderRadius: 12, backgroundColor: '#F1EEFF' },
+  checkoutTotal: { color: purple, fontSize: 19, fontWeight: '900' },
+  termsRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingHorizontal: 3, paddingVertical: 5 },
+  termsCheckbox: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#B9B6C5', borderRadius: 5, backgroundColor: '#FFFFFF' },
+  termsCheckboxSelected: { borderColor: purple, backgroundColor: purple },
+  termsCopy: { flex: 1, color: muted, fontSize: 12, lineHeight: 18 },
   addressName: { fontSize: 14, fontWeight: '700', marginTop: 6, marginBottom: 3 },
   paymentOption: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 46, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#EAE9F0' },
   paymentCopy: { flex: 1 },
@@ -1405,6 +1773,7 @@ const styles = StyleSheet.create({
   successBanner: { backgroundColor: '#E7F7EF', borderRadius: 11, padding: 12 },
   successBannerText: { color: '#178757', fontSize: 12, fontWeight: '600' },
   inputLabel: { color: muted, fontSize: 11, marginTop: 12, marginBottom: 6 },
+  helperText: { color: muted, fontSize: 10, lineHeight: 15, marginTop: 5 },
   input: { height: 43, borderWidth: 1, borderColor: '#E6E3ED', borderRadius: 10, paddingHorizontal: 12, color: ink, fontSize: 13 },
   geoSelect: { minHeight: 45, borderWidth: 1, borderColor: '#E6E3ED', borderRadius: 10, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FFFFFF' },
   geoSelectDisabled: { backgroundColor: '#F6F5F8', opacity: 0.6 },

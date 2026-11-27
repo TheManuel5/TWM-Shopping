@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 
 import OrdersReturnsHeader from '../OrdersReturnsHeader';
-import type { PurchaseOrder, ReturnRequest, ReturnStatus } from '../purchaseTypes';
+import type { PurchaseOrder, ReturnRequest } from '../purchaseTypes';
 
 const purple = '#5B32EC';
 const ink = '#25243A';
@@ -72,60 +72,21 @@ function Selector({
   );
 }
 
-function Progress({
-  status,
-  date,
-}: {
-  status: ReturnStatus;
-  date: string;
-}) {
-  if (status === 'Rechazada') {
-    return (
-      <View style={styles.rejectedNotice}>
-        <MaterialIcons name="cancel" size={18} color="#A52B2B" />
-        <Text style={styles.rejectedText}>La solicitud fue rechazada. Revisa el motivo y contacta al vendedor.</Text>
-      </View>
-    );
-  }
-
-  const currentStep = status === 'Finalizada' ? 2 : status === 'Aprobada' ? 1 : 0;
-  const labels = ['Solicitada', 'Aprobada', 'Reembolso procesado'];
-  return (
-    <View style={styles.progressRow}>
-      {labels.map((label, index) => {
-        const complete = index <= currentStep;
-        const stepDate = index === 0 ? date : '';
-        return (
-          <View key={label} style={styles.progressStep}>
-            <View style={[styles.progressDot, complete && styles.progressDotComplete]}>
-              {complete ? <MaterialIcons name="check" size={13} color="#FFFFFF" /> : null}
-            </View>
-            <Text style={[styles.progressLabel, complete && styles.progressLabelComplete]}>{label}</Text>
-            {stepDate ? <Text style={styles.progressDate}>{stepDate}</Text> : null}
-          </View>
-        );
-      })}
-    </View>
-  );
-}
-
 function ReturnCard({
   request,
   order,
-  selected,
   onPress,
 }: {
   request: ReturnRequest;
   order?: PurchaseOrder;
-  selected: boolean;
   onPress: () => void;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ selected }}
+      accessibilityLabel={`Seguimiento de devolución ${request.id}, ${request.status}`}
       onPress={onPress}
-      style={[styles.returnCard, selected && styles.returnCardSelected]}>
+      style={styles.returnCard}>
       <View style={styles.returnCardTop}>
         <Text style={styles.returnId}>Solicitud {request.id}</Text>
         <ReturnStatusPill status={request.status} />
@@ -134,8 +95,186 @@ function ReturnCard({
       <Text style={styles.mutedText}>
         Pedido #{request.orderId} · {order?.store || 'Vendedor'} · {request.date}
       </Text>
-      <Text style={styles.returnAmount}>{money(request.price)}</Text>
+      <View style={styles.returnCardFooter}>
+        <Text style={styles.returnAmount}>{money(request.price)}</Text>
+        <View style={styles.trackAction}>
+          <Text style={styles.trackActionText}>Seguimiento</Text>
+          <MaterialIcons name="chevron-right" size={19} color={purple} />
+        </View>
+      </View>
     </Pressable>
+  );
+}
+
+function formatHistoryDate(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString('es-CL');
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.detailRow}>
+      <Text style={styles.detailLabel}>{label}</Text>
+      <Text style={styles.detailValue}>{value}</Text>
+    </View>
+  );
+}
+
+function ReturnTracking({
+  request,
+  order,
+  onBack,
+}: {
+  request: ReturnRequest;
+  order?: PurchaseOrder;
+  onBack: () => void;
+}) {
+  const [historyExpanded, setHistoryExpanded] = useState(false);
+  const steps = ['Solicitada', 'Aprobada', 'Finalizada'];
+  const currentStep = request.status === 'Rechazada'
+    ? -1
+    : steps.indexOf(request.status);
+  const progress = currentStep < 0 ? 0 : (currentStep / (steps.length - 1)) * 100;
+  const history = request.history.length
+    ? request.history
+    : [{ date: request.date, status: request.status }];
+
+  return (
+    <>
+      <OrdersReturnsHeader title="Seguimiento de devolución" onBack={onBack} />
+      <ScrollView style={styles.scrollViewport} contentContainerStyle={styles.detailContent}>
+        <View style={styles.statusCard}>
+          <View style={styles.returnCardTop}>
+            <View style={styles.detailCopy}>
+              <Text style={styles.returnId}>Solicitud {request.id}</Text>
+              <Text style={styles.mutedText}>Creada el {request.date}</Text>
+            </View>
+            <ReturnStatusPill status={request.status} />
+          </View>
+          <View style={styles.cardDivider} />
+          <View style={styles.detailSectionHeading}>
+            <MaterialIcons name="assignment-return" size={20} color={purple} />
+            <Text style={styles.sectionTitle}>Estado de la devolución</Text>
+          </View>
+          {request.status === 'Rechazada' ? (
+            <View style={styles.rejectedNotice}>
+              <MaterialIcons name="cancel" size={18} color="#A52B2B" />
+              <Text style={styles.rejectedText}>
+                La solicitud fue rechazada. Revisa el historial o contacta al vendedor.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.progressSection}>
+              <Text style={styles.progressCaption}>
+                Etapa {currentStep + 1} de {steps.length}: {request.status}
+              </Text>
+              <View style={styles.progressTrack}>
+                <View style={[styles.progressFill, { width: `${progress}%` }]} />
+              </View>
+              <View style={styles.progressEndpoints}>
+                <Text style={styles.progressEndpoint}>Solicitud recibida</Text>
+                <Text style={styles.progressEndpoint}>Reembolso procesado</Text>
+              </View>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.card}>
+          <View style={styles.detailSectionHeading}>
+            <MaterialIcons name="inventory-2" size={20} color={purple} />
+            <Text style={styles.sectionTitle}>Producto devuelto</Text>
+          </View>
+          <Text style={styles.productName}>{request.product}</Text>
+          <DetailRow label="Pedido" value={`#${request.orderId}`} />
+          <DetailRow label="Vendedor" value={order?.store || 'Vendedor'} />
+          <DetailRow label="Motivo" value={request.reason} />
+          <DetailRow label="Cantidad" value={`${request.qty} unidad${request.qty === 1 ? '' : 'es'}`} />
+        </View>
+
+        <View style={styles.card}>
+          <View style={styles.detailSectionHeading}>
+            <MaterialIcons name="receipt-long" size={20} color={purple} />
+            <Text style={styles.sectionTitle}>Resumen del reembolso</Text>
+          </View>
+          <View style={styles.totalLine}>
+            <Text style={styles.totalLabel}>Importe solicitado</Text>
+            <Text style={styles.refundAmount}>{money(request.price)}</Text>
+          </View>
+          <DetailRow label="Medio de pago original" value={order?.payment || 'Pendiente de confirmación'} />
+          <Text style={styles.mutedText}>
+            {request.status === 'Finalizada'
+              ? 'El reembolso fue procesado al medio de pago original.'
+              : request.status === 'Rechazada'
+                ? 'No se procesará un reembolso para esta solicitud.'
+                : 'Te informaremos cuando avance la revisión de la solicitud.'}
+          </Text>
+        </View>
+
+        <View style={styles.card}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ expanded: historyExpanded }}
+            onPress={() => setHistoryExpanded((expanded) => !expanded)}
+            style={styles.accordionHeader}>
+            <View style={styles.detailCopy}>
+              <Text style={styles.sectionTitle}>Historial de la solicitud</Text>
+              <Text style={styles.mutedText}>{history.length} actualizaciones</Text>
+            </View>
+            <MaterialIcons
+              name={historyExpanded ? 'expand-less' : 'expand-more'}
+              size={23}
+              color={muted}
+            />
+          </Pressable>
+          {historyExpanded ? (
+            <View style={styles.historyList}>
+              {history.map((event, index) => (
+                <View key={`${event.date}-${event.status}`} style={styles.historyRow}>
+                  <View style={styles.historyMarkerColumn}>
+                    <View
+                      style={[
+                        styles.historyMarker,
+                        index === history.length - 1 && styles.historyMarkerActive,
+                      ]}
+                    />
+                    {index < history.length - 1 ? <View style={styles.historyLine} /> : null}
+                  </View>
+                  <View style={styles.historyCopy}>
+                    <Text style={styles.historyStatus}>{event.status}</Text>
+                    <Text style={styles.mutedText}>{formatHistoryDate(event.date)}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : null}
+        </View>
+
+        {request.images.length ? (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Fotos de respaldo</Text>
+            <View style={styles.imageRow}>
+              {request.images.map((uri) => (
+                <Image key={uri} source={{ uri }} style={styles.imagePreview} />
+              ))}
+            </View>
+          </View>
+        ) : null}
+
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>¿Qué sigue?</Text>
+          <Text style={styles.mutedText}>
+            Conserva el embalaje y coordina con el vendedor la entrega del producto. El reembolso se procesa una vez aprobada y recibida la devolución.
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => Alert.alert('Mensajes', 'La mensajería del vendedor todavía no está conectada en esta versión móvil.')}
+            style={styles.outlineButton}>
+            <MaterialIcons name="chat" size={18} color={purple} />
+            <Text style={styles.outlineButtonText}>Contactar vendedor</Text>
+          </Pressable>
+        </View>
+      </ScrollView>
+    </>
   );
 }
 
@@ -170,7 +309,7 @@ export default function ReturnsScreen({
   const [selectedReason, setSelectedReason] = useState(reasons[0]);
   const [quantity, setQuantity] = useState(1);
   const [images, setImages] = useState<string[]>([]);
-  const [activeId, setActiveId] = useState(requests[0]?.id || '');
+  const [trackingId, setTrackingId] = useState<string | null>(null);
   const [filter, setFilter] = useState('Todas');
   const [selector, setSelector] = useState<'product' | 'reason' | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -187,8 +326,20 @@ export default function ReturnsScreen({
   const visibleRequests = requests.filter((request) =>
     filter === 'Todas' || request.status === filter,
   );
-  const activeRequest = visibleRequests.find((request) => request.id === activeId)
-    || visibleRequests[0];
+  const countForStatus = (status: string) => status === 'Todas'
+    ? requests.length
+    : requests.filter((request) => request.status === status).length;
+  const trackingRequest = requests.find((request) => request.id === trackingId);
+
+  if (trackingRequest) {
+    return (
+      <ReturnTracking
+        request={trackingRequest}
+        order={orders.find((order) => order.id === trackingRequest.orderId)}
+        onBack={() => setTrackingId(null)}
+      />
+    );
+  }
 
   const addImages = async () => {
     if (images.length >= MAX_IMAGES) {
@@ -265,7 +416,6 @@ export default function ReturnsScreen({
       history: [{ date: now.toISOString(), status: 'Solicitada' }],
     };
     onRequestChange([request, ...requests]);
-    setActiveId(requestId);
     setFilter('Todas');
     setQuantity(1);
     setImages([]);
@@ -398,7 +548,7 @@ export default function ReturnsScreen({
         onBack={showRequestForm ? leaveRequestForm : onBack}
       />
       {showRequestForm ? (
-        <ScrollView contentContainerStyle={styles.formPageContent}>
+        <ScrollView style={styles.scrollViewport} contentContainerStyle={styles.formPageContent}>
           <View style={styles.intro}>
             <Text style={styles.pageTitle}>Nueva solicitud</Text>
             <Text style={styles.mutedText}>Selecciona el producto entregado, el motivo y la cantidad.</Text>
@@ -406,7 +556,7 @@ export default function ReturnsScreen({
           {requestForm}
         </ScrollView>
       ) : (
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView style={styles.scrollViewport} contentContainerStyle={styles.content}>
           {notice ? (
             <View style={styles.successNotice}>
               <MaterialIcons name="check-circle" size={18} color="#18794E" />
@@ -442,24 +592,26 @@ export default function ReturnsScreen({
                     accessibilityState={{ selected }}
                     onPress={() => {
                       setFilter(status);
-                      setActiveId('');
                     }}
                     style={[styles.filterChip, selected && styles.filterChipSelected]}>
-                    <Text style={[styles.filterText, selected && styles.filterTextSelected]}>{status}</Text>
+                    <Text style={[styles.filterText, selected && styles.filterTextSelected]}>
+                      {status} ({countForStatus(status)})
+                    </Text>
                   </Pressable>
                 );
               })}
             </ScrollView>
           </View>
 
-          <Text style={styles.requestCount}>{visibleRequests.length} solicitudes</Text>
+          <Text style={styles.requestCount}>
+            {visibleRequests.length} {visibleRequests.length === 1 ? 'solicitud' : 'solicitudes'}
+          </Text>
           {visibleRequests.length ? visibleRequests.map((request) => (
             <ReturnCard
               key={request.id}
               request={request}
               order={orders.find((order) => order.id === request.orderId)}
-              selected={activeRequest?.id === request.id}
-              onPress={() => setActiveId(request.id)}
+              onPress={() => setTrackingId(request.id)}
             />
           )) : (
             <View style={styles.emptyCard}>
@@ -468,46 +620,6 @@ export default function ReturnsScreen({
               <Text style={styles.mutedText}>Toca “Solicitar devolución” para empezar con un pedido entregado.</Text>
             </View>
           )}
-
-          {activeRequest ? (
-            <View style={styles.card}>
-              <View style={styles.detailHeader}>
-                <View style={styles.detailCopy}>
-                  <Text style={styles.sectionTitle}>Solicitud {activeRequest.id}</Text>
-                  <Text style={styles.mutedText}>{activeRequest.reason} · {activeRequest.qty} unidad{activeRequest.qty === 1 ? '' : 'es'}</Text>
-                </View>
-                <ReturnStatusPill status={activeRequest.status} />
-              </View>
-              <Progress status={activeRequest.status} date={activeRequest.date} />
-              <View style={styles.refundBox}>
-                <Text style={styles.mutedText}>Importe solicitado</Text>
-                <Text style={styles.refundAmount}>{money(activeRequest.price)}</Text>
-                <Text style={styles.mutedText}>
-                  {activeRequest.status === 'Finalizada'
-                    ? 'Reembolso procesado al medio de pago original.'
-                    : 'Te informaremos cuando avance la revisión de la solicitud.'}
-                </Text>
-              </View>
-              {activeRequest.images.length ? (
-                <View>
-                  <Text style={styles.sectionTitle}>Fotos de respaldo</Text>
-                  <View style={styles.imageRow}>
-                    {activeRequest.images.map((uri) => (
-                      <Image key={uri} source={{ uri }} style={styles.imagePreview} />
-                    ))}
-                  </View>
-                </View>
-              ) : null}
-              <Text style={styles.sectionTitle}>¿Qué sigue?</Text>
-              <Text style={styles.mutedText}>Conserva el embalaje y coordina con el vendedor la entrega del producto. El reembolso se procesa una vez aprobada y recibida la devolución.</Text>
-              <Pressable
-                onPress={() => Alert.alert('Mensajes', 'La mensajería del vendedor todavía no está conectada en esta versión móvil.')}
-                style={styles.outlineButton}>
-                <MaterialIcons name="chat" size={18} color={purple} />
-                <Text style={styles.outlineButtonText}>Contactar vendedor</Text>
-              </Pressable>
-            </View>
-          ) : null}
         </ScrollView>
       )}
 
@@ -570,8 +682,10 @@ export default function ReturnsScreen({
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 18, paddingBottom: 36, gap: 16 },
-  formPageContent: { padding: 18, paddingBottom: 36, gap: 16 },
+  scrollViewport: { flex: 1, marginBottom: 66 },
+  content: { padding: 18, paddingBottom: 24, gap: 16 },
+  formPageContent: { padding: 18, paddingBottom: 24, gap: 16 },
+  detailContent: { padding: 18, paddingBottom: 24, gap: 16 },
   intro: { gap: 6, marginBottom: 2, paddingHorizontal: 2 },
   pageTitle: { color: ink, fontSize: 17, fontWeight: '800' },
   mutedText: { color: muted, fontSize: 11, lineHeight: 16 },
@@ -579,7 +693,7 @@ const styles = StyleSheet.create({
   helperText: { color: muted, fontSize: 10, lineHeight: 15 },
   filterRow: { gap: 8 },
   filterScroll: { gap: 7, paddingVertical: 2 },
-  filterChip: { paddingHorizontal: 11, paddingVertical: 8, borderRadius: 15, backgroundColor: '#F0EEF6' },
+  filterChip: { minHeight: 36, paddingHorizontal: 13, paddingVertical: 8, borderRadius: 18, backgroundColor: '#F0EEF6' },
   filterChipSelected: { backgroundColor: purple },
   filterText: { color: muted, fontSize: 10, fontWeight: '600' },
   filterTextSelected: { color: '#FFFFFF' },
@@ -587,30 +701,47 @@ const styles = StyleSheet.create({
   newRequestText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
   requestCount: { color: muted, fontSize: 11, marginTop: -7 },
   returnCard: { padding: 16, gap: 9, backgroundColor: '#FFFFFF', borderRadius: 14, borderWidth: 1, borderColor: '#EEEAF5' },
-  returnCardSelected: { borderColor: purple, backgroundColor: '#FCFBFF' },
   returnCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 7 },
+  returnCardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 1 },
+  trackAction: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  trackActionText: { color: purple, fontSize: 11, fontWeight: '700' },
   returnId: { color: ink, fontSize: 12, fontWeight: '800' },
   statusPill: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 12 },
   statusText: { fontSize: 9, fontWeight: '700' },
   returnProduct: { color: ink, fontSize: 12, fontWeight: '700' },
   returnAmount: { color: purple, fontSize: 13, fontWeight: '900' },
-  progressRow: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 3 },
-  progressStep: { flex: 1, alignItems: 'center', gap: 4 },
-  progressDot: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center', borderRadius: 10, borderWidth: 1.5, borderColor: '#D9D6E3', backgroundColor: '#FFFFFF' },
-  progressDotComplete: { backgroundColor: purple, borderColor: purple },
-  progressLabel: { color: muted, fontSize: 8, textAlign: 'center' },
-  progressLabelComplete: { color: purple, fontWeight: '700' },
-  progressDate: { color: muted, fontSize: 8, textAlign: 'center' },
+  progressSection: { gap: 9 },
+  progressCaption: { color: ink, fontSize: 12, fontWeight: '700' },
+  progressTrack: { height: 7, overflow: 'hidden', borderRadius: 5, backgroundColor: '#E9E6F2' },
+  progressFill: { height: '100%', borderRadius: 5, backgroundColor: purple },
+  progressEndpoints: { flexDirection: 'row', justifyContent: 'space-between' },
+  progressEndpoint: { color: muted, fontSize: 10 },
   rejectedNotice: { flexDirection: 'row', alignItems: 'center', gap: 7, padding: 10, borderRadius: 10, backgroundColor: '#FDE9E9' },
   rejectedText: { flex: 1, color: '#A52B2B', fontSize: 10, lineHeight: 15 },
   emptyCard: { alignItems: 'center', gap: 7, padding: 22, borderWidth: 1, borderColor: '#EEEAF5', borderRadius: 14, backgroundColor: '#FFFFFF' },
   emptyTitle: { color: ink, fontSize: 12, fontWeight: '800', textAlign: 'center' },
   card: { padding: 18, gap: 14, borderRadius: 15, borderWidth: 1, borderColor: '#EEEAF5', backgroundColor: '#FFFFFF' },
-  detailHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 7 },
+  statusCard: { padding: 18, gap: 13, borderRadius: 16, borderWidth: 1, borderColor: '#EEEAF5', backgroundColor: '#FFFFFF' },
+  cardDivider: { height: StyleSheet.hairlineWidth, backgroundColor: '#EAE9F0' },
+  detailSectionHeading: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   detailCopy: { flex: 1, gap: 3 },
   sectionTitle: { color: ink, fontSize: 13, fontWeight: '800' },
-  refundBox: { padding: 13, gap: 4, borderRadius: 12, backgroundColor: '#F2EFFF' },
   refundAmount: { color: purple, fontSize: 23, fontWeight: '900' },
+  productName: { color: ink, fontSize: 13, fontWeight: '700' },
+  totalLabel: { color: ink, fontSize: 13, fontWeight: '800' },
+  totalLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingTop: 9, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#EAE9F0' },
+  detailRow: { gap: 4, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#F0EEF5' },
+  detailLabel: { color: muted, fontSize: 10 },
+  detailValue: { color: ink, fontSize: 12, fontWeight: '600' },
+  accordionHeader: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  historyList: { gap: 3, marginTop: 7 },
+  historyRow: { minHeight: 55, flexDirection: 'row', gap: 12 },
+  historyMarkerColumn: { width: 13, alignItems: 'center' },
+  historyMarker: { width: 9, height: 9, marginTop: 4, borderRadius: 5, backgroundColor: '#C9C6D4' },
+  historyMarkerActive: { backgroundColor: purple },
+  historyLine: { flex: 1, width: 1, backgroundColor: '#DAD7E4', marginVertical: 3 },
+  historyCopy: { flex: 1, gap: 3 },
+  historyStatus: { color: ink, fontSize: 12, fontWeight: '700' },
   outlineButton: { minHeight: 41, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderWidth: 1, borderColor: '#D8D1F6', borderRadius: 11 },
   outlineButtonText: { color: purple, fontSize: 11, fontWeight: '700' },
   formCard: { padding: 18, gap: 15, borderWidth: 1, borderColor: '#EEEAF5', borderRadius: 16, backgroundColor: '#FFFFFF' },

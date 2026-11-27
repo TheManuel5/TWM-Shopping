@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import OrdersReturnsHeader from '../OrdersReturnsHeader';
 
 type QuoteStatus =
   | 'Solicitada'
@@ -196,35 +197,6 @@ function AppText({
   return <Text style={[styles.text, style]}>{children}</Text>;
 }
 
-function Header({
-  title,
-  onBack,
-}: {
-  title: string;
-  onBack: () => void;
-}) {
-  return (
-    <View style={styles.header}>
-      <View style={styles.headerRow}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Volver"
-          onPress={onBack}
-          style={styles.backButton}>
-          <AppText style={styles.backArrow}>‹</AppText>
-        </Pressable>
-        <View>
-          <View style={styles.headerIdentity}>
-            <MaterialIcons name="shopping-bag" size={14} color="#E5DEFF" />
-            <AppText style={styles.headerEyebrow}>Mi cuenta · Gaby</AppText>
-          </View>
-          <AppText style={styles.headerTitle}>{title}</AppText>
-        </View>
-      </View>
-    </View>
-  );
-}
-
 export default function QuotationsScreen({
   quotes,
   onBack,
@@ -253,11 +225,17 @@ export default function QuotationsScreen({
 
   const listScreen = () => (
     <>
-      <Header
-        title="Mis cotizaciones"
-        onBack={onBack}
-      />
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <OrdersReturnsHeader title="Mis cotizaciones" onBack={onBack} />
+      <ScrollView
+        style={styles.scrollViewport}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled">
+        <View style={styles.intro}>
+          <AppText style={styles.introTitle}>Mis solicitudes</AppText>
+          <AppText style={styles.introCopy}>
+            Revisa el estado, la vigencia y el total de tus cotizaciones.
+          </AppText>
+        </View>
         <PrimaryButton label="＋　Nueva cotización" onPress={onGoToCart} />
         <View style={styles.searchBox}>
           <MaterialIcons name="search" size={19} color={muted} />
@@ -293,7 +271,7 @@ export default function QuotationsScreen({
                 onPress={() => setFilter(option)}
                 style={[styles.filterChip, active && styles.filterChipActive]}>
                 <AppText style={[styles.filterText, active && styles.filterTextActive]}>
-                  {option === 'Todas' ? `Todas (${count})` : `${option}${count ? ` (${count})` : ''}`}
+                  {option} ({count})
                 </AppText>
               </Pressable>
             );
@@ -352,11 +330,11 @@ export default function QuotationsScreen({
     if (!selectedQuote) return listScreen();
     return (
       <>
-        <Header
+        <OrdersReturnsHeader
           title="Detalle de cotización"
           onBack={() => setSelectedId(null)}
         />
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView style={styles.scrollViewport} contentContainerStyle={styles.content}>
           <View style={styles.detailCard}>
             <View style={styles.quoteCardTop}>
               <AppText style={styles.detailTitle}>{selectedQuote.id}</AppText>
@@ -456,21 +434,18 @@ function OutlineButton({ label, onPress }: { label: string; onPress: () => void 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#FAF9FD', width: '100%', maxWidth: 390, alignSelf: 'center' },
   text: { color: ink, fontSize: 13, fontFamily: 'System' },
-  header: { height: 92, justifyContent: 'center', backgroundColor: purple, paddingHorizontal: 16, borderBottomLeftRadius: 18, borderBottomRightRadius: 18 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  backButton: { width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
-  backArrow: { color: '#FFFFFF', fontSize: 30, lineHeight: 34, marginTop: -3 },
-  headerIdentity: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 2 },
-  headerEyebrow: { color: '#D9D0FF', fontSize: 10 },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: '#FFFFFF' },
-  content: { padding: 16, gap: 14, paddingBottom: 96 },
+  scrollViewport: { flex: 1, marginBottom: 66 },
+  content: { padding: 18, gap: 15, paddingBottom: 24 },
+  intro: { gap: 5, paddingHorizontal: 2 },
+  introTitle: { color: ink, fontSize: 17, fontWeight: '800' },
+  introCopy: { color: muted, fontSize: 11, lineHeight: 16 },
   searchBox: { minHeight: 42, borderWidth: 1, borderColor: '#E6E3ED', borderRadius: 12, paddingHorizontal: 11, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FFFFFF' },
   searchInput: { flex: 1, minHeight: 40, fontSize: 12, color: ink, paddingVertical: 0 },
   filterRow: { gap: 8, paddingRight: 4 },
-  filterChip: { minHeight: 31, borderRadius: 18, borderWidth: 1, borderColor: '#E9E7F0', backgroundColor: '#FFFFFF', paddingHorizontal: 12, justifyContent: 'center' },
-  filterChipActive: { backgroundColor: '#EEE9FF', borderColor: '#E0D8FF' },
+  filterChip: { minHeight: 36, borderRadius: 18, borderWidth: 1, borderColor: '#E9E7F0', backgroundColor: '#F0EEF6', paddingHorizontal: 13, justifyContent: 'center' },
+  filterChipActive: { backgroundColor: purple, borderColor: purple },
   filterText: { color: muted, fontSize: 10, fontWeight: '600' },
-  filterTextActive: { color: purple },
+  filterTextActive: { color: '#FFFFFF' },
   quoteCard: { borderWidth: 1, borderColor: '#EEEAF5', borderRadius: 15, backgroundColor: '#FFFFFF', padding: 16, gap: 7 },
   quoteCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   quoteId: { fontSize: 13, color: ink, fontWeight: '900' },
