@@ -19,6 +19,10 @@ import QuotationsScreen, {
   initialQuotes,
   type Quote,
 } from './quotations/QuotationsScreen';
+import PurchaseHistoryScreen from './history/PurchaseHistoryScreen';
+import ReturnsScreen from './returns/ReturnsScreen';
+import { initialOrders, initialReturns } from './purchaseData';
+import type { PurchaseOrder } from './purchaseTypes';
 
 type Screen =
   | 'home'
@@ -28,7 +32,6 @@ type Screen =
   | 'confirmation'
   | 'orders'
   | 'returns'
-  | 'return-confirmation'
   | 'quotes'
   | 'profile'
   | 'addresses'
@@ -110,12 +113,6 @@ const initialAddresses: PurchaseAddress[] = [
     department: 'Oficina 302',
     reference: 'Edificio Torres del Sur, piso 3.',
   },
-];
-
-const orders = [
-  { id: 'TW-2048', date: '12 oct 2026', status: 'En camino', tone: 'purple' },
-  { id: 'TW-1982', date: '28 sep 2026', status: 'Entregado', tone: 'green' },
-  { id: 'TW-1876', date: '14 sep 2026', status: 'Entregado', tone: 'green' },
 ];
 
 function money(amount: number) {
@@ -249,10 +246,13 @@ export default function PurchasesScreen() {
   const [cart, setCart] = useState(initialProducts);
   const [favorites, setFavorites] = useState(initialProducts);
   const [payment, setPayment] = useState('Tarjeta de crédito o débito');
-  const [returnOrder, setReturnOrder] = useState('TW-2048');
+  const [purchaseOrders, setPurchaseOrders] = useState(initialOrders);
+  const [returnRequests, setReturnRequests] = useState(initialReturns);
+  const [returnOrderId, setReturnOrderId] = useState<string | null>(null);
   const [addresses, setAddresses] = useState(initialAddresses);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>('home');
   const [lastOrderTotal, setLastOrderTotal] = useState(179800);
+  const [lastOrderId, setLastOrderId] = useState('TW-2096');
   const [quotes, setQuotes] = useState(initialQuotes);
   const [quoteRequestError, setQuoteRequestError] = useState<string | null>(null);
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
@@ -483,7 +483,6 @@ export default function PurchasesScreen() {
   const goBack = () => {
     if (screen === 'checkout') setScreen('cart');
     else if (screen === 'new-address') setScreen('addresses');
-    else if (screen === 'return-confirmation') setScreen('orders');
     else if (screen === 'addresses' && returnToProfileAfterAddresses) {
       setReturnToProfileAfterAddresses(false);
       setScreen('profile');
@@ -589,7 +588,7 @@ export default function PurchasesScreen() {
         </View>
 
         <View style={styles.accountStats}>
-          <DashboardStat label="Pedidos" value={orders.length} onPress={() => setScreen('orders')} />
+          <DashboardStat label="Pedidos" value={purchaseOrders.length} onPress={() => setScreen('orders')} />
           <DashboardStat label="Favoritos" value={favorites.length} onPress={() => setScreen('favorites')} />
           <DashboardStat label="En el carrito" value={cart.length} onPress={() => setScreen('cart')} />
         </View>
@@ -597,7 +596,15 @@ export default function PurchasesScreen() {
         <SectionTitle title="Mis compras" />
         <View style={styles.menuCard}>
           <MenuRow icon="history" label="Historial de compras" detail="Consulta y sigue tus pedidos" onPress={() => setScreen('orders')} />
-          <MenuRow icon="undo" label="Devoluciones" detail="Solicitudes y seguimiento" onPress={() => setScreen('returns')} />
+          <MenuRow
+            icon="undo"
+            label="Devoluciones"
+            detail="Solicitudes y seguimiento"
+            onPress={() => {
+              setReturnOrderId(null);
+              setScreen('returns');
+            }}
+          />
           <MenuRow icon="description" label="Mis cotizaciones" detail={`${quotes.length} cotizaciones`} onPress={() => setScreen('quotes')} last />
         </View>
 
@@ -758,6 +765,32 @@ export default function PurchasesScreen() {
           label="Confirmar pedido"
           disabled={!cart.length || !selectedAddress}
           onPress={() => {
+            const createdAt = new Date();
+            const shipping = 0;
+            const order: PurchaseOrder = {
+              id: `TW-${createdAt.getTime().toString().slice(-4)}`,
+              date: createdAt.toLocaleDateString('es-CL'),
+              createdAt: createdAt.toISOString(),
+              store: cart[0]?.vendor ?? 'Tienda Sur',
+              status: 'Recibido',
+              products: cart.map((item) => ({
+                id: item.id,
+                name: item.name,
+                detail: item.detail,
+                price: item.price,
+                qty: item.quantity,
+              })),
+              total: cartTotal + shipping,
+              shipping,
+              payment,
+              address: selectedAddress
+                ? `${selectedAddress.street} ${selectedAddress.number}, ${selectedAddress.commune}, ${selectedAddress.region}`
+                : '',
+              dispatch: {},
+              history: [{ date: createdAt.toISOString(), status: 'Recibido' }],
+            };
+            setLastOrderId(order.id);
+            setPurchaseOrders((current) => [order, ...current]);
             setLastOrderTotal(cartTotal);
             setCart([]);
             setScreen('confirmation');
@@ -781,7 +814,7 @@ export default function PurchasesScreen() {
         </AppText>
         <View style={[styles.menuCard, styles.confirmCard]}>
           <AppText style={styles.secondaryText}>Número de pedido</AppText>
-          <AppText style={styles.orderNumber}>TW-2096</AppText>
+          <AppText style={styles.orderNumber}>{lastOrderId}</AppText>
           <View style={styles.divider} />
           <PriceRow label="Total pagado" value={money(lastOrderTotal)} bold />
           <AppText style={styles.secondaryText}>Entrega estimada: 3–5 días hábiles</AppText>
@@ -793,88 +826,31 @@ export default function PurchasesScreen() {
   );
 
   const ordersScreen = () => (
-    <>
-      {header('Historial de compras', 'Consulta el estado de tus pedidos')}
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.filterRow}>
-          <View style={styles.filterActive}><AppText style={styles.filterActiveText}>Todos</AppText></View>
-          <View style={styles.filter}><AppText style={styles.filterText}>En camino</AppText></View>
-          <View style={styles.filter}><AppText style={styles.filterText}>Entregados</AppText></View>
-        </View>
-        {orders.map((order) => (
-          <View style={styles.menuCard} key={order.id}>
-            <View style={styles.orderTopRow}>
-              <View>
-                <AppText style={styles.orderNumber}>{order.id}</AppText>
-                <AppText style={styles.secondaryText}>Pedido del {order.date}</AppText>
-              </View>
-              <StatusPill label={order.status} tone={order.tone} />
-            </View>
-            <View style={styles.orderProducts}>
-              <View style={[styles.miniProduct, { backgroundColor: '#F0E7D9' }]}><AppText>👕</AppText></View>
-              <View style={[styles.miniProduct, { backgroundColor: '#E8E9F5' }]}><AppText>👟</AppText></View>
-              <AppText style={styles.secondaryText}>2 productos</AppText>
-              <AppText style={styles.orderTotal}>{order.id === 'TW-2048' ? '$179.800' : '$89.900'}</AppText>
-            </View>
-            {order.status === 'En camino' ? (
-              <OutlineButton label="Solicitar devolución" onPress={() => { setReturnOrder(order.id); setScreen('returns'); }} />
-            ) : null}
-          </View>
-        ))}
-      </ScrollView>
-    </>
+    <PurchaseHistoryScreen
+      orders={purchaseOrders}
+      onBack={() => setScreen('home')}
+      onRequestReturn={(order) => {
+        setReturnOrderId(order.id);
+        setScreen('returns');
+      }}
+    />
   );
 
   const returnsScreen = () => (
-    <>
-      {header('Devoluciones', 'Solicita ayuda con una compra')}
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.infoBanner}>
-          <AppText style={styles.infoIcon}>ⓘ</AppText>
-          <AppText style={styles.infoCopy}>Puedes solicitar una devolución dentro de los 7 días posteriores a la entrega.</AppText>
-        </View>
-        <View style={styles.menuCard}>
-          <AppText style={styles.cardHeading}>Selecciona el pedido</AppText>
-          {orders.map((order) => (
-            <Pressable key={order.id} style={styles.paymentOption} onPress={() => setReturnOrder(order.id)}>
-              <View style={[styles.radio, returnOrder === order.id && styles.radioSelected]}>
-                {returnOrder === order.id ? <View style={styles.radioDot} /> : null}
-              </View>
-              <View style={styles.paymentCopy}>
-                <AppText style={styles.paymentLabel}>{order.id}</AppText>
-                <AppText style={styles.secondaryText}>{order.date} · {order.status}</AppText>
-              </View>
-            </Pressable>
-          ))}
-        </View>
-        <View style={styles.menuCard}>
-          <AppText style={styles.cardHeading}>Motivo de devolución</AppText>
-          <View style={styles.selectField}>
-            <AppText style={styles.secondaryText}>El producto no era lo que esperaba</AppText>
-            <AppText style={styles.chevron}>⌄</AppText>
-          </View>
-          <TextInput
-            multiline
-            placeholder="Cuéntanos un poco más (opcional)"
-            placeholderTextColor="#9696A5"
-            style={styles.textArea}
-          />
-        </View>
-        <PrimaryButton label="Enviar solicitud" onPress={() => setScreen('return-confirmation')} />
-      </ScrollView>
-    </>
-  );
-
-  const returnConfirmationScreen = () => (
-    <>
-      {header('Solicitud enviada')}
-      <View style={styles.centeredContent}>
-        <View style={styles.successCircle}><AppText style={styles.successCheck}>✓</AppText></View>
-        <AppText style={styles.confirmTitle}>Estamos revisando tu caso</AppText>
-        <AppText style={styles.confirmCopy}>Recibimos tu solicitud para el pedido {returnOrder}. Te responderemos en un plazo de 1 a 2 días hábiles.</AppText>
-        <PrimaryButton label="Volver a mis compras" onPress={() => setScreen('orders')} />
-      </View>
-    </>
+    <ReturnsScreen
+      orders={purchaseOrders}
+      requests={returnRequests}
+      initialOrderId={returnOrderId}
+      onRequestChange={setReturnRequests}
+      onBack={() => {
+        if (returnOrderId) {
+          setReturnOrderId(null);
+          setScreen('orders');
+        } else {
+          setScreen('home');
+        }
+      }}
+    />
   );
 
   const quotesScreen = () => (
@@ -1119,7 +1095,6 @@ export default function PurchasesScreen() {
     confirmation: confirmationScreen,
     orders: ordersScreen,
     returns: returnsScreen,
-    'return-confirmation': returnConfirmationScreen,
     quotes: quotesScreen,
     profile: profileScreen,
     addresses: addressesScreen,
@@ -1235,16 +1210,6 @@ function Step({ number, label, active = false }: { number: string; label: string
         <AppText style={[styles.stepNumberText, active && styles.stepNumberTextActive]}>{number}</AppText>
       </View>
       <AppText style={[styles.stepLabel, active && styles.stepLabelActive]}>{label}</AppText>
-    </View>
-  );
-}
-
-function StatusPill({ label, tone }: { label: string; tone: string }) {
-  return (
-    <View style={[styles.statusPill, tone === 'green' && styles.statusGreen, tone === 'orange' && styles.statusOrange]}>
-      <AppText style={[styles.statusText, tone === 'green' && styles.statusGreenText, tone === 'orange' && styles.statusOrangeText]}>
-        {label}
-      </AppText>
     </View>
   );
 }

@@ -32,6 +32,15 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
+      ],
+      "expo-sharing",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "TWM-Shopping necesita acceso a tus fotos para adjuntar evidencia a una devolución.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
       ]
     ],
     "experiments": {

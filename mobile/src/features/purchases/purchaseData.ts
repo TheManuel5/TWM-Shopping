@@ -1,0 +1,117 @@
+import type { PurchaseOrder, ReturnRequest } from './purchaseTypes';
+
+export const initialOrders: PurchaseOrder[] = [
+  {
+    id: '1015',
+    date: '12 mar 2025',
+    createdAt: '2025-03-12T10:24:00.000Z',
+    store: 'TrendSport',
+    status: 'Entregado',
+    products: [
+      {
+        id: 501,
+        name: 'Zapatillas Urbanas Blancas',
+        detail: 'Talla 38 · Blanco',
+        price: 29750,
+        qty: 2,
+        sku: 'ZUR-38-BL',
+      },
+      {
+        id: 502,
+        name: 'Polera básica',
+        detail: 'Talla M · Beige',
+        price: 24900,
+        qty: 1,
+        sku: 'POL-M-BE',
+      },
+    ],
+    total: 87970,
+    shipping: 3570,
+    payment: 'Tarjeta de crédito',
+    cardLast4: '4242',
+    address: 'Av. Manuel Rodríguez 1234, Osorno, Los Lagos',
+    dispatch: { carrier: 'Chilexpress', tracking: '9087654321' },
+    history: [
+      { date: '2025-03-12T10:24:00.000Z', status: 'Recibido' },
+      { date: '2025-03-13T14:10:00.000Z', status: 'En preparación' },
+      { date: '2025-03-15T09:00:00.000Z', status: 'Enviado' },
+      { date: '2025-03-17T16:30:00.000Z', status: 'Entregado' },
+    ],
+  },
+  {
+    id: '1032',
+    date: 'Hace 3 días · 10:24',
+    createdAt: new Date(Date.now() - 3 * 86400000).toISOString(),
+    store: 'Tienda Sur',
+    status: 'Recibido',
+    products: [
+      {
+        id: 503,
+        name: 'Chaqueta liviana',
+        detail: 'Talla M · Azul',
+        price: 48900,
+        qty: 1,
+        sku: 'CHQ-M-AZ',
+      },
+    ],
+    total: 52470,
+    shipping: 3570,
+    payment: 'Tarjeta',
+    cardLast4: '4242',
+    address: 'Av. Manuel Rodríguez 1234, Osorno, Los Lagos',
+    dispatch: { carrier: 'Chilexpress', tracking: '9087654321' },
+    history: [
+      { date: new Date(Date.now() - 3 * 86400000).toISOString(), status: 'Recibido' },
+      { date: new Date(Date.now() - 2 * 86400000).toISOString(), status: 'En preparación' },
+      { date: new Date(Date.now() - 86400000).toISOString(), status: 'Enviado' },
+      { date: new Date().toISOString(), status: 'Entregado' },
+    ],
+  },
+  {
+    id: '1031',
+    date: 'Ayer · 14:30',
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+    store: 'Tienda Sur',
+    status: 'En preparación',
+    products: [
+      {
+        id: 504,
+        name: 'Polerón urbano',
+        detail: 'Talla L · Gris',
+        price: 35900,
+        qty: 1,
+        sku: 'POL-L-GR',
+      },
+    ],
+    total: 39470,
+    shipping: 3570,
+    payment: 'Transferencia',
+    transferCode: 'DEMO-1031',
+    address: 'Av. Manuel Rodríguez 1234, Osorno',
+    dispatch: {},
+    history: [
+      { date: new Date(Date.now() - 86400000).toISOString(), status: 'Recibido' },
+      { date: new Date().toISOString(), status: 'En preparación' },
+    ],
+  },
+];
+
+export const initialReturns: ReturnRequest[] = [
+  {
+    id: 'DEV-008',
+    orderId: '1015',
+    itemKey: '1015:0',
+    productId: 501,
+    product: 'Zapatillas Urbanas Blancas',
+    qty: 1,
+    price: 29750,
+    reason: 'Talla incorrecta',
+    date: '17 mar 2025',
+    status: 'Aprobada',
+    images: [],
+    history: [
+      { date: '2025-03-17T11:30:00.000Z', status: 'Solicitada' },
+      { date: '2025-03-18T09:00:00.000Z', status: 'Aprobada' },
+    ],
+  },
+];
